@@ -1,5 +1,5 @@
 
-# DESIGN.md - "WattVision" Electrical Monitoring System
+# DESIGN.md - MES System
 
 ## 1. Visual Theme & Atmosphere
 The design must convey **technical reliability** and **control**. It must not feel like a social network or a gaming app. The interface is intended to be viewed on a laptop or tablet in a home or small-business environment in Bolivia. The atmosphere is "Power BI Dashboard" but simplified for the end user.

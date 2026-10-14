@@ -1,0 +1,44 @@
+# Tasks
+
+## 1. Document framing and structural diagrams
+
+- [x] 1.1 Open the empty `SYSTEM_ARCHITECTURE_DIAGRAM.md` (repo root) and author the document header/intro: state that it is the visual companion to `SYSTEM_ARCHITECTURE.md`, that its diagrams are derived from `SYSTEM_ARCHITECTURE.md` (structure) and `SYSTEM_PROCESS_FLOW-en.md` (behavior), that all diagrams are Mermaid and technology-neutral, and how to read them (each diagram cites its source). Verify by confirming the file is no longer empty and the intro names both `SYSTEM_ARCHITECTURE.md` and `SYSTEM_PROCESS_FLOW-en.md`.
+- [x] 1.2 Author **Diagram 1 — System & Module Map** as a Mermaid `flowchart`: the Core Base Module (with its contents: User Directory & RBAC, Telegram Webhook Notification, Deterministic Performance (KPI), Global State Codes, Global Leave Codes) feeding the four apps (`Jobs`, `Planning`, `Performance`, `Settings`). Verify by confirming the diagram is in a ` ```mermaid ` block, uses a `flowchart` keyword, and its labels contain the core and all four app names.
+- [x] 1.3 Author **Diagram 2 — Layered View** as a Mermaid `flowchart` with one `subgraph` per layer, ordered presentation/UI rendering → app/module → core services → data, with inward dependency edges. Verify by confirming four layer subgraphs are present, edges point inward, and no layer label names a concrete technology, framework, or host.
+- [x] 1.4 Author **Diagram 3 — Core Engines & Services** as a Mermaid `flowchart` showing the six core services (RBAC & Permission Matrix Engine, Telegram Webhook Notification Engine, Deterministic Performance Calculation Engine (KPI), Auto-forking Engine, Print/Export Engine, Global State & Leave Code Registry) and which apps consume them. Verify by confirming all six engines are labeled and each consuming app is linked.
+
+## 2. Behavioral diagrams
+
+- [x] 2.1 Author **Diagram 4 — Ticket State Machine** as a Mermaid `stateDiagram-v2`: `REQ → ACT → PEN → {APP | REJ}`, plus `CAN` (from any working state) and `OVERDUE` (from deadline passage); apply `classDef` colors matching the source's identifying colors (White, Yellow, Blue, Green, Orange, Red, Red (Warning)). Verify by confirming all seven codes (`REQ`, `ACT`, `PEN`, `APP`, `REJ`, `CAN`, `OVERDUE`) appear as states and the four transitions (`REQ→ACT`, `ACT→PEN`, `PEN→APP`, `PEN→REJ`) are present.
+- [x] 2.2 Author **Diagram 5 — End-to-End Task Lifecycle** as a Mermaid `sequenceDiagram` with the actors involved (at least Employee and Manager/HR), covering allocation/acceptance, progress/report submission, review, and approve/return; include the extension-request and late-submission paths. Verify by confirming the participants include an Employee and a Manager/HR role and the sequence contains the accept, report, review, and approve/return messages plus an extension and a late-submission branch.
+- [x] 2.3 Author **Diagram 6 — Leave-Request Workflow** as a Mermaid `sequenceDiagram`: the employee submits a request selecting a leave code (`AL`, `SL`, `PL`, `ML`, `CL`, `EL`, `LWP`, `TOIL`, `VTO`) with attachment and handover; HR/Manager reviews; approved requests show the official leave badge; rejected/unauthorized absence is tagged `UAL` or `USL`. Verify by confirming the diagram shows both the approved path (badge) and the rejected path (`UAL`/`USL`) and names the leave codes used.
+
+## 3. Authorization, data-flow, and roadmap diagrams
+
+- [x] 3.1 Author **Diagram 7 — Authorization / RBAC Decision Flow** as a Mermaid `flowchart` with decision nodes: Layer 1 (app-level access guard) resolving which apps a role can open, then Layer 2 (view/action-level access guard) resolving which tabs/columns/buttons/export actions render; show role scope resolution across `(All)`, `(Company-wide)`, `(Department-only)`, and personal views. Verify by confirming both layers appear as decision stages, all five roles (`Super Admin`, `Manager / Tech Lead`, `HR Manager`, `Department Head`, `Employee`) appear, and the scope vocabulary is present.
+- [x] 3.2 Author **Diagram 8 — KPI & Audit Data Flow** as a Mermaid `flowchart`: task, attendance, and leave signals feeding the Deterministic Performance (KPI) engine, producing `Total Performance Score = Bonus (+) − Penalty (−)`, surfaced through the three audit levels (general/company-wide for HR/Admin, department level, employee level for Department Head) and personal KPI dashboards. Verify by confirming the bonus values `+10`, `+20`, `+5`, `+50` and penalty values `-15`, `-5`, `-2`, `-10` appear, and the three audit levels with their audiences are shown.
+- [x] 3.3 Author **Diagram 9 — Extensibility Roadmap** as a Mermaid `flowchart` showing the planned apps (`Recruitment`, `Payroll`, `Assets`) as dashed/planned nodes plugging into the existing core, with their stated dependencies (`Recruitment` → creates account in `Settings`; `Payroll` → reads `Planning` attendance + `Performance` KPI; `Assets` → manages equipment issuance). Verify by confirming all three future modules appear, are visually distinguished from current modules, and their dependencies are drawn.
+
+## 4. Verify the document
+
+- [x] 4.1 Confirm every diagram is well-formed Mermaid: each is wrapped in a paired ` ```mermaid ` … ` ``` ` fence, each opens with a keyword from the allowed set (`flowchart`, `graph`, `stateDiagram-v2`, `sequenceDiagram`), and every `subgraph` has a matching `end`. Verify by running a structural check over the file (count opening/closing fences, per-block diagram keywords, and `subgraph`/`end` balance) and confirming no mismatch and no stray fence.
+- [x] 4.2 Confirm all coded tokens and numeric values are preserved: search `SYSTEM_ARCHITECTURE_DIAGRAM.md` for every ticket state code (`REQ`, `ACT`, `PEN`, `APP`, `REJ`, `CAN`, `OVERDUE`), every leave code (`AL`, `UAL`, `SL`, `USL`, `PL`, `ML`, `CL`, `EL`, `LWP`, `TOIL`, `VTO`), the role names, the app names (`Jobs`, `Planning`, `Performance`, `Settings`), the future modules (`Recruitment`, `Payroll`, `Assets`), the KPI point values (`+10`, `+20`, `+5`, `+50`, `-15`, `-5`, `-2`, `-10`), and the progress milestones (`25%`, `50%`, `75%`, `100%`). Verification passes when each token is present and identical to the source documents.
+- [x] 4.3 Confirm the document stays technology-neutral and invents nothing: check that no concrete framework, language, database, host, or infrastructure is named, and that every depicted module, engine, role, and flow is traceable to `SYSTEM_ARCHITECTURE.md` or `SYSTEM_PROCESS_FLOW-en.md`. Verification passes when no technology name appears and every diagram's `*Source:*` line references a real source section.
+- [x] 4.4 Confirm the change touches nothing else: record `shasum -a 256 SYSTEM_ARCHITECTURE.md SYSTEM_PROCESS_FLOW-en.md` at the start of apply, then re-run it and confirm both hashes equal that baseline; finally run `git status --porcelain` and confirm the only content change relative to the apply-time baseline is inside `SYSTEM_ARCHITECTURE_DIAGRAM.md`.
+- [x] 4.5 Read the finished document end to end and confirm all nine diagrams (D2 in `design.md`) are present, in a sensible order, each with a title, caption, and source line, and that the document stands alone as a visual overview. Verification passes on a clean read-through against the diagram set in `design.md` (D2).
+
+## Workflow follow-up
+
+- Archive the change after the diagram document is reviewed and the project's review requirements are satisfied.
+- Verify the archived result: `SYSTEM_ARCHITECTURE_DIAGRAM.md` remains complete and `SYSTEM_ARCHITECTURE.md` and `SYSTEM_PROCESS_FLOW-en.md` are still unchanged.
+
+## Document Conventions (reference — untracked)
+
+Decisions already made; do not re-litigate during apply:
+
+- **Sources:** derive only from `SYSTEM_ARCHITECTURE.md` (structure) and `SYSTEM_PROCESS_FLOW-en.md` (behavior). Do not use `DATABASE_SCHEMA_EXAMPLE.sql`, `API_CONTACT_SPECIFICATION.md`, `DESIGN.md`, `SYSTEM_PROCESS_FLOW-vi.md`, or the `frontend/`/`backend/` code as inputs.
+- **Format:** Mermaid only, one fenced ` ```mermaid ` block per diagram; no PlantUML/Graphviz; no image or binary assets.
+- **Required diagram set (comprehensive):** (1) system & module map, (2) layered view, (3) core engines & services, (4) ticket state machine, (5) end-to-end task lifecycle, (6) leave-request workflow, (7) authorization/RBAC decision flow, (8) KPI & audit data flow, (9) extensibility roadmap.
+- **Diagram conventions:** `### N. Title` heading, one-line caption, the Mermaid block, and a `*Source:*` line; exact tokens in labels; `classDef` colors for ticket states matching the source; avoid emoji and exotic features inside Mermaid blocks; keep nodes technology-neutral.
+- **Technology-neutral:** no frameworks, languages, databases, or hosting, matching `SYSTEM_ARCHITECTURE.md`.
+- **Language:** English.
