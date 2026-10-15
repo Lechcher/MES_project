@@ -1,26 +1,27 @@
 import type { Metadata } from "next";
 import { IBM_Plex_Sans } from "next/font/google";
-import { SessionProvider } from "@/lib/mock/session";
+import { TooltipProvider } from "@/components/ui/tooltip";
 import "./globals.css";
 
-const plexSans = IBM_Plex_Sans({
-  variable: "--font-plex-sans",
+const ibmPlexSans = IBM_Plex_Sans({
+  variable: "--font-sans",
   subsets: ["latin"],
   weight: ["300", "400", "600"],
-  display: "swap",
 });
 
 export const metadata: Metadata = {
   title: "MES Prototype",
-  description:
-    "Project planning, attendance, leave, and performance management prototype.",
+  description: "MES frontend prototype — mock data, no backend yet.",
 };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
-    <html lang="en" className={`${plexSans.variable} h-full antialiased`}>
+    <html
+      lang="en"
+      className={`${ibmPlexSans.variable} h-full antialiased`}
+    >
       <body className="min-h-full flex flex-col">
-        <SessionProvider>{children}</SessionProvider>
+        <TooltipProvider>{children}</TooltipProvider>
       </body>
     </html>
   );
