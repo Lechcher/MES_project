@@ -1,63 +1,90 @@
-"use client";
-
-import {
-  createContext,
-  useCallback,
-  useContext,
-  useMemo,
-  useState,
-} from "react";
-import { userById } from "./db";
-import type { User } from "./types";
-import { useMockVersion } from "./use-store";
-
 /**
- * Viewer session held in React context and memory only.
+ * session.ts — viewer context provider and permission helper.
  *
- * The session is deliberately ephemeral: it is never persisted, so a page
- * reload clears the viewer and returns to the sign-in page (per the app-shell
- * spec). The viewer is resolved from the store by id each render so account
- * edits are reflected.
+ * Holds the current viewer (demo account) in React context. Sign-out clears it;
+ * on reload the context initializes empty so the sign-in page shows again.
+ * `can(viewer, permissionCode)` enforces the Layer-2 permission grants seeded
+ * in db.ts, mirroring the future backend's authorization.
  */
-interface SessionValue {
+
+import { createContext, useContext, useState, useCallback, ReactNode } from "react";
+import type { User, Permission, RoleCode } from "./types";
+import { DEMO_ACCOUNTS, permSetByRole, roleByCode } from "./db";
+
+/*──────────────────────────── context ────────────────────────────────────────*/
+
+interface SessionContextValue {
   viewer: User | null;
-  signIn: (user: User) => void;
+  setViewer: (user: User | null) => void;
   signOut: () => void;
+  can: (permissionCode: string) => boolean;
 }
 
-const SessionContext = createContext<SessionValue | null>(null);
+const SessionContext = createContext<SessionContextValue | null>(null);
 
-export function SessionProvider({ children }: { children: React.ReactNode }) {
-  // Re-render the provider when the store changes so the viewer stays current.
-  useMockVersion();
-  const [viewerId, setViewerId] = useState<string | null>(null);
-  const viewer = viewerId ? userById(viewerId) : null;
+export function SessionProvider({ children }: { children: ReactNode }) {
+  const [viewer, setViewer] = useState<User | null>(null);
 
-  const signIn = useCallback((user: User) => {
-    setViewerId(user.id);
-  }, []);
   const signOut = useCallback(() => {
-    setViewerId(null);
+    setViewer(null);
   }, []);
 
-  const value = useMemo<SessionValue>(
-    () => ({ viewer, signIn, signOut }),
-    [viewer, signIn, signOut],
+  const can = useCallback(
+    (permissionCode: string): boolean => {
+      if (!viewer) return false;
+      return viewer.roles.some((role) => {
+        const codes = permSetByRole[role.code as RoleCode];
+        return Boolean(codes && codes.has(permissionCode));
+      });
+    },
+    [viewer],
   );
 
   return (
-    <SessionContext.Provider value={value}>{children}</SessionContext.Provider>
+    <SessionContext.Provider
+      value={{ viewer, setViewer, signOut, can }}
+    >
+      {children}
+    </SessionContext.Provider>
   );
 }
 
-export function useSession(): SessionValue {
-  const context = useContext(SessionContext);
-  if (!context) {
+export function useSession() {
+  const ctx = useContext(SessionContext);
+  if (!ctx) {
     throw new Error("useSession must be used within a SessionProvider");
   }
-  return context;
+  return ctx;
 }
 
-export function useViewer(): User | null {
-  return useSession().viewer;
+/*──────────────────────────── helpers ────────────────────────────────────────*/
+
+export function getDemoAccounts(): User[] {
+  return DEMO_ACCOUNTS;
+}
+
+export function can(viewer: User | null, permissionCode: string): boolean {
+  if (!viewer) return false;
+  return viewer.roles.some((role) => {
+    const codes = permSetByRole[role.code as RoleCode];
+    return Boolean(codes && codes.has(permissionCode));
+  });
+}
+
+export function scopeFor(moduleCode: string, viewer: User | null): string {
+  if (!viewer) return "PERSONAL";
+  const role = viewer.roles[0]?.code;
+  switch (role) {
+    case "SUPER_ADMIN":
+      return "ALL";
+    case "TECH_LEAD":
+      return "ALL";
+    case "HR_MANAGER":
+      return moduleCode === "settings" ? "COMPANY_WIDE" : "COMPANY_WIDE";
+    case "DEPT_HEAD":
+      return "DEPARTMENT_ONLY";
+    case "EMPLOYEE":
+    default:
+      return "PERSONAL";
+  }
 }

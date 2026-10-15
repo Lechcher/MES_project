@@ -1,352 +1,179 @@
 /**
- * Performance & Audit mock service — personal KPI dashboard, the fixed point
- * rules, and the three audit levels with role-based visibility and scoping.
- * Mirrors `API_CONTACT_SPECIFICATION.md` §6.3.
+ * services/performance.ts — Performance & Audit mock service.
+ *
+ * Personal dashboard, score events, point rules, and the three audit-table
+ * row sets with role scoping. Mirrors API_CONTACT_SPECIFICATION.md §6.3.
  */
 
-import { CURRENT_MONTH, CURRENT_YEAR, state } from "../db";
-import { KPI_POINT_RULES } from "../registries";
-import { primaryRole } from "../permissions";
 import type {
-  Connection,
+  PersonalKpiDashboard,
+  KpiMonthlySummary,
+  KpiScoreEvent,
+  KpiPointRule,
   KpiAuditLevel1Row,
   KpiAuditLevel2Row,
   KpiAuditLevel3Row,
-  KpiAuditFilter,
-  KpiMonthlySummary,
-  KpiPeriodInput,
-  KpiPointRule,
-  KpiScoreEvent,
-  PersonalKpiDashboard,
   User,
+  LeaveBalance,
+  Department,
 } from "../types";
-import { MockError } from "../types";
 import {
-  appendAudit,
-  buildExportResult,
-  type MockExportDescriptor,
-  paginate,
-  requirePermission,
-  requireViewer,
-  userInScope,
-  visibleUsers,
-} from "./shared";
+  users,
+  userById,
+  departments,
+  tasks,
+  kpiScoreEvents,
+  kpiMonthlySummaries,
+  leaveBalances,
+  id,
+  iso,
+  now,
+  periodYear,
+  periodMonth,
+  prevMonth,
+  prevYear,
+} from "../db";
+import { KPI_POINT_RULES } from "../registries";
+import { can } from "../session";
+import { paginate } from "./shared";
 
-function period(filter: { periodYear: number; periodMonth?: number }): {
-  year: number;
-  month: number;
-} {
-  return {
-    year: filter.periodYear,
-    month: filter.periodMonth ?? CURRENT_MONTH,
-  };
+/*──────────────────────────── point rules ────────────────────────────────────*/
+
+export function listKpiPointRules(): KpiPointRule[] {
+  return [...KPI_POINT_RULES];
 }
 
-function summaryFor(
-  user: User,
-  year: number,
-  month: number,
-): KpiMonthlySummary | null {
-  return (
-    state.kpiMonthlySummaries.find(
-      (s) =>
-        s.user.id === user.id &&
-        s.periodYear === year &&
-        s.periodMonth === month,
-    ) ?? null
+/*──────────────────────────── personal KPI dashboard ─────────────────────────*/
+
+export function personalKpiDashboard(viewer: User | null, periodYearIn: number, periodMonthIn: number): PersonalKpiDashboard {
+  const user = viewer!;
+  const summaries = kpiMonthlySummaries.filter(
+    (s) => s.user.id === user.id && s.periodYear === periodYearIn && s.periodMonth === periodMonthIn,
   );
-}
-
-/* -------------------------------------------------------------------------- */
-/* Personal dashboard                                                         */
-/* -------------------------------------------------------------------------- */
-
-export function personalKpiDashboard(
-  viewer: User | null,
-  input: KpiPeriodInput,
-): PersonalKpiDashboard {
-  const user = requirePermission(
-    viewer,
-    "performance.kpi.view_personal",
-    "You do not have permission to view the KPI dashboard.",
+  const summary = summaries[0] ?? null;
+  const events = kpiScoreEvents.filter(
+    (e) => e.user.id === user.id && e.periodYear === periodYearIn && e.periodMonth === periodMonthIn,
   );
-  const { year, month } = period(input);
-  const summary = summaryFor(user, year, month);
-  const recentEvents = state.kpiScoreEvents
-    .filter(
-      (e) =>
-        e.user.id === user.id &&
-        e.periodYear === year &&
-        e.periodMonth === month,
-    )
-    .sort(
-      (a, b) =>
-        new Date(b.occurredAt).getTime() - new Date(a.occurredAt).getTime(),
-    )
-    .slice(0, 20);
-
-  const balances = ["AL", "TOIL"].flatMap((code) => {
-    const total = state.leaveBalanceEntries
-      .filter((e) => e.user.id === user.id && e.leaveCode === code)
-      .reduce((sum, e) => sum + e.deltaDays, 0);
-    return [
-      {
-        user,
-        leaveCode: code as "AL" | "TOIL",
-        leaveName: code === "AL" ? "Annual Leave" : "Time Off In Lieu",
-        balanceDays: Math.round(total * 100) / 100,
-      },
-    ];
-  });
+  const totalKpiScore = summary?.totalKpiScore ?? 0;
+  const bal = leaveBalances.filter((b) => b.user.id === user.id);
 
   return {
-    periodYear: year,
-    periodMonth: month,
-    totalKpiScore: summary?.totalKpiScore ?? 0,
+    periodYear: periodYearIn,
+    periodMonth: periodMonthIn,
+    totalKpiScore,
     summary,
-    leaveBalances: balances,
-    recentEvents,
+    leaveBalances: bal,
+    recentEvents: events.slice().sort((a, b) => (b.occurredAt || "").localeCompare(a.occurredAt || "")).slice(0, 10),
   };
 }
 
-export function kpiScoreEvents(
-  viewer: User | null,
-  input: KpiPeriodInput,
-  offset = 0,
-  limit = 20,
-): Connection<KpiScoreEvent> {
-  requireViewer(viewer);
-  const { year, month } = period(input);
-  const items = state.kpiScoreEvents
-    .filter(
-      (e) =>
-        e.periodYear === year &&
-        e.periodMonth === month &&
-        userInScope(viewer, e.user),
-    )
-    .sort(
-      (a, b) =>
-        new Date(b.occurredAt).getTime() - new Date(a.occurredAt).getTime(),
-    );
-  return paginate(items, offset, limit);
+export function listKpiScoreEvents(viewer: User | null, year: number, month: number, offset = 0, limit = 20) {
+  const usersInScope = scopeUserIds(viewer);
+  let result = kpiScoreEvents.filter((e) => usersInScope.has(e.user.id) && e.periodYear === year && e.periodMonth === month);
+  result.sort((a, b) => (b.occurredAt || "").localeCompare(a.occurredAt || ""));
+  return paginate(result, offset, limit);
 }
 
-export function kpiPointRules(): KpiPointRule[] {
-  return KPI_POINT_RULES;
+/*──────────────────────────── audit levels ───────────────────────────────────*/
+
+function auditUserRows(year: number, month: number) {
+  return kpiMonthlySummaries.filter((s) => s.periodYear === year && s.periodMonth === month);
 }
 
-/* -------------------------------------------------------------------------- */
-/* Audit levels                                                               */
-/* -------------------------------------------------------------------------- */
-
-export function kpiAuditLevel1Company(
-  viewer: User | null,
-  filter: KpiAuditFilter,
-  offset = 0,
-  limit = 20,
-): Connection<KpiAuditLevel1Row> {
-  requirePermission(
-    viewer,
-    "performance.audit.level1_2_view",
-    "You do not have permission to view company audit tables.",
-  );
-  const { year, month } = period(filter);
-  const rows: KpiAuditLevel1Row[] = state.kpiMonthlySummaries
-    .filter((s) => s.periodYear === year && s.periodMonth === month)
-    .map((s) => ({
-      periodYear: s.periodYear,
-      periodMonth: s.periodMonth,
-      user: s.user,
-      department: s.user.department,
-      totalTasksAssigned: s.totalTasksAssigned,
-      completedOnTime: s.completedOnTime,
-      overdueTasks: s.overdueTasks,
-      unapprovedLeaveCount: s.unapprovedLeaveCount,
-      perfectAttendanceBonus: s.perfectAttendanceBonus,
-      attendanceRate: s.attendanceRate,
-      totalKpiScore: s.totalKpiScore,
-    }))
-    .sort((a, b) => b.totalKpiScore - a.totalKpiScore);
+export function listAuditLevel1(viewer: User | null, year: number, month: number, offset = 0, limit = 20) {
+  const allowed = viewer?.roles.some((r) => ["SUPER_ADMIN", "TECH_LEAD", "HR_MANAGER"].includes(r.code)) ?? false;
+  if (!allowed) throw new Error("Forbidden: Audit Level 1 is hidden from your role");
+  const rows = auditUserRows(year, month).map((s) => ({
+    periodYear: s.periodYear,
+    periodMonth: s.periodMonth,
+    user: s.user,
+    department: s.user.department ?? null,
+    totalTasksAssigned: s.totalTasksAssigned,
+    completedOnTime: s.completedOnTime,
+    overdueTasks: s.overdueTasks,
+    unapprovedLeaveCount: s.unapprovedLeaveCount,
+    perfectAttendanceBonus: s.perfectAttendanceBonus,
+    attendanceRate: s.attendanceRate,
+    totalKpiScore: s.totalKpiScore,
+  }));
+  rows.sort((a, b) => b.totalKpiScore - a.totalKpiScore);
   return paginate(rows, offset, limit);
 }
 
-export function kpiAuditLevel2Department(
-  viewer: User | null,
-  filter: KpiAuditFilter,
-): Connection<KpiAuditLevel2Row> {
-  requirePermission(
-    viewer,
-    "performance.audit.level1_2_view",
-    "You do not have permission to view department audit tables.",
-  );
-  const { year, month } = period(filter);
+export function listAuditLevel2(viewer: User | null, year: number, month: number) {
+  const allowed = viewer?.roles.some((r) => ["SUPER_ADMIN", "TECH_LEAD", "HR_MANAGER"].includes(r.code)) ?? false;
+  if (!allowed) throw new Error("Forbidden: Audit Level 2 is hidden from your role");
   const byDept = new Map<string, KpiAuditLevel2Row>();
-  for (const s of state.kpiMonthlySummaries) {
-    if (s.periodYear !== year || s.periodMonth !== month) continue;
+  for (const s of auditUserRows(year, month)) {
     const dept = s.user.department;
     if (!dept) continue;
-    const existing = byDept.get(dept.id);
-    if (!existing) {
-      byDept.set(dept.id, {
-        periodYear: year,
-        periodMonth: month,
+    const key = dept.id;
+    if (!byDept.has(key)) {
+      byDept.set(key, {
+        periodYear: s.periodYear,
+        periodMonth: s.periodMonth,
         department: dept,
-        totalEmployees: 1,
-        totalTasksAssigned: s.totalTasksAssigned,
-        avgAttendanceRate: s.attendanceRate,
-        avgDepartmentKpiScore: s.totalKpiScore,
+        totalEmployees: 0,
+        totalTasksAssigned: 0,
+        avgAttendanceRate: 0,
+        avgDepartmentKpiScore: 0,
       });
-    } else {
-      existing.totalEmployees += 1;
-      existing.totalTasksAssigned += s.totalTasksAssigned;
-      existing.avgAttendanceRate += s.attendanceRate;
-      existing.avgDepartmentKpiScore += s.totalKpiScore;
     }
+    const row = byDept.get(key)!;
+    row.totalEmployees += 1;
+    row.totalTasksAssigned += s.totalTasksAssigned;
   }
-  const rows = [...byDept.values()]
-    .map((row) => ({
-      ...row,
-      avgAttendanceRate:
-        Math.round((row.avgAttendanceRate / row.totalEmployees) * 100) / 100,
-      avgDepartmentKpiScore:
-        Math.round((row.avgDepartmentKpiScore / row.totalEmployees) * 100) / 100,
-    }))
-    .sort((a, b) => b.avgDepartmentKpiScore - a.avgDepartmentKpiScore);
-  return paginate(rows, 0, rows.length);
+  for (const row of byDept.values()) {
+    const deptRows = auditUserRows(year, month).filter((s) => s.user.department?.id === row.department.id);
+    row.avgAttendanceRate = deptRows.reduce((acc, s) => acc + s.attendanceRate, 0) / deptRows.length;
+    row.avgDepartmentKpiScore = deptRows.reduce((acc, s) => acc + s.totalKpiScore, 0) / deptRows.length;
+  }
+  return Array.from(byDept.values()).sort((a, b) => b.avgDepartmentKpiScore - a.avgDepartmentKpiScore);
 }
 
-export function kpiAuditLevel3Employee(
-  viewer: User | null,
-  filter: KpiAuditFilter,
-  orderBy: "TOTAL_KPI_SCORE_DESC" | "TOTAL_KPI_SCORE_ASC" | "ATTENDANCE_RATE_DESC" = "TOTAL_KPI_SCORE_DESC",
-  offset = 0,
-  limit = 20,
-): Connection<KpiAuditLevel3Row> {
-  const user = requirePermission(
-    viewer,
-    "performance.audit.level3_view",
-    "You do not have permission to view department audit tables.",
-  );
-  const { year, month } = period(filter);
-  const role = primaryRole(user);
-  const departmentId =
-    role === "DEPT_HEAD" ? user.departmentId : filter.departmentId;
-
-  const scopeUsers = new Set(visibleUsers(user).map((u) => u.id));
-  const rows: KpiAuditLevel3Row[] = state.kpiMonthlySummaries
-    .filter(
-      (s) =>
-        s.periodYear === year &&
-        s.periodMonth === month &&
-        scopeUsers.has(s.user.id) &&
-        (!departmentId || s.user.departmentId === departmentId),
-    )
-    .map((s) => ({
-      periodYear: s.periodYear,
-      periodMonth: s.periodMonth,
-      department: s.user.department!,
-      user: s.user,
-      totalTasksAssigned: s.totalTasksAssigned,
-      completedOnTime: s.completedOnTime,
-      overdueTasks: s.overdueTasks,
-      immediateApprovalCount: s.approvedFirstTime,
-      returnedCount: s.rejectedTasks,
-      perfectAttendanceBonus: s.perfectAttendanceBonus,
-      attendanceRate: s.attendanceRate,
-      totalKpiScore: s.totalKpiScore,
-    }))
-    .filter((row) => row.department !== undefined);
-  rows.sort((a, b) => {
-    if (orderBy === "TOTAL_KPI_SCORE_ASC") return a.totalKpiScore - b.totalKpiScore;
-    if (orderBy === "ATTENDANCE_RATE_DESC") return b.attendanceRate - a.attendanceRate;
-    return b.totalKpiScore - a.totalKpiScore;
-  });
+export function listAuditLevel3(viewer: User | null, year: number, month: number, departmentId?: string, offset = 0, limit = 20) {
+  const allowed = viewer?.roles.some((r) => ["SUPER_ADMIN", "TECH_LEAD", "HR_MANAGER", "DEPT_HEAD"].includes(r.code)) ?? false;
+  if (!allowed) throw new Error("Forbidden: Audit Level 3 is hidden from your role");
+  const scope = viewer?.roles[0]?.code;
+  let rows = auditUserRows(year, month).map((s) => ({
+    periodYear: s.periodYear,
+    periodMonth: s.periodMonth,
+    department: s.user.department ?? null,
+    user: s.user,
+    totalTasksAssigned: s.totalTasksAssigned,
+    completedOnTime: s.completedOnTime,
+    overdueTasks: s.overdueTasks,
+    immediateApprovalCount: s.approvedFirstTime,
+    returnedCount: s.rejectedTasks,
+    perfectAttendanceBonus: s.perfectAttendanceBonus,
+    attendanceRate: s.attendanceRate,
+    totalKpiScore: s.totalKpiScore,
+  }));
+  if (departmentId) {
+    rows = rows.filter((r) => r.department?.id === departmentId);
+  } else if (scope === "DEPT_HEAD") {
+    const deptId = viewer?.department?.id;
+    rows = rows.filter((r) => r.department?.id === deptId);
+  }
+  rows.sort((a, b) => b.totalKpiScore - a.totalKpiScore);
   return paginate(rows, offset, limit);
 }
 
-/* -------------------------------------------------------------------------- */
-/* Print / export (mock results)                                              */
-/* -------------------------------------------------------------------------- */
+/*──────────────────────────── helpers ────────────────────────────────────────*/
 
-export function printKpiReport(
-  viewer: User | null,
-  input: KpiPeriodInput,
-): MockExportDescriptor {
-  const actor = requirePermission(
-    viewer,
-    "performance.print_export",
-    "You do not have permission to print KPI reports.",
-  );
-  const { year, month } = period(input);
-  appendAudit(actor, {
-    moduleCode: "performance",
-    action: "KPI_REPORT_PRINT",
-    resourceType: "KPI_SUMMARY",
-    newData: { periodYear: year, periodMonth: month },
-  });
-  return buildExportResult({
-    fileName: `kpi-report-${actor.userCode}-${year}-${String(month).padStart(2, "0")}.pdf`,
-    format: "PDF",
-    scopeNote: "Personal KPI report — A4",
-  });
-}
-
-export function exportAuditWorkbook(
-  viewer: User | null,
-  filter: KpiAuditFilter,
-): MockExportDescriptor {
-  const actor = requirePermission(
-    viewer,
-    "performance.print_export",
-    "You do not have permission to export audit workbooks.",
-  );
-  const { year, month } = period(filter);
-  const role = primaryRole(viewer);
-  if (role === "EMPLOYEE") {
-    return buildExportResult({
-      fileName: `kpi-report-${actor.userCode}-${year}-${String(month).padStart(2, "0")}.xlsx`,
-      format: "XLSX",
-      scopeNote: "Personal report only",
-    });
+function scopeUserIds(viewer: User | null): Set<string> {
+  const scope = viewer?.roles[0]?.code;
+  switch (scope) {
+    case "SUPER_ADMIN":
+    case "TECH_LEAD":
+    case "HR_MANAGER":
+      return new Set(users.map((u) => u.id));
+    case "DEPT_HEAD": {
+      const deptId = viewer?.department?.id;
+      return new Set(users.filter((u) => u.department?.id === deptId).map((u) => u.id));
+    }
+    case "EMPLOYEE":
+    default:
+      return new Set(viewer ? [viewer.id] : []);
   }
-  appendAudit(actor, {
-    moduleCode: "performance",
-    action: "KPI_AUDIT_EXPORT",
-    resourceType: "KPI_SUMMARY",
-    newData: { periodYear: year, periodMonth: month },
-  });
-  const scopeNote =
-    role === "DEPT_HEAD"
-      ? "Department audit tables"
-      : "All audit tables + ranking chart";
-  const suffix = filter.departmentId ? `-${filter.departmentId}` : "";
-  return buildExportResult({
-    fileName: `audit-workbook-${year}-${String(month).padStart(2, "0")}${suffix}.xlsx`,
-    format: "XLSX",
-    scopeNote,
-  });
 }
-
-/** Guard used by the app to decide whether a role may open the audit views. */
-export function canViewAuditLevels(
-  viewer: User | null,
-): { level1: boolean; level2: boolean; level3: boolean } {
-  if (!viewer) return { level1: false, level2: false, level3: false };
-  const has = (code: string) =>
-    viewer.roles.some((r) => r.permissions.some((p) => p.code === code));
-  const can = has("performance.audit.level1_2_view");
-  const can3 = has("performance.audit.level3_view");
-  return { level1: can, level2: can, level3: can3 };
-}
-
-export function requireKpiPeriod(input: KpiPeriodInput): KpiPeriodInput {
-  if (!input.periodYear || !input.periodMonth) {
-    throw new MockError("VALIDATION_FAILED", "A period year and month are required.");
-  }
-  return input;
-}
-
-export const KPI_DEFAULT_PERIOD: KpiPeriodInput = {
-  periodYear: CURRENT_YEAR,
-  periodMonth: CURRENT_MONTH,
-};

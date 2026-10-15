@@ -1,69 +1,42 @@
 /**
- * Domain types for the MES prototype mock layer.
+ * Domain types mirroring the GraphQL API contract
+ * (`API_CONTACT_SPECIFICATION.md` §5–§7).
  *
- * These mirror the GraphQL contract in `API_CONTACT_SPECIFICATION.md`:
- * camelCase fields, nullable relations, `OffsetPageInfo` pagination, and enum
- * tokens preserved verbatim. Date/time fields are ISO-8601 strings (the
- * contract's `DateTime` scalar) so fixtures stay structurally identical to what
- * the real API will return.
+ * Conventions preserved verbatim from the contract:
+ * - Field names are camelCase (snake_case columns mapped on read).
+ * - IDs are the built-in `ID` scalar (opaque UUID strings).
+ * - DateTime is an ISO-8601 UTC string.
+ * - Decimal is serialized as a JSON number; represented here as `number`.
+ * - Enum values preserve the source tokens exactly (e.g. `REQ`, `MULTI_DAY`).
+ * - Relations are nullable where the contract marks them nullable.
  */
 
-/* -------------------------------------------------------------------------- */
-/* Enums (tokens verbatim)                                                    */
-/* -------------------------------------------------------------------------- */
+export type ID = string;
+export type DateTime = string;
+export type Decimal = number;
+export type JSON = unknown;
+
+/*──────────────────────────── Enums (verbatim tokens) ─────────────────────────*/
 
 export type TicketStateCode =
-  | "REQ"
-  | "ACT"
-  | "PEN"
-  | "APP"
-  | "REJ"
-  | "CAN"
-  | "OVERDUE";
+  | "REQ" | "ACT" | "PEN" | "APP" | "REJ" | "CAN" | "OVERDUE";
 
 export type LeaveCode =
-  | "AL"
-  | "UAL"
-  | "SL"
-  | "USL"
-  | "PL"
-  | "ML"
-  | "CL"
-  | "EL"
-  | "LWP"
-  | "TOIL"
-  | "VTO";
+  | "AL" | "UAL" | "SL" | "USL" | "PL" | "ML" | "CL" | "EL" | "LWP"
+  | "TOIL" | "VTO";
 
 export type Priority = "LOW" | "MEDIUM" | "HIGH" | "URGENT";
-
 export type TaskType = "HOURLY" | "DAILY" | "MULTI_DAY";
-
 export type ApprovalStatus = "PENDING" | "APPROVED" | "REJECTED";
-
 export type TaskRequestType = "EXTENSION" | "LATE_EXPLANATION";
-
 export type NotificationStatus = "PENDING" | "SENT" | "FAILED";
-
 export type DepartmentType = "DEPARTMENT" | "DIVISION";
-
 export type LeaveEntryType =
-  | "ACCRUAL"
-  | "USAGE"
-  | "ADJUSTMENT"
-  | "EXPIRY"
-  | "CARRY_OVER";
-
+  | "ACCRUAL" | "USAGE" | "ADJUSTMENT" | "EXPIRY" | "CARRY_OVER";
 export type LeaveCategory = "PAID" | "UNPAID" | "INSURANCE" | "SPECIAL";
-
 export type ExportFormat = "PDF" | "XLSX" | "CSV";
-
 export type RoleCode =
-  | "SUPER_ADMIN"
-  | "TECH_LEAD"
-  | "HR_MANAGER"
-  | "DEPT_HEAD"
-  | "EMPLOYEE";
-
+  | "SUPER_ADMIN" | "TECH_LEAD" | "HR_MANAGER" | "DEPT_HEAD" | "EMPLOYEE";
 export type Scope = "ALL" | "COMPANY_WIDE" | "DEPARTMENT_ONLY" | "PERSONAL";
 
 export type TaskStateBadge =
@@ -72,16 +45,7 @@ export type TaskStateBadge =
   | "AWAITING_EXTENSION_APPROVAL"
   | "AWAITING_PROGRESS_VERIFICATION";
 
-export type ModuleCode =
-  | "jobs"
-  | "planning"
-  | "performance"
-  | "settings"
-  | "audit-log";
-
-/* -------------------------------------------------------------------------- */
-/* Common                                                                     */
-/* -------------------------------------------------------------------------- */
+/*──────────────────────────── Pagination ─────────────────────────────────────*/
 
 export interface OffsetPageInfo {
   offset: number;
@@ -95,24 +59,89 @@ export interface Connection<T> {
   pageInfo: OffsetPageInfo;
 }
 
-export interface ExportResult {
-  id: string;
-  fileName: string;
-  mimeType: string;
-  format: ExportFormat;
-  url: string;
-  createdAt: string;
+/*──────────────────────────── Identity & org ─────────────────────────────────*/
+
+export interface User {
+  id: ID;
+  userCode: string;
+  fullName: string;
+  email: string;
+  department: Department | null;
+  isActive: boolean;
+  roles: Role[];
+  createdAt: DateTime;
+  updatedAt: DateTime;
 }
 
-/* -------------------------------------------------------------------------- */
-/* Code registries                                                            */
-/* -------------------------------------------------------------------------- */
+export interface Department {
+  id: ID;
+  code: string;
+  name: string;
+  departmentType: DepartmentType;
+  parent: Department | null;
+  manager: User | null;
+  autoForkingEnabled: boolean;
+  isActive: boolean;
+  createdAt: DateTime;
+  updatedAt: DateTime;
+}
+
+export interface Role {
+  id: ID;
+  code: RoleCode;
+  name: string;
+  description: string | null;
+  permissions: Permission[];
+  createdAt: DateTime;
+  updatedAt: DateTime;
+}
+
+export interface Permission {
+  id: ID;
+  code: string;
+  moduleCode: string;
+  description: string | null;
+}
+
+export interface UserRole {
+  user: User;
+  role: Role;
+  assignedAt: DateTime;
+}
+
+export interface RolePermission {
+  role: Role;
+  permission: Permission;
+  grantedAt: DateTime;
+}
+
+/*──────────────────────────── Auth / session ─────────────────────────────────*/
+
+export interface Session {
+  id: ID;
+  token: string;
+  expiresAt: DateTime;
+  ipAddress: string | null;
+  userAgent: string | null;
+}
+
+export interface Viewer {
+  user: User;
+  session: Session;
+}
+
+export interface AuthPayload {
+  session: Session;
+  viewer: Viewer;
+}
+
+/*──────────────────────────── Code registries ────────────────────────────────*/
 
 export interface TicketState {
   code: TicketStateCode;
   name: string;
   color: string;
-  description: string;
+  description: string | null;
   isTerminal: boolean;
   sortOrder: number;
 }
@@ -129,253 +158,186 @@ export interface LeaveCodeInfo {
   sortOrder: number;
 }
 
-export interface ModuleInfo {
-  code: ModuleCode;
-  name: string;
-  description: string;
-  isEnabled: boolean;
+export interface KpiPointRule {
+  code: string;
+  event: string;
+  points: number;
+  description: string | null;
+  isActive: boolean;
   sortOrder: number;
 }
 
-/* -------------------------------------------------------------------------- */
-/* Identity, organization, RBAC                                               */
-/* -------------------------------------------------------------------------- */
-
-export interface Permission {
-  id: string;
-  code: string;
-  moduleCode: ModuleCode;
-  description: string;
-}
-
-export interface Role {
-  id: string;
-  code: RoleCode;
-  name: string;
-  description: string;
-  permissions: Permission[];
-  createdAt: string;
-  updatedAt: string;
-}
-
-export interface Department {
-  id: string;
-  code: string;
-  name: string;
-  departmentType: DepartmentType;
-  parent: Department | null;
-  parentId: string | null;
-  manager: User | null;
-  managerId: string | null;
-  autoForkingEnabled: boolean;
-  isActive: boolean;
-  createdAt: string;
-  updatedAt: string;
-}
-
-export interface User {
-  id: string;
-  userCode: string;
-  fullName: string;
-  email: string;
-  departmentId: string | null;
-  department: Department | null;
-  isActive: boolean;
-  roles: Role[];
-  createdAt: string;
-  updatedAt: string;
-}
-
-export interface UserRole {
-  user: User;
-  role: Role;
-  assignedAt: string;
-}
-
-export interface RolePermission {
-  role: Role;
-  permission: Permission;
-  grantedAt: string;
-}
-
-/* -------------------------------------------------------------------------- */
-/* Jobs & Projects                                                            */
-/* -------------------------------------------------------------------------- */
+/*──────────────────────────── Jobs & Projects ────────────────────────────────*/
 
 export interface Project {
-  id: string;
+  id: ID;
   code: string;
   name: string;
   description: string | null;
-  departmentId: string | null;
   department: Department | null;
   isActive: boolean;
-  createdAt: string;
-  updatedAt: string;
-}
-
-export interface Attachment {
-  id: string;
-  ownerType: string;
-  ownerId: string;
-  url: string;
-  fileName: string | null;
-  mimeType: string | null;
-  uploadedBy: User | null;
-  createdAt: string;
-}
-
-export interface TaskStateTransition {
-  id: string;
-  taskId: string;
-  fromState: TicketStateCode | null;
-  toState: TicketStateCode;
-  actor: User | null;
-  reason: string | null;
-  createdAt: string;
-}
-
-export interface TaskProgressLog {
-  id: string;
-  taskId: string;
-  user: User;
-  previousPercentage: number;
-  newPercentage: number;
-  logComment: string | null;
-  isVerifiedByManager: boolean;
-  createdAt: string;
-}
-
-export interface TaskRequest {
-  id: string;
-  taskId: string;
-  user: User;
-  requestType: TaskRequestType;
-  requestedDeadline: string | null;
-  reason: string;
-  status: ApprovalStatus;
-  reviewedBy: User | null;
-  reviewComment: string | null;
-  reviewedAt: string | null;
-  createdAt: string;
-  updatedAt: string;
+  createdAt: DateTime;
+  updatedAt: DateTime;
 }
 
 export interface Task {
-  id: string;
+  id: ID;
   taskCode: string;
   title: string;
   description: string | null;
-  projectId: string | null;
   project: Project | null;
   taskType: TaskType;
   priority: Priority;
   state: TicketStateCode;
   createdBy: User | null;
   assignedTo: User | null;
-  assignedToId: string | null;
-  departmentId: string | null;
   department: Department | null;
-  startDate: string | null;
-  endDate: string | null;
-  extendedDeadline: string | null;
+  startDate: DateTime | null;
+  endDate: DateTime | null;
+  extendedDeadline: DateTime | null;
   progressPercentage: number;
   isUrgentHourly: boolean;
   isExtensionRequested: boolean;
   isOverdue: boolean;
-  /** Late Submission warning flag (set when an `OVERDUE` ticket is explained). */
-  isLateSubmission: boolean;
   badges: TaskStateBadge[];
   approvedBy: User | null;
-  approvedAt: string | null;
+  approvedAt: DateTime | null;
   reviewedBy: User | null;
-  reviewedAt: string | null;
+  reviewedAt: DateTime | null;
   progressLogs: TaskProgressLog[];
   stateTransitions: TaskStateTransition[];
   requests: TaskRequest[];
   attachments: Attachment[];
-  createdAt: string;
-  updatedAt: string;
+  createdAt: DateTime;
+  updatedAt: DateTime;
 }
 
-/* -------------------------------------------------------------------------- */
-/* Planning, attendance & leave funds                                         */
-/* -------------------------------------------------------------------------- */
+export interface TaskStateTransition {
+  id: ID;
+  task: Task;
+  fromState: TicketStateCode | null;
+  toState: TicketStateCode;
+  actor: User | null;
+  reason: string | null;
+  createdAt: DateTime;
+}
+
+export interface TaskProgressLog {
+  id: ID;
+  task: Task;
+  user: User;
+  previousPercentage: number;
+  newPercentage: number;
+  logComment: string | null;
+  isVerifiedByManager: boolean;
+  createdAt: DateTime;
+}
+
+export interface TaskRequest {
+  id: ID;
+  task: Task;
+  user: User;
+  requestType: TaskRequestType;
+  requestedDeadline: DateTime | null;
+  reason: string;
+  status: ApprovalStatus;
+  reviewedBy: User | null;
+  reviewComment: string | null;
+  reviewedAt: DateTime | null;
+  createdAt: DateTime;
+  updatedAt: DateTime;
+}
+
+export interface Attachment {
+  id: ID;
+  ownerType: string;
+  ownerId: ID;
+  url: string;
+  fileName: string | null;
+  mimeType: string | null;
+  uploadedBy: User | null;
+  createdAt: DateTime;
+}
+
+export interface TaskConnection extends Connection<Task> {}
+export interface ProjectConnection extends Connection<Project> {}
+
+/*──────────────────────────── Planning & Attendance ──────────────────────────*/
 
 export interface AttendanceRecord {
-  id: string;
-  userId: string;
+  id: ID;
   user: User;
-  workDate: string;
-  checkIn: string | null;
-  checkOut: string | null;
+  workDate: DateTime;
+  checkIn: DateTime | null;
+  checkOut: DateTime | null;
   isLate: boolean;
   isEarlyLeave: boolean;
   leaveCode: LeaveCode | null;
-  workingHours: number;
-  createdAt: string;
-  updatedAt: string;
+  workingHours: Decimal;
+  createdAt: DateTime;
+  updatedAt: DateTime;
 }
 
 export interface LeaveRequest {
-  id: string;
-  userId: string;
+  id: ID;
   user: User;
   leaveCode: LeaveCode;
-  startDate: string;
-  endDate: string;
-  totalDays: number;
+  startDate: DateTime;
+  endDate: DateTime;
+  totalDays: Decimal;
   reason: string;
   handoverUser: User | null;
   status: ApprovalStatus;
   approvedBy: User | null;
-  approvedAt: string | null;
+  approvedAt: DateTime | null;
   attachments: Attachment[];
-  createdAt: string;
-  updatedAt: string;
+  createdAt: DateTime;
+  updatedAt: DateTime;
 }
 
 export interface LeaveBalanceEntry {
-  id: string;
+  id: ID;
   user: User;
   leaveCode: LeaveCode;
   entryType: LeaveEntryType;
-  deltaDays: number;
+  deltaDays: Decimal;
   periodYear: number;
   referenceType: string | null;
-  referenceId: string | null;
+  referenceId: ID | null;
   note: string | null;
   createdBy: User | null;
-  createdAt: string;
+  createdAt: DateTime;
 }
 
 export interface LeaveBalance {
   user: User;
   leaveCode: LeaveCode;
   leaveName: string;
-  balanceDays: number;
+  balanceDays: Decimal;
 }
 
 export interface OvertimeRecord {
-  id: string;
+  id: ID;
   user: User;
-  workDate: string;
-  hours: number;
+  workDate: DateTime;
+  hours: Decimal;
   isApproved: boolean;
   approvedBy: User | null;
-  approvedAt: string | null;
+  approvedAt: DateTime | null;
   note: string | null;
-  createdAt: string;
-  updatedAt: string;
+  createdAt: DateTime;
+  updatedAt: DateTime;
 }
 
-export interface MatrixCalendarDay {
-  workDate: string;
-  state: TicketStateCode | null;
-  progressPercentage: number | null;
-  leaveCode: LeaveCode | null;
-  isLate: boolean;
-  isEarlyLeave: boolean;
+export interface AttendanceRecordConnection extends Connection<AttendanceRecord> {}
+export interface LeaveRequestConnection extends Connection<LeaveRequest> {}
+export interface OvertimeRecordConnection extends Connection<OvertimeRecord> {}
+
+export interface MatrixCalendar {
+  department: Department | null;
+  fromDate: DateTime;
+  toDate: DateTime;
+  rows: MatrixCalendarRow[];
 }
 
 export interface MatrixCalendarRow {
@@ -383,40 +345,30 @@ export interface MatrixCalendarRow {
   days: MatrixCalendarDay[];
 }
 
-export interface MatrixCalendar {
-  department: Department | null;
-  fromDate: string;
-  toDate: string;
-  rows: MatrixCalendarRow[];
+export interface MatrixCalendarDay {
+  workDate: DateTime;
+  state: TicketStateCode | null;
+  progressPercentage: number | null;
+  leaveCode: LeaveCode | null;
+  isLate: boolean;
+  isEarlyLeave: boolean;
 }
 
-/* -------------------------------------------------------------------------- */
-/* Performance & KPI                                                          */
-/* -------------------------------------------------------------------------- */
-
-export interface KpiPointRule {
-  code: string;
-  event: string;
-  points: number;
-  description: string;
-  isActive: boolean;
-  sortOrder: number;
-}
+/*──────────────────────────── Performance & Audit ────────────────────────────*/
 
 export interface KpiScoreEvent {
-  id: string;
-  userId: string;
+  id: ID;
   user: User;
   task: Task | null;
   ruleCode: string;
   points: number;
   periodYear: number;
   periodMonth: number;
-  occurredAt: string;
+  occurredAt: DateTime;
 }
 
 export interface KpiMonthlySummary {
-  id: string;
+  id: ID;
   user: User;
   periodMonth: number;
   periodYear: number;
@@ -427,13 +379,13 @@ export interface KpiMonthlySummary {
   overdueTasks: number;
   rejectedTasks: number;
   extensionRequestsCount: number;
-  attendanceRate: number;
+  attendanceRate: Decimal;
   perfectAttendanceBonus: number;
   unapprovedLeaveCount: number;
   lateEarlyCount: number;
   totalKpiScore: number;
-  createdAt: string;
-  updatedAt: string;
+  createdAt: DateTime;
+  updatedAt: DateTime;
 }
 
 export interface PersonalKpiDashboard {
@@ -455,7 +407,7 @@ export interface KpiAuditLevel1Row {
   overdueTasks: number;
   unapprovedLeaveCount: number;
   perfectAttendanceBonus: number;
-  attendanceRate: number;
+  attendanceRate: Decimal;
   totalKpiScore: number;
 }
 
@@ -465,8 +417,8 @@ export interface KpiAuditLevel2Row {
   department: Department;
   totalEmployees: number;
   totalTasksAssigned: number;
-  avgAttendanceRate: number;
-  avgDepartmentKpiScore: number;
+  avgAttendanceRate: Decimal;
+  avgDepartmentKpiScore: Decimal;
 }
 
 export interface KpiAuditLevel3Row {
@@ -480,53 +432,39 @@ export interface KpiAuditLevel3Row {
   immediateApprovalCount: number;
   returnedCount: number;
   perfectAttendanceBonus: number;
-  attendanceRate: number;
+  attendanceRate: Decimal;
   totalKpiScore: number;
 }
 
-/* -------------------------------------------------------------------------- */
-/* Settings & IAM                                                             */
-/* -------------------------------------------------------------------------- */
+export interface KpiScoreEventConnection extends Connection<KpiScoreEvent> {}
+export interface KpiAuditLevel1Connection extends Connection<KpiAuditLevel1Row> {}
+export interface KpiAuditLevel2Connection extends Connection<KpiAuditLevel2Row> {}
+export interface KpiAuditLevel3Connection extends Connection<KpiAuditLevel3Row> {}
+
+/*──────────────────────────── Settings & IAM ─────────────────────────────────*/
 
 export interface SystemAuditLog {
-  id: string;
+  id: ID;
   user: User | null;
-  moduleCode: ModuleCode | null;
   action: string;
   resourceType: string;
   resourceId: string | null;
-  oldData: Record<string, unknown> | null;
-  newData: Record<string, unknown> | null;
+  oldData: JSON | null;
+  newData: JSON | null;
   ipAddress: string | null;
   userAgent: string | null;
-  createdAt: string;
+  createdAt: DateTime;
 }
 
 export interface AppSetting {
-  id: string;
-  moduleCode: ModuleCode;
+  id: ID;
+  moduleCode: string;
   key: string;
-  value: unknown;
+  value: JSON;
   isSecret: boolean;
   description: string | null;
-  createdAt: string;
-  updatedAt: string;
-}
-
-export interface Notification {
-  id: string;
-  channel: string;
-  template: string | null;
-  recipient: string | null;
-  payload: Record<string, unknown> | null;
-  status: NotificationStatus;
-  attempts: number;
-  relatedType: string | null;
-  relatedId: string | null;
-  errorMessage: string | null;
-  sentAt: string | null;
-  createdAt: string;
-  updatedAt: string;
+  createdAt: DateTime;
+  updatedAt: DateTime;
 }
 
 export interface TelegramWebhookConfig {
@@ -536,250 +474,31 @@ export interface TelegramWebhookConfig {
   isEnabled: boolean;
 }
 
-export interface ModuleActivitySummary {
-  moduleCode: ModuleCode;
-  moduleName: string;
-  eventCount: number;
-  lastActivityAt: string | null;
+export interface Notification {
+  id: ID;
+  channel: string;
+  template: string | null;
+  recipient: string | null;
+  payload: JSON | null;
+  status: NotificationStatus;
+  attempts: number;
+  relatedType: string | null;
+  relatedId: ID | null;
+  errorMessage: string | null;
+  sentAt: DateTime | null;
+  createdAt: DateTime;
+  updatedAt: DateTime;
 }
 
-/* -------------------------------------------------------------------------- */
-/* Filters & inputs (contract-shaped)                                         */
-/* -------------------------------------------------------------------------- */
+export interface SystemAuditLogConnection extends Connection<SystemAuditLog> {}
+export interface UserConnection extends Connection<User> {}
+export interface NotificationConnection extends Connection<Notification> {}
 
-export interface TaskFilter {
-  projectId?: string;
-  departmentId?: string;
-  assignedToId?: string;
-  state?: TicketStateCode;
-  taskType?: TaskType;
-  priority?: Priority;
-  isOverdue?: boolean;
-  isUrgentHourly?: boolean;
-  endDateBefore?: string;
-  endDateAfter?: string;
-  search?: string;
-}
-
-export type TaskOrderBy =
-  | "CREATED_AT_DESC"
-  | "END_DATE_ASC"
-  | "PRIORITY_DESC"
-  | "STATE_ASC";
-
-export interface AttendanceFilter {
-  userId?: string;
-  departmentId?: string;
-  fromDate?: string;
-  toDate?: string;
-  isLate?: boolean;
-  isEarlyLeave?: boolean;
-  leaveCode?: LeaveCode;
-}
-
-export interface LeaveRequestFilter {
-  userId?: string;
-  departmentId?: string;
-  leaveCode?: LeaveCode;
-  status?: ApprovalStatus;
-  fromDate?: string;
-  toDate?: string;
-}
-
-export interface UserFilter {
-  departmentId?: string;
-  roleCode?: RoleCode;
-  isActive?: boolean;
-  search?: string;
-}
-
-export interface AuditLogFilter {
-  userId?: string;
-  action?: string;
-  resourceType?: string;
-  resourceId?: string;
-  fromDate?: string;
-  toDate?: string;
-}
-
-export interface KpiPeriodInput {
-  periodYear: number;
-  periodMonth: number;
-}
-
-export interface KpiAuditFilter {
-  periodYear: number;
-  periodMonth?: number;
-  departmentId?: string;
-}
-
-export interface CreateTaskInput {
-  title: string;
-  description?: string;
-  projectId?: string;
-  taskType: TaskType;
-  priority: Priority;
-  assignedToId?: string;
-  departmentId?: string;
-  startDate?: string;
-  endDate?: string;
-  isUrgentHourly?: boolean;
-  autoForking?: boolean;
-}
-
-export interface LogTaskProgressInput {
-  taskId: string;
-  newPercentage: number;
-  logComment?: string;
-  attachmentIds?: string[];
-}
-
-export interface SubmitTaskReportInput {
-  taskId: string;
-  reportComment?: string;
-  attachmentIds?: string[];
-}
-
-export interface RequestExtensionInput {
-  taskId: string;
-  requestedDeadline: string;
-  reason: string;
-  attachmentIds?: string[];
-}
-
-export interface ExplainLateSubmissionInput {
-  taskId: string;
-  reason: string;
-  attachmentIds?: string[];
-}
-
-export interface CancelTaskInput {
-  taskId: string;
-  reason: string;
-}
-
-export interface ReviewTaskRequestInput {
-  requestId: string;
-  decision: ApprovalStatus;
-  reviewComment?: string;
-}
-
-export interface RegisterLeaveInput {
-  leaveCode: LeaveCode;
-  startDate: string;
-  endDate: string;
-  reason: string;
-  handoverUserId?: string;
-  attachmentIds?: string[];
-  /** Mock extension: filename-only attachments (no real upload). */
-  attachmentNames?: string[];
-}
-
-export interface ReviewLeaveInput {
-  leaveRequestId: string;
-  decision: ApprovalStatus;
-  reviewComment?: string;
-}
-
-export interface AssignPenaltyLeaveInput {
-  userId: string;
-  leaveCode: LeaveCode;
-  workDate: string;
-  note?: string;
-}
-
-export interface RecordOvertimeInput {
-  userId: string;
-  workDate: string;
-  hours: number;
-  note?: string;
-}
-
-export interface ReviewOvertimeInput {
-  overtimeId: string;
-  decision: ApprovalStatus;
-  reviewComment?: string;
-}
-
-export interface MatrixCalendarInput {
-  departmentId?: string;
-  fromDate: string;
-  toDate: string;
-}
-
-export interface CreateUserInput {
-  userCode: string;
-  fullName: string;
-  email: string;
-  password: string;
-  departmentId?: string;
-  roleCodes: RoleCode[];
-}
-
-export interface UpdateUserInput {
-  id: string;
-  fullName?: string;
-  email?: string;
-  departmentId?: string;
-  roleCodes?: RoleCode[];
-  isActive?: boolean;
-}
-
-export interface CreateDepartmentInput {
-  code: string;
-  name: string;
-  departmentType: DepartmentType;
-  parentId?: string;
-  managerId?: string;
-  autoForkingEnabled?: boolean;
-}
-
-export interface UpdateDepartmentInput {
-  id: string;
-  name?: string;
-  parentId?: string;
-  managerId?: string;
-  autoForkingEnabled?: boolean;
-  isActive?: boolean;
-}
-
-export interface UpdateRolePermissionsInput {
-  roleId: string;
-  permissionCodes: string[];
-}
-
-export interface UpdateTelegramWebhookConfigInput {
-  botToken?: string;
-  alertGroupChatId?: string;
-  webhookUrl?: string;
-  isEnabled?: boolean;
-}
-
-/**
- * A mock error carrying the contract's machine-readable code (see
- * `API_CONTACT_SPECIFICATION.md` §8).
- */
-export type MockErrorCode =
-  | "UNAUTHENTICATED"
-  | "FORBIDDEN"
-  | "NOT_FOUND"
-  | "VALIDATION_FAILED"
-  | "CONFLICT"
-  | "STATE_TRANSITION_INVALID"
-  | "RULE_VIOLATION";
-
-export class MockError extends Error {
-  code: MockErrorCode;
-  details?: Record<string, unknown>;
-
-  constructor(
-    code: MockErrorCode,
-    message: string,
-    details?: Record<string, unknown>,
-  ) {
-    super(message);
-    this.name = "MockError";
-    this.code = code;
-    this.details = details;
-  }
+export interface ExportResult {
+  id: ID;
+  fileName: string;
+  mimeType: string;
+  format: ExportFormat;
+  url: string;
+  createdAt: DateTime;
 }
