@@ -10,9 +10,9 @@
 
 import type {
   Connection,
-  OffsetPageInfo,
-  ExportResult,
   ExportFormat,
+  ExportResult,
+  OffsetPageInfo,
 } from "../types";
 
 /*──────────────────────────── pagination ─────────────────────────────────────*/
@@ -32,7 +32,11 @@ export function paginate<T>(nodes: T[], offset = 0, limit = 20): Connection<T> {
   };
 }
 
-export function makePageInfo(offset: number, limit: number, totalCount: number): OffsetPageInfo {
+export function makePageInfo(
+  offset: number,
+  limit: number,
+  totalCount: number,
+): OffsetPageInfo {
   return {
     offset,
     limit,

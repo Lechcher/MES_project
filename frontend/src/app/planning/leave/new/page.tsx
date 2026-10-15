@@ -1,17 +1,23 @@
 "use client";
 
-import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { useSession } from "@/lib/mock/session";
-import { registerLeave } from "@/lib/mock/services/planning";
-import { LEAVE_CODES } from "@/lib/mock/registries";
-import { users } from "@/lib/mock/db";
+import { useState } from "react";
 import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Separator } from "@/components/ui/separator";
+import { users } from "@/lib/mock/db";
+import { LEAVE_CODES } from "@/lib/mock/registries";
+import { registerLeave } from "@/lib/mock/services/planning";
+import { useSession } from "@/lib/mock/session";
 
 export default function CreateLeavePage() {
   const { viewer } = useSession();
@@ -50,7 +56,9 @@ export default function CreateLeavePage() {
     <div className="flex min-h-screen flex-col">
       <main className="flex-1 px-6 py-8">
         <div className="mb-6">
-          <h1 className="text-2xl font-semibold tracking-tight">Create Leave Request</h1>
+          <h1 className="text-2xl font-semibold tracking-tight">
+            Create Leave Request
+          </h1>
           <p className="text-muted-foreground text-sm">
             Submission starts with status PENDING and routes to your approver.
           </p>
@@ -67,13 +75,20 @@ export default function CreateLeavePage() {
         )}
         <form onSubmit={submit} className="max-w-lg space-y-4">
           <Card className="shadow-none border border-border p-4">
-            <CardHeader><CardTitle>Leave request</CardTitle></CardHeader>
+            <CardHeader>
+              <CardTitle>Leave request</CardTitle>
+            </CardHeader>
             <CardContent className="pt-0 space-y-4">
               <div className="grid gap-4 md:grid-cols-2">
                 <div className="space-y-2">
                   <Label>Leave code</Label>
-                  <Select value={leaveCode} onValueChange={(v) => setLeaveCode(v as any)}>
-                    <SelectTrigger className="w-[200px]"><SelectValue /></SelectTrigger>
+                  <Select
+                    value={leaveCode}
+                    onValueChange={(v) => setLeaveCode(v as any)}
+                  >
+                    <SelectTrigger className="w-[200px]">
+                      <SelectValue />
+                    </SelectTrigger>
                     <SelectContent>
                       {LEAVE_CODES.map((c) => (
                         <SelectItem key={c.code} value={c.code}>
@@ -85,16 +100,31 @@ export default function CreateLeavePage() {
                 </div>
                 <div className="space-y-2">
                   <Label>Start date</Label>
-                  <Input type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} required />
+                  <Input
+                    type="date"
+                    value={startDate}
+                    onChange={(e) => setStartDate(e.target.value)}
+                    required
+                  />
                 </div>
                 <div className="space-y-2">
                   <Label>End date</Label>
-                  <Input type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)} required />
+                  <Input
+                    type="date"
+                    value={endDate}
+                    onChange={(e) => setEndDate(e.target.value)}
+                    required
+                  />
                 </div>
                 <div className="space-y-2">
                   <Label>Handover person</Label>
-                  <Select value={handoverId} onValueChange={(v) => setHandoverId(v as string)}>
-                    <SelectTrigger className="w-[200px]"><SelectValue /></SelectTrigger>
+                  <Select
+                    value={handoverId}
+                    onValueChange={(v) => setHandoverId(v as string)}
+                  >
+                    <SelectTrigger className="w-[200px]">
+                      <SelectValue />
+                    </SelectTrigger>
                     <SelectContent>
                       <SelectItem value="">None</SelectItem>
                       {handoverOptions.map((u) => (
@@ -108,7 +138,11 @@ export default function CreateLeavePage() {
               </div>
               <div className="space-y-2">
                 <Label>Reason</Label>
-                <Input value={reason} onChange={(e) => setReason(e.target.value)} required />
+                <Input
+                  value={reason}
+                  onChange={(e) => setReason(e.target.value)}
+                  required
+                />
               </div>
               <div className="space-y-2 text-xs text-muted-foreground">
                 Attachment: filename only (mock — no file upload).
@@ -118,7 +152,11 @@ export default function CreateLeavePage() {
           <Separator />
           <div className="flex gap-2">
             <Button type="submit">Register Leave</Button>
-            <Button type="button" onClick={() => router.push("/planning")} variant="outline">
+            <Button
+              type="button"
+              onClick={() => router.push("/planning")}
+              variant="outline"
+            >
               Cancel
             </Button>
           </div>

@@ -1,21 +1,34 @@
 "use client";
 
+import { useParams, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
-import { useRouter, useParams } from "next/navigation";
-import { useSession } from "@/lib/mock/session";
-import {
-  getTask,
-  acceptTask,
-  submitTaskReport,
-  approveTask,
-  returnTask,
-  cancelTask,
-} from "@/lib/mock/services/jobs";
 import { StateBadge } from "@/components/shared/state-badge";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import {
+  acceptTask,
+  approveTask,
+  cancelTask,
+  getTask,
+  returnTask,
+  submitTaskReport,
+} from "@/lib/mock/services/jobs";
+import { useSession } from "@/lib/mock/session";
 
 type Params = { id: string };
 
@@ -32,7 +45,7 @@ export default function TaskDetailPage() {
     const t = getTask(viewer, params.id);
     setTask(t);
     if (!t) setError("Task not found or out of scope");
-  }, [viewer, params.id, can]);
+  }, [viewer, params.id]);
 
   const refresh = () => {
     if (!viewer || !params.id) return;
@@ -56,9 +69,13 @@ export default function TaskDetailPage() {
   if (!viewer) return null;
   if (!task) return <div className="p-6">Loading…</div>;
 
-  const canAccept = can("jobs.ticket.accept_report") && task.state === "REQ" && task.assignedTo?.id === viewer.id;
+  const canAccept =
+    can("jobs.ticket.accept_report") &&
+    task.state === "REQ" &&
+    task.assignedTo?.id === viewer.id;
   const canReport = can("jobs.ticket.accept_report") && task.state === "ACT";
-  const canApproveReturn = can("jobs.ticket.approve_return") && task.state === "PEN";
+  const canApproveReturn =
+    can("jobs.ticket.approve_return") && task.state === "PEN";
   const canCancel =
     can("jobs.ticket.cancel") &&
     task.state !== "APP" &&
@@ -128,7 +145,9 @@ export default function TaskDetailPage() {
             <CardHeader>
               <CardTitle>Deadline</CardTitle>
               <CardDescription>
-                {task.endDate ? new Date(task.endDate).toISOString().slice(0, 10) : "—"}
+                {task.endDate
+                  ? new Date(task.endDate).toISOString().slice(0, 10)
+                  : "—"}
               </CardDescription>
             </CardHeader>
             <CardContent className="pt-4">
@@ -153,13 +172,17 @@ export default function TaskDetailPage() {
               </Button>
             )}
             {canReport && (
-              <Button onClick={() => action(() => submitTaskReport(task.id, viewer))}>
+              <Button
+                onClick={() => action(() => submitTaskReport(task.id, viewer))}
+              >
                 Submit Report (ACT &rarr; PEN)
               </Button>
             )}
             {canApproveReturn && (
               <>
-                <Button onClick={() => action(() => approveTask(task.id, viewer))}>
+                <Button
+                  onClick={() => action(() => approveTask(task.id, viewer))}
+                >
                   Approve (PEN &rarr; APP)
                 </Button>
                 <Button
@@ -213,13 +236,18 @@ export default function TaskDetailPage() {
                   <TableCell className="text-xs">
                     {tr.fromState ?? "—"} &rarr; {tr.toState}
                   </TableCell>
-                  <TableCell className="text-xs">{tr.actor?.fullName ?? "system"}</TableCell>
+                  <TableCell className="text-xs">
+                    {tr.actor?.fullName ?? "system"}
+                  </TableCell>
                   <TableCell className="text-xs">{tr.reason ?? "—"}</TableCell>
                 </TableRow>
               ))}
               {task.stateTransitions.length === 0 && (
                 <TableRow>
-                  <TableCell colSpan={4} className="text-muted-foreground text-center py-4">
+                  <TableCell
+                    colSpan={4}
+                    className="text-muted-foreground text-center py-4"
+                  >
                     No transitions.
                   </TableCell>
                 </TableRow>
@@ -248,7 +276,10 @@ export default function TaskDetailPage() {
               ))}
               {task.requests.length === 0 && (
                 <TableRow>
-                  <TableCell colSpan={3} className="text-muted-foreground text-center py-4">
+                  <TableCell
+                    colSpan={3}
+                    className="text-muted-foreground text-center py-4"
+                  >
                     No requests.
                   </TableCell>
                 </TableRow>

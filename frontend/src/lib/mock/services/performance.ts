@@ -5,36 +5,36 @@
  * row sets with role scoping. Mirrors API_CONTACT_SPECIFICATION.md §6.3.
  */
 
-import type {
-  PersonalKpiDashboard,
-  KpiMonthlySummary,
-  KpiScoreEvent,
-  KpiPointRule,
-  KpiAuditLevel1Row,
-  KpiAuditLevel2Row,
-  KpiAuditLevel3Row,
-  User,
-  LeaveBalance,
-  Department,
-} from "../types";
 import {
-  users,
-  userById,
   departments,
-  tasks,
-  kpiScoreEvents,
-  kpiMonthlySummaries,
-  leaveBalances,
   id,
   iso,
+  kpiMonthlySummaries,
+  kpiScoreEvents,
+  leaveBalances,
   now,
-  periodYear,
   periodMonth,
+  periodYear,
   prevMonth,
   prevYear,
+  tasks,
+  userById,
+  users,
 } from "../db";
 import { KPI_POINT_RULES } from "../registries";
 import { can } from "../session";
+import type {
+  Department,
+  KpiAuditLevel1Row,
+  KpiAuditLevel2Row,
+  KpiAuditLevel3Row,
+  KpiMonthlySummary,
+  KpiPointRule,
+  KpiScoreEvent,
+  LeaveBalance,
+  PersonalKpiDashboard,
+  User,
+} from "../types";
 import { paginate } from "./shared";
 
 /*──────────────────────────── point rules ────────────────────────────────────*/
@@ -45,14 +45,24 @@ export function listKpiPointRules(): KpiPointRule[] {
 
 /*──────────────────────────── personal KPI dashboard ─────────────────────────*/
 
-export function personalKpiDashboard(viewer: User | null, periodYearIn: number, periodMonthIn: number): PersonalKpiDashboard {
+export function personalKpiDashboard(
+  viewer: User | null,
+  periodYearIn: number,
+  periodMonthIn: number,
+): PersonalKpiDashboard {
   const user = viewer!;
   const summaries = kpiMonthlySummaries.filter(
-    (s) => s.user.id === user.id && s.periodYear === periodYearIn && s.periodMonth === periodMonthIn,
+    (s) =>
+      s.user.id === user.id &&
+      s.periodYear === periodYearIn &&
+      s.periodMonth === periodMonthIn,
   );
   const summary = summaries[0] ?? null;
   const events = kpiScoreEvents.filter(
-    (e) => e.user.id === user.id && e.periodYear === periodYearIn && e.periodMonth === periodMonthIn,
+    (e) =>
+      e.user.id === user.id &&
+      e.periodYear === periodYearIn &&
+      e.periodMonth === periodMonthIn,
   );
   const totalKpiScore = summary?.totalKpiScore ?? 0;
   const bal = leaveBalances.filter((b) => b.user.id === user.id);
@@ -63,13 +73,27 @@ export function personalKpiDashboard(viewer: User | null, periodYearIn: number, 
     totalKpiScore,
     summary,
     leaveBalances: bal,
-    recentEvents: events.slice().sort((a, b) => (b.occurredAt || "").localeCompare(a.occurredAt || "")).slice(0, 10),
+    recentEvents: events
+      .slice()
+      .sort((a, b) => (b.occurredAt || "").localeCompare(a.occurredAt || ""))
+      .slice(0, 10),
   };
 }
 
-export function listKpiScoreEvents(viewer: User | null, year: number, month: number, offset = 0, limit = 20) {
+export function listKpiScoreEvents(
+  viewer: User | null,
+  year: number,
+  month: number,
+  offset = 0,
+  limit = 20,
+) {
   const usersInScope = scopeUserIds(viewer);
-  let result = kpiScoreEvents.filter((e) => usersInScope.has(e.user.id) && e.periodYear === year && e.periodMonth === month);
+  const result = kpiScoreEvents.filter(
+    (e) =>
+      usersInScope.has(e.user.id) &&
+      e.periodYear === year &&
+      e.periodMonth === month,
+  );
   result.sort((a, b) => (b.occurredAt || "").localeCompare(a.occurredAt || ""));
   return paginate(result, offset, limit);
 }
@@ -77,12 +101,24 @@ export function listKpiScoreEvents(viewer: User | null, year: number, month: num
 /*──────────────────────────── audit levels ───────────────────────────────────*/
 
 function auditUserRows(year: number, month: number) {
-  return kpiMonthlySummaries.filter((s) => s.periodYear === year && s.periodMonth === month);
+  return kpiMonthlySummaries.filter(
+    (s) => s.periodYear === year && s.periodMonth === month,
+  );
 }
 
-export function listAuditLevel1(viewer: User | null, year: number, month: number, offset = 0, limit = 20) {
-  const allowed = viewer?.roles.some((r) => ["SUPER_ADMIN", "TECH_LEAD", "HR_MANAGER"].includes(r.code)) ?? false;
-  if (!allowed) throw new Error("Forbidden: Audit Level 1 is hidden from your role");
+export function listAuditLevel1(
+  viewer: User | null,
+  year: number,
+  month: number,
+  offset = 0,
+  limit = 20,
+) {
+  const allowed =
+    viewer?.roles.some((r) =>
+      ["SUPER_ADMIN", "TECH_LEAD", "HR_MANAGER"].includes(r.code),
+    ) ?? false;
+  if (!allowed)
+    throw new Error("Forbidden: Audit Level 1 is hidden from your role");
   const rows = auditUserRows(year, month).map((s) => ({
     periodYear: s.periodYear,
     periodMonth: s.periodMonth,
@@ -100,9 +136,17 @@ export function listAuditLevel1(viewer: User | null, year: number, month: number
   return paginate(rows, offset, limit);
 }
 
-export function listAuditLevel2(viewer: User | null, year: number, month: number) {
-  const allowed = viewer?.roles.some((r) => ["SUPER_ADMIN", "TECH_LEAD", "HR_MANAGER"].includes(r.code)) ?? false;
-  if (!allowed) throw new Error("Forbidden: Audit Level 2 is hidden from your role");
+export function listAuditLevel2(
+  viewer: User | null,
+  year: number,
+  month: number,
+) {
+  const allowed =
+    viewer?.roles.some((r) =>
+      ["SUPER_ADMIN", "TECH_LEAD", "HR_MANAGER"].includes(r.code),
+    ) ?? false;
+  if (!allowed)
+    throw new Error("Forbidden: Audit Level 2 is hidden from your role");
   const byDept = new Map<string, KpiAuditLevel2Row>();
   for (const s of auditUserRows(year, month)) {
     const dept = s.user.department;
@@ -124,16 +168,33 @@ export function listAuditLevel2(viewer: User | null, year: number, month: number
     row.totalTasksAssigned += s.totalTasksAssigned;
   }
   for (const row of byDept.values()) {
-    const deptRows = auditUserRows(year, month).filter((s) => s.user.department?.id === row.department.id);
-    row.avgAttendanceRate = deptRows.reduce((acc, s) => acc + s.attendanceRate, 0) / deptRows.length;
-    row.avgDepartmentKpiScore = deptRows.reduce((acc, s) => acc + s.totalKpiScore, 0) / deptRows.length;
+    const deptRows = auditUserRows(year, month).filter(
+      (s) => s.user.department?.id === row.department.id,
+    );
+    row.avgAttendanceRate =
+      deptRows.reduce((acc, s) => acc + s.attendanceRate, 0) / deptRows.length;
+    row.avgDepartmentKpiScore =
+      deptRows.reduce((acc, s) => acc + s.totalKpiScore, 0) / deptRows.length;
   }
-  return Array.from(byDept.values()).sort((a, b) => b.avgDepartmentKpiScore - a.avgDepartmentKpiScore);
+  return Array.from(byDept.values()).sort(
+    (a, b) => b.avgDepartmentKpiScore - a.avgDepartmentKpiScore,
+  );
 }
 
-export function listAuditLevel3(viewer: User | null, year: number, month: number, departmentId?: string, offset = 0, limit = 20) {
-  const allowed = viewer?.roles.some((r) => ["SUPER_ADMIN", "TECH_LEAD", "HR_MANAGER", "DEPT_HEAD"].includes(r.code)) ?? false;
-  if (!allowed) throw new Error("Forbidden: Audit Level 3 is hidden from your role");
+export function listAuditLevel3(
+  viewer: User | null,
+  year: number,
+  month: number,
+  departmentId?: string,
+  offset = 0,
+  limit = 20,
+) {
+  const allowed =
+    viewer?.roles.some((r) =>
+      ["SUPER_ADMIN", "TECH_LEAD", "HR_MANAGER", "DEPT_HEAD"].includes(r.code),
+    ) ?? false;
+  if (!allowed)
+    throw new Error("Forbidden: Audit Level 3 is hidden from your role");
   const scope = viewer?.roles[0]?.code;
   let rows = auditUserRows(year, month).map((s) => ({
     periodYear: s.periodYear,
@@ -170,7 +231,9 @@ function scopeUserIds(viewer: User | null): Set<string> {
       return new Set(users.map((u) => u.id));
     case "DEPT_HEAD": {
       const deptId = viewer?.department?.id;
-      return new Set(users.filter((u) => u.department?.id === deptId).map((u) => u.id));
+      return new Set(
+        users.filter((u) => u.department?.id === deptId).map((u) => u.id),
+      );
     }
     case "EMPLOYEE":
     default:

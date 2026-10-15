@@ -1,13 +1,13 @@
 "use client";
 
-import type { TicketStateCode, LeaveCode } from "@/lib/mock/types";
 import { Badge } from "@/components/ui/badge";
 import {
-  TICKET_STATE_BY_CODE,
   LEAVE_CODE_BY_CODE,
-  STATE_COLOR_HEX,
   LEAVE_COLOR_HEX,
+  STATE_COLOR_HEX,
+  TICKET_STATE_BY_CODE,
 } from "@/lib/mock/registries";
+import type { LeaveCode, TicketStateCode } from "@/lib/mock/types";
 
 type StateBadgeProps = {
   code: TicketStateCode | LeaveCode;
@@ -15,7 +15,11 @@ type StateBadgeProps = {
   className?: string;
 };
 
-export function StateBadge({ code, variant = "state", className }: StateBadgeProps) {
+export function StateBadge({
+  code,
+  variant = "state",
+  className,
+}: StateBadgeProps) {
   if (variant === "leave") {
     const info = LEAVE_CODE_BY_CODE[code as LeaveCode];
     const hex = LEAVE_COLOR_HEX[code as LeaveCode] ?? "#525252";
@@ -25,7 +29,9 @@ export function StateBadge({ code, variant = "state", className }: StateBadgePro
         className={[
           className,
           `border-transparent bg-[#${hex}]/10 text-[#${hex}]`,
-        ].filter(Boolean).join(" ")}
+        ]
+          .filter(Boolean)
+          .join(" ")}
       >
         {info.name} ({code})
       </Badge>
@@ -42,7 +48,9 @@ export function StateBadge({ code, variant = "state", className }: StateBadgePro
         isOutline
           ? "border-[#161616] text-[#161616]"
           : `bg-[#${hex}] text-white`,
-      ].filter(Boolean).join(" ")}
+      ]
+        .filter(Boolean)
+        .join(" ")}
     >
       {info.name} ({code})
     </Badge>

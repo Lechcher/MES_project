@@ -8,9 +8,15 @@
  */
 "use client";
 
-import { createContext, useContext, useState, useCallback, ReactNode } from "react";
-import type { User, Permission, RoleCode } from "./types";
+import {
+  createContext,
+  type ReactNode,
+  useCallback,
+  useContext,
+  useState,
+} from "react";
 import { DEMO_ACCOUNTS, permSetByRole, roleByCode } from "./db";
+import type { Permission, RoleCode, User } from "./types";
 
 /*──────────────────────────── context ────────────────────────────────────────*/
 
@@ -42,9 +48,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
   );
 
   return (
-    <SessionContext.Provider
-      value={{ viewer, setViewer, signOut, can }}
-    >
+    <SessionContext.Provider value={{ viewer, setViewer, signOut, can }}>
       {children}
     </SessionContext.Provider>
   );

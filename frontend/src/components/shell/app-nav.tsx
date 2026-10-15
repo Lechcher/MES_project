@@ -1,9 +1,14 @@
 "use client";
 
 import Link from "next/link";
-import { useSession } from "@/lib/mock/session";
 import { Button } from "@/components/ui/button";
-import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem } from "@/components/ui/dropdown-menu";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { useSession } from "@/lib/mock/session";
 
 const APPS = [
   { key: "dashboard", label: "Home", href: "/" },
@@ -31,7 +36,9 @@ export function AppNav() {
     <nav className="sticky top-0 z-20 border-b border-border bg-background/95 backdrop-blur">
       <div className="flex items-center justify-between px-4 py-2">
         <div className="flex items-center gap-3">
-          <Link href="/" className="font-semibold tracking-tight">MES Prototype</Link>
+          <Link href="/" className="font-semibold tracking-tight">
+            MES Prototype
+          </Link>
           <div className="hidden md:flex items-center gap-2">
             {APPS.filter((a) => allowed.includes(a.key)).map((app) => (
               <Link
@@ -47,19 +54,30 @@ export function AppNav() {
         <div className="flex items-center gap-2">
           <DropdownMenu>
             <DropdownMenuTrigger>
-              <Button variant="outline" className="flex items-center gap-2 whitespace-nowrap">
+              <Button
+                variant="outline"
+                className="flex items-center gap-2 whitespace-nowrap"
+              >
                 <span className="text-sm">{viewer.fullName}</span>
-                <span className="text-xs text-muted-foreground">{viewer.roles[0]?.code}</span>
+                <span className="text-xs text-muted-foreground">
+                  {viewer.roles[0]?.code}
+                </span>
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="start">
               <DropdownMenuItem className="text-sm">
                 {viewer.department?.name} &middot; {viewer.roles[0]?.code}
               </DropdownMenuItem>
-              <DropdownMenuItem className="text-sm text-muted-foreground cursor-default" disabled>
+              <DropdownMenuItem
+                className="text-sm text-muted-foreground cursor-default"
+                disabled
+              >
                 Switch account
               </DropdownMenuItem>
-              <DropdownMenuItem onClick={signOut} className="text-sm text-destructive">
+              <DropdownMenuItem
+                onClick={signOut}
+                className="text-sm text-destructive"
+              >
                 Sign out
               </DropdownMenuItem>
             </DropdownMenuContent>

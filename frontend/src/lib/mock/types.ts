@@ -19,11 +19,26 @@ export type JSON = unknown;
 /*──────────────────────────── Enums (verbatim tokens) ─────────────────────────*/
 
 export type TicketStateCode =
-  | "REQ" | "ACT" | "PEN" | "APP" | "REJ" | "CAN" | "OVERDUE";
+  | "REQ"
+  | "ACT"
+  | "PEN"
+  | "APP"
+  | "REJ"
+  | "CAN"
+  | "OVERDUE";
 
 export type LeaveCode =
-  | "AL" | "UAL" | "SL" | "USL" | "PL" | "ML" | "CL" | "EL" | "LWP"
-  | "TOIL" | "VTO";
+  | "AL"
+  | "UAL"
+  | "SL"
+  | "USL"
+  | "PL"
+  | "ML"
+  | "CL"
+  | "EL"
+  | "LWP"
+  | "TOIL"
+  | "VTO";
 
 export type Priority = "LOW" | "MEDIUM" | "HIGH" | "URGENT";
 export type TaskType = "HOURLY" | "DAILY" | "MULTI_DAY";
@@ -32,11 +47,19 @@ export type TaskRequestType = "EXTENSION" | "LATE_EXPLANATION";
 export type NotificationStatus = "PENDING" | "SENT" | "FAILED";
 export type DepartmentType = "DEPARTMENT" | "DIVISION";
 export type LeaveEntryType =
-  | "ACCRUAL" | "USAGE" | "ADJUSTMENT" | "EXPIRY" | "CARRY_OVER";
+  | "ACCRUAL"
+  | "USAGE"
+  | "ADJUSTMENT"
+  | "EXPIRY"
+  | "CARRY_OVER";
 export type LeaveCategory = "PAID" | "UNPAID" | "INSURANCE" | "SPECIAL";
 export type ExportFormat = "PDF" | "XLSX" | "CSV";
 export type RoleCode =
-  | "SUPER_ADMIN" | "TECH_LEAD" | "HR_MANAGER" | "DEPT_HEAD" | "EMPLOYEE";
+  | "SUPER_ADMIN"
+  | "TECH_LEAD"
+  | "HR_MANAGER"
+  | "DEPT_HEAD"
+  | "EMPLOYEE";
 export type Scope = "ALL" | "COMPANY_WIDE" | "DEPARTMENT_ONLY" | "PERSONAL";
 
 export type TaskStateBadge =
@@ -329,7 +352,8 @@ export interface OvertimeRecord {
   updatedAt: DateTime;
 }
 
-export interface AttendanceRecordConnection extends Connection<AttendanceRecord> {}
+export interface AttendanceRecordConnection
+  extends Connection<AttendanceRecord> {}
 export interface LeaveRequestConnection extends Connection<LeaveRequest> {}
 export interface OvertimeRecordConnection extends Connection<OvertimeRecord> {}
 
@@ -437,9 +461,12 @@ export interface KpiAuditLevel3Row {
 }
 
 export interface KpiScoreEventConnection extends Connection<KpiScoreEvent> {}
-export interface KpiAuditLevel1Connection extends Connection<KpiAuditLevel1Row> {}
-export interface KpiAuditLevel2Connection extends Connection<KpiAuditLevel2Row> {}
-export interface KpiAuditLevel3Connection extends Connection<KpiAuditLevel3Row> {}
+export interface KpiAuditLevel1Connection
+  extends Connection<KpiAuditLevel1Row> {}
+export interface KpiAuditLevel2Connection
+  extends Connection<KpiAuditLevel2Row> {}
+export interface KpiAuditLevel3Connection
+  extends Connection<KpiAuditLevel3Row> {}
 
 /*──────────────────────────── Settings & IAM ─────────────────────────────────*/
 

@@ -1,8 +1,14 @@
 "use client";
 
-import type { ExportFormat } from "@/lib/mock/types";
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import type { ExportFormat } from "@/lib/mock/types";
 
 type MockExportDialogProps = {
   open: boolean;
@@ -37,7 +43,13 @@ export function MockExportDialog({
           this prototype returns a descriptor only.
         </p>
         <div className="flex justify-end">
-          <Button onClick={() => { onOpenChange(false); onClose?.(); }} variant="outline">
+          <Button
+            onClick={() => {
+              onOpenChange(false);
+              onClose?.();
+            }}
+            variant="outline"
+          >
             Close
           </Button>
         </div>

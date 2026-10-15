@@ -6,37 +6,37 @@
  * with filters. Mirrors API_CONTACT_SPECIFICATION.md §6.4.
  */
 
-import type {
-  User,
-  Department,
-  Role,
-  Permission,
-  SystemAuditLog,
-  AppSetting,
-  TelegramWebhookConfig,
-  RoleCode,
-} from "../types";
 import {
-  users,
-  userById,
-  userByCode,
-  departments,
-  deptByCode,
-  roles,
-  roleByCode,
-  permissions,
-  permByCode,
-  permSetByRole,
-  grants,
-  systemAuditLogs,
-  systemAuditLogsById,
   appSettings,
   appSettingsById,
-  telegramWebhookConfig,
+  departments,
+  deptByCode,
+  grants,
   id,
   iso,
   now,
+  permByCode,
+  permissions,
+  permSetByRole,
+  roleByCode,
+  roles,
+  systemAuditLogs,
+  systemAuditLogsById,
+  telegramWebhookConfig,
+  userByCode,
+  userById,
+  users,
 } from "../db";
+import type {
+  AppSetting,
+  Department,
+  Permission,
+  Role,
+  RoleCode,
+  SystemAuditLog,
+  TelegramWebhookConfig,
+  User,
+} from "../types";
 
 function requireActor(actor: User | null, allowed: RoleCode[]): User {
   if (!actor) throw new Error("UNAUTHENTICATED");
@@ -90,7 +90,9 @@ export function listUsers(
   if (filter.departmentId)
     result = result.filter((u) => u.department?.id === filter.departmentId);
   if (filter.roleCode)
-    result = result.filter((u) => u.roles.some((r) => r.code === filter.roleCode));
+    result = result.filter((u) =>
+      u.roles.some((r) => r.code === filter.roleCode),
+    );
   if (filter.isActive !== undefined)
     result = result.filter((u) => u.isActive === filter.isActive);
   if (filter.search) {
@@ -111,17 +113,28 @@ export function listUsers(
   const page = result.slice(offset, offset + limit);
   return {
     nodes: page,
-    pageInfo: { offset, limit, totalCount: result.length, hasNextPage: offset + page.length < result.length },
+    pageInfo: {
+      offset,
+      limit,
+      totalCount: result.length,
+      hasNextPage: offset + page.length < result.length,
+    },
   };
 }
 
 export function getUser(actor: User | null, id: string): User | null {
   const u = userById[id];
   if (!u) return null;
-  actor = requireActor(actor, ["SUPER_ADMIN", "TECH_LEAD", "HR_MANAGER", "DEPT_HEAD"]);
+  actor = requireActor(actor, [
+    "SUPER_ADMIN",
+    "TECH_LEAD",
+    "HR_MANAGER",
+    "DEPT_HEAD",
+  ]);
   const scope = actor.roles[0]?.code;
   if (scope === "EMPLOYEE" && u.id !== actor.id) return null;
-  if (scope === "DEPT_HEAD" && u.department?.id !== actor.department?.id) return null;
+  if (scope === "DEPT_HEAD" && u.department?.id !== actor.department?.id)
+    return null;
   return u;
 }
 
@@ -137,7 +150,8 @@ export function createUser(
   },
 ): User {
   actor = requireActor(actor, ["SUPER_ADMIN", "HR_MANAGER"]);
-  if (userByCode[input.userCode]) throw new Error("CONFLICT: userCode already exists");
+  if (userByCode[input.userCode])
+    throw new Error("CONFLICT: userCode already exists");
   if (Object.values(userByCode).some((u) => u.email === input.email)) {
     throw new Error("CONFLICT: email already exists");
   }
@@ -159,7 +173,10 @@ export function createUser(
   users.push(user);
   userById[user.id] = user;
   userByCode[user.userCode] = user;
-  audit(actor, "USER_CREATE", "USER", user.id, null, { userCode: user.userCode, fullName: user.fullName });
+  audit(actor, "USER_CREATE", "USER", user.id, null, {
+    userCode: user.userCode,
+    fullName: user.fullName,
+  });
   return user;
 }
 
@@ -181,7 +198,8 @@ export function updateUser(
   if (input.fullName !== undefined) user.fullName = input.fullName;
   if (input.email !== undefined) user.email = input.email;
   if (input.departmentId !== undefined)
-    user.department = departments.find((d) => d.id === input.departmentId) || null;
+    user.department =
+      departments.find((d) => d.id === input.departmentId) || null;
   if (input.roleCodes !== undefined)
     user.roles = input.roleCodes.map((c) => roleByCode[c]).filter(Boolean);
   if (input.isActive !== undefined) user.isActive = input.isActive;
@@ -194,7 +212,11 @@ export function updateUser(
   return user;
 }
 
-export function resetUserPassword(actor: User | null, userId: string, newPassword: string): boolean {
+export function resetUserPassword(
+  actor: User | null,
+  userId: string,
+  newPassword: string,
+): boolean {
   actor = requireActor(actor, ["SUPER_ADMIN", "HR_MANAGER"]);
   const user = userById[userId];
   if (!user) throw new Error("NOT_FOUND");
@@ -215,7 +237,12 @@ export function deactivateUser(actor: User | null, userId: string): User {
 /*──────────────────────────── departments ────────────────────────────────────*/
 
 export function listDepartments(actor: User | null): Department[] {
-  actor = requireActor(actor, ["SUPER_ADMIN", "TECH_LEAD", "HR_MANAGER", "DEPT_HEAD"]);
+  actor = requireActor(actor, [
+    "SUPER_ADMIN",
+    "TECH_LEAD",
+    "HR_MANAGER",
+    "DEPT_HEAD",
+  ]);
   const scope = actor.roles[0]?.code;
   let result = departments.filter((d) => d.isActive);
   if (scope === "DEPT_HEAD") {
@@ -236,8 +263,11 @@ export function createDepartment(
   },
 ): Department {
   actor = requireActor(actor, ["SUPER_ADMIN", "TECH_LEAD"]);
-  if (deptByCode[input.code]) throw new Error("CONFLICT: department code already exists");
-  const parent = input.parentId ? departments.find((d) => d.id === input.parentId) || null : null;
+  if (deptByCode[input.code])
+    throw new Error("CONFLICT: department code already exists");
+  const parent = input.parentId
+    ? departments.find((d) => d.id === input.parentId) || null
+    : null;
   const manager = input.managerId ? userById[input.managerId] || null : null;
   const dept: Department = {
     id: id(),
@@ -253,7 +283,10 @@ export function createDepartment(
   };
   departments.push(dept);
   deptByCode[dept.code] = dept;
-  audit(actor, "CREATE_DEPARTMENT", "DEPARTMENT", dept.id, null, { code: dept.code, name: dept.name });
+  audit(actor, "CREATE_DEPARTMENT", "DEPARTMENT", dept.id, null, {
+    code: dept.code,
+    name: dept.name,
+  });
   return dept;
 }
 
@@ -308,15 +341,27 @@ export function updateRolePermissions(
   const role = roles.find((r) => r.id === input.roleId);
   if (!role) throw new Error("NOT_FOUND");
   const oldPerms = role.permissions.map((p) => p.code);
-  role.permissions = input.permissionCodes.map((c) => permByCode[c]).filter(Boolean);
+  role.permissions = input.permissionCodes
+    .map((c) => permByCode[c])
+    .filter(Boolean);
   permSetByRole[role.code as RoleCode] = new Set(input.permissionCodes);
-  audit(actor, "UPDATE_RBAC", "ROLE", role.id, oldPerms, role.permissions.map((p) => p.code));
+  audit(
+    actor,
+    "UPDATE_RBAC",
+    "ROLE",
+    role.id,
+    oldPerms,
+    role.permissions.map((p) => p.code),
+  );
   return role;
 }
 
 /*──────────────────────────── app settings & webhook ─────────────────────────*/
 
-export function listAppSettings(actor: User | null, moduleCode?: string): AppSetting[] {
+export function listAppSettings(
+  actor: User | null,
+  moduleCode?: string,
+): AppSetting[] {
   actor = requireActor(actor, ["SUPER_ADMIN", "TECH_LEAD"]);
   let result = appSettings;
   if (moduleCode) result = result.filter((s) => s.moduleCode === moduleCode);
@@ -325,16 +370,30 @@ export function listAppSettings(actor: User | null, moduleCode?: string): AppSet
 
 export function updateAppSetting(
   actor: User | null,
-  input: { moduleCode: string; key: string; value: unknown; isSecret?: boolean },
+  input: {
+    moduleCode: string;
+    key: string;
+    value: unknown;
+    isSecret?: boolean;
+  },
 ): AppSetting {
   actor = requireActor(actor, ["SUPER_ADMIN", "TECH_LEAD"]);
-  const existing = appSettings.find((s) => s.moduleCode === input.moduleCode && s.key === input.key);
+  const existing = appSettings.find(
+    (s) => s.moduleCode === input.moduleCode && s.key === input.key,
+  );
   const old = existing ? { ...existing } : null;
   if (existing) {
     existing.value = input.value;
     if (input.isSecret !== undefined) existing.isSecret = input.isSecret;
     existing.updatedAt = iso(now());
-    audit(actor, "UPDATE_APP_SETTING", "APP_SETTING", existing.id, old, existing);
+    audit(
+      actor,
+      "UPDATE_APP_SETTING",
+      "APP_SETTING",
+      existing.id,
+      old,
+      existing,
+    );
     return existing;
   }
   const setting: AppSetting = {
@@ -353,7 +412,9 @@ export function updateAppSetting(
   return setting;
 }
 
-export function getTelegramWebhookConfig(actor: User | null): TelegramWebhookConfig {
+export function getTelegramWebhookConfig(
+  actor: User | null,
+): TelegramWebhookConfig {
   actor = requireActor(actor, ["SUPER_ADMIN", "TECH_LEAD"]);
   return telegramWebhookConfig;
 }
@@ -369,12 +430,22 @@ export function updateTelegramWebhookConfig(
 ): TelegramWebhookConfig {
   actor = requireActor(actor, ["SUPER_ADMIN", "TECH_LEAD"]);
   const old = { ...telegramWebhookConfig };
-  if (input.botToken !== undefined) telegramWebhookConfig.botToken = input.botToken;
+  if (input.botToken !== undefined)
+    telegramWebhookConfig.botToken = input.botToken;
   if (input.alertGroupChatId !== undefined)
     telegramWebhookConfig.alertGroupChatId = input.alertGroupChatId;
-  if (input.webhookUrl !== undefined) telegramWebhookConfig.webhookUrl = input.webhookUrl;
-  if (input.isEnabled !== undefined) telegramWebhookConfig.isEnabled = input.isEnabled;
-  audit(actor, "UPDATE_WEBHOOK", "WEBHOOK_CONFIG", "telegram", old, telegramWebhookConfig);
+  if (input.webhookUrl !== undefined)
+    telegramWebhookConfig.webhookUrl = input.webhookUrl;
+  if (input.isEnabled !== undefined)
+    telegramWebhookConfig.isEnabled = input.isEnabled;
+  audit(
+    actor,
+    "UPDATE_WEBHOOK",
+    "WEBHOOK_CONFIG",
+    "telegram",
+    old,
+    telegramWebhookConfig,
+  );
   return telegramWebhookConfig;
 }
 
@@ -395,10 +466,11 @@ export function listSystemAuditLogs(
 ) {
   actor = requireActor(actor, ["SUPER_ADMIN", "TECH_LEAD"]);
   const { offset = 0, limit = 20 } = filter;
-  let result = [...systemAuditLogs].sort(
-    (a, b) => (b.createdAt || "").localeCompare(a.createdAt || ""),
+  let result = [...systemAuditLogs].sort((a, b) =>
+    (b.createdAt || "").localeCompare(a.createdAt || ""),
   );
-  if (filter.userId) result = result.filter((l) => l.user?.id === filter.userId);
+  if (filter.userId)
+    result = result.filter((l) => l.user?.id === filter.userId);
   if (filter.action) result = result.filter((l) => l.action === filter.action);
   if (filter.resourceType)
     result = result.filter((l) => l.resourceType === filter.resourceType);
@@ -413,8 +485,13 @@ export function listSystemAuditLogs(
   const page = result.slice(offset, offset + limit);
   return {
     nodes: page,
-    pageInfo: { offset, limit, totalCount: result.length, hasNextPage: offset + page.length < result.length },
+    pageInfo: {
+      offset,
+      limit,
+      totalCount: result.length,
+      hasNextPage: offset + page.length < result.length,
+    },
   };
 }
 
-export { grants, permSetByRole, roleByCode, permByCode };
+export { grants, permByCode, permSetByRole, roleByCode };

@@ -1,16 +1,25 @@
 "use client";
 
-import { useSession } from "@/lib/mock/session";
-import { listTasks, acceptTask } from "@/lib/mock/services/jobs";
 import { StateBadge } from "@/components/shared/state-badge";
 import { Button } from "@/components/ui/button";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import { acceptTask, listTasks } from "@/lib/mock/services/jobs";
+import { useSession } from "@/lib/mock/session";
 
 export default function QuickAddPage() {
   const { viewer } = useSession();
   const now = new Date();
-  const start = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()));
+  const start = new Date(
+    Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()),
+  );
   const end = new Date(start.getTime() + 86400000);
 
   const { nodes } = listTasks(viewer, {
@@ -27,9 +36,17 @@ export default function QuickAddPage() {
     <div className="flex min-h-screen flex-col">
       <main className="flex-1 px-6 py-8">
         <div className="mb-6">
-          <h1 className="text-2xl font-semibold tracking-tight">Daily Quick-add</h1>
+          <h1 className="text-2xl font-semibold tracking-tight">
+            Daily Quick-add
+          </h1>
           <p className="text-muted-foreground text-sm">
-            Unconfirmed {new Date().toLocaleDateString(undefined, { weekday: "long", month: "long", day: "numeric" })} REQ tickets.
+            Unconfirmed{" "}
+            {new Date().toLocaleDateString(undefined, {
+              weekday: "long",
+              month: "long",
+              day: "numeric",
+            })}{" "}
+            REQ tickets.
           </p>
         </div>
         <div className="overflow-x-auto">
@@ -46,11 +63,15 @@ export default function QuickAddPage() {
             <TableBody>
               {nodes.map((task) => (
                 <TableRow key={task.id}>
-                  <TableCell className="font-mono text-xs">{task.taskCode}</TableCell>
+                  <TableCell className="font-mono text-xs">
+                    {task.taskCode}
+                  </TableCell>
                   <TableCell>{task.title}</TableCell>
                   <TableCell className="text-xs">{task.priority}</TableCell>
                   <TableCell className="text-xs font-mono">
-                    {task.endDate ? new Date(task.endDate).toISOString().slice(11, 16) : "—"}
+                    {task.endDate
+                      ? new Date(task.endDate).toISOString().slice(11, 16)
+                      : "—"}
                   </TableCell>
                   <TableCell>
                     <Button
@@ -65,7 +86,10 @@ export default function QuickAddPage() {
               ))}
               {nodes.length === 0 && (
                 <TableRow>
-                  <TableCell colSpan={5} className="text-muted-foreground text-center py-4">
+                  <TableCell
+                    colSpan={5}
+                    className="text-muted-foreground text-center py-4"
+                  >
                     No unconfirmed REQ tickets today.
                   </TableCell>
                 </TableRow>

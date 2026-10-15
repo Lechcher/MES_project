@@ -6,46 +6,46 @@
  * API_CONTACT_SPECIFICATION.md §6.1.
  */
 
-import type {
-  Task,
-  Project,
-  TaskConnection,
-  ProjectConnection,
-  TaskStateTransition,
-  TaskProgressLog,
-  TaskRequest,
-  Attachment,
-  User,
-  TicketStateCode,
-  TaskType,
-  Priority,
-  TaskRequestType,
-  ApprovalStatus,
-  ExportFormat,
-} from "../types";
 import {
-  tasks,
-  taskById,
-  taskRequestById,
   attachmentById,
-  users,
-  userById,
-  departments,
-  projects,
-  projectById,
+  clamp,
   DEMO_ACCOUNTS,
+  departments,
   id,
   iso,
   now,
-  clamp,
+  projectById,
+  projects,
+  taskById,
+  taskRequestById,
+  tasks,
+  userById,
+  users,
 } from "../db";
-import { can } from "../session";
-import { paginate, mockExportResult } from "./shared";
 import {
+  STATE_COLOR_HEX,
   TICKET_STATE_BY_CODE,
   TICKET_STATE_CODES,
-  STATE_COLOR_HEX,
 } from "../registries";
+import { can } from "../session";
+import type {
+  ApprovalStatus,
+  Attachment,
+  ExportFormat,
+  Priority,
+  Project,
+  ProjectConnection,
+  Task,
+  TaskConnection,
+  TaskProgressLog,
+  TaskRequest,
+  TaskRequestType,
+  TaskStateTransition,
+  TaskType,
+  TicketStateCode,
+  User,
+} from "../types";
+import { mockExportResult, paginate } from "./shared";
 
 /*──────────────────────────── role scopes ────────────────────────────────────*/
 
@@ -87,31 +87,30 @@ export function getProject(id: string): Project | null {
   return projectById[id] || null;
 }
 
-export function listTasks(viewer: User | null, filter: {
-  projectId?: string;
-  departmentId?: string;
-  assignedToId?: string;
-  state?: TicketStateCode;
-  taskType?: TaskType;
-  priority?: Priority;
-  isOverdue?: boolean;
-  isUrgentHourly?: boolean;
-  endDateBefore?: string;
-  endDateAfter?: string;
-  search?: string;
-  offset?: number;
-  limit?: number;
-  orderBy?: string;
-} = {}): TaskConnection {
-  const {
-    offset = 0,
-    limit = 20,
-    orderBy = "CREATED_AT_DESC",
-  } = filter;
+export function listTasks(
+  viewer: User | null,
+  filter: {
+    projectId?: string;
+    departmentId?: string;
+    assignedToId?: string;
+    state?: TicketStateCode;
+    taskType?: TaskType;
+    priority?: Priority;
+    isOverdue?: boolean;
+    isUrgentHourly?: boolean;
+    endDateBefore?: string;
+    endDateAfter?: string;
+    search?: string;
+    offset?: number;
+    limit?: number;
+    orderBy?: string;
+  } = {},
+): TaskConnection {
+  const { offset = 0, limit = 20, orderBy = "CREATED_AT_DESC" } = filter;
 
   const scoped = scopeTasks(viewer);
 
-  let result = scoped.filter((t) => {
+  const result = scoped.filter((t) => {
     if (filter.projectId && t.project?.id !== filter.projectId) return false;
     if (filter.departmentId && t.department?.id !== filter.departmentId)
       return false;
@@ -120,7 +119,10 @@ export function listTasks(viewer: User | null, filter: {
     if (filter.state && t.state !== filter.state) return false;
     if (filter.taskType && t.taskType !== filter.taskType) return false;
     if (filter.priority && t.priority !== filter.priority) return false;
-    if (filter.isUrgentHourly !== undefined && t.isUrgentHourly !== filter.isUrgentHourly)
+    if (
+      filter.isUrgentHourly !== undefined &&
+      t.isUrgentHourly !== filter.isUrgentHourly
+    )
       return false;
     if (filter.isOverdue !== undefined && t.isOverdue !== filter.isOverdue)
       return false;
@@ -151,7 +153,12 @@ export function listTasks(viewer: User | null, filter: {
       case "END_DATE_ASC":
         return (a.endDate || "").localeCompare(b.endDate || "");
       case "PRIORITY_DESC": {
-        const rank: Record<string, number> = { URGENT: 3, HIGH: 2, MEDIUM: 1, LOW: 0 };
+        const rank: Record<string, number> = {
+          URGENT: 3,
+          HIGH: 2,
+          MEDIUM: 1,
+          LOW: 0,
+        };
         return rank[b.priority] - rank[a.priority];
       }
       case "STATE_ASC":
@@ -170,7 +177,10 @@ export function getTask(viewer: User | null, id: string): Task | null {
   if (!task) return null;
   const scope = JOB_SCOPES[viewer?.roles[0]?.code || "EMPLOYEE"];
   if (scope === "PERSONAL" && task.assignedTo?.id !== viewer?.id) return null;
-  if (scope === "DEPARTMENT_ONLY" && task.department?.id !== viewerDepartmentId(viewer))
+  if (
+    scope === "DEPARTMENT_ONLY" &&
+    task.department?.id !== viewerDepartmentId(viewer)
+  )
     return null;
   return task;
 }
@@ -281,7 +291,11 @@ export function cancelTask(taskId: string, actor: User, reason: string): Task {
 export function logTaskProgress(
   taskId: string,
   actor: User,
-  input: { newPercentage: number; logComment?: string; attachmentIds?: string[] },
+  input: {
+    newPercentage: number;
+    logComment?: string;
+    attachmentIds?: string[];
+  },
 ): Task {
   const task = taskById[taskId];
   if (!task) throw new Error("Task not found");
@@ -307,7 +321,11 @@ export function logTaskProgress(
       task.badges.push("PROGRESS_UPDATE");
     if (next >= 50 && next < 75 && !task.badges.includes("PROGRESS_UPDATE"))
       task.badges.push("PROGRESS_UPDATE");
-    if (next >= 75 && next < 100 && !task.badges.includes("AWAITING_PROGRESS_VERIFICATION"))
+    if (
+      next >= 75 &&
+      next < 100 &&
+      !task.badges.includes("AWAITING_PROGRESS_VERIFICATION")
+    )
       task.badges.push("AWAITING_PROGRESS_VERIFICATION");
     if (next === 100 && !task.badges.includes("AWAITING_PROGRESS_VERIFICATION"))
       task.badges.push("AWAITING_PROGRESS_VERIFICATION");
@@ -325,7 +343,11 @@ export function logTaskProgress(
 export function requestExtension(
   taskId: string,
   actor: User,
-  input: { requestedDeadline: string; reason: string; attachmentIds?: string[] },
+  input: {
+    requestedDeadline: string;
+    reason: string;
+    attachmentIds?: string[];
+  },
 ): TaskRequest {
   const task = taskById[taskId];
   if (!task) throw new Error("Task not found");
@@ -424,7 +446,9 @@ export function createTask(
   const department = input.departmentId
     ? departments.find((d) => d.id === input.departmentId) || undefined
     : project?.department;
-  const assignedTo = input.assignedToId ? userById[input.assignedToId] : undefined;
+  const assignedTo = input.assignedToId
+    ? userById[input.assignedToId]
+    : undefined;
   const task: Task = {
     id: id(),
     taskCode: `T-${Math.floor(1000 + Math.random() * 9000)}`,
@@ -465,7 +489,19 @@ export function createTask(
       (u) => u.department?.id === department.id && u.id !== actor.id,
     );
     for (const member of members) {
-      const replica: Task = { ...task, id: id(), taskCode: `T-${Math.floor(1000 + Math.random() * 9000)}`, assignedTo: member, createdBy: actor, stateTransitions: [], progressLogs: [], requests: [], attachments: [], createdAt: iso(now()), updatedAt: iso(now()) };
+      const replica: Task = {
+        ...task,
+        id: id(),
+        taskCode: `T-${Math.floor(1000 + Math.random() * 9000)}`,
+        assignedTo: member,
+        createdBy: actor,
+        stateTransitions: [],
+        progressLogs: [],
+        requests: [],
+        attachments: [],
+        createdAt: iso(now()),
+        updatedAt: iso(now()),
+      };
       tasks.push(replica);
       taskById[replica.id] = replica;
     }
@@ -485,20 +521,23 @@ export function printTaskSlip(taskId: string) {
   );
 }
 
-export function exportTasks(viewer: User | null, filter: {
-  projectId?: string;
-  departmentId?: string;
-  assignedToId?: string;
-  state?: TicketStateCode;
-  taskType?: TaskType;
-  priority?: Priority;
-  isOverdue?: boolean;
-  isUrgentHourly?: boolean;
-  search?: string;
-  format?: ExportFormat;
-}): { result: ReturnType<typeof mockExportResult>; count: number } {
+export function exportTasks(
+  viewer: User | null,
+  filter: {
+    projectId?: string;
+    departmentId?: string;
+    assignedToId?: string;
+    state?: TicketStateCode;
+    taskType?: TaskType;
+    priority?: Priority;
+    isOverdue?: boolean;
+    isUrgentHourly?: boolean;
+    search?: string;
+    format?: ExportFormat;
+  },
+): { result: ReturnType<typeof mockExportResult>; count: number } {
   const scoped = scopeTasks(viewer);
-  let result = scoped.filter((t) => {
+  const result = scoped.filter((t) => {
     if (filter.projectId && t.project?.id !== filter.projectId) return false;
     if (filter.departmentId && t.department?.id !== filter.departmentId)
       return false;
@@ -507,13 +546,24 @@ export function exportTasks(viewer: User | null, filter: {
     if (filter.state && t.state !== filter.state) return false;
     if (filter.taskType && t.taskType !== filter.taskType) return false;
     if (filter.priority && t.priority !== filter.priority) return false;
-    if (filter.isUrgentHourly !== undefined && t.isUrgentHourly !== filter.isUrgentHourly)
+    if (
+      filter.isUrgentHourly !== undefined &&
+      t.isUrgentHourly !== filter.isUrgentHourly
+    )
       return false;
     if (filter.isOverdue !== undefined && t.isOverdue !== filter.isOverdue)
       return false;
     if (filter.search) {
       const q = filter.search.toLowerCase();
-      const haystack = [t.taskCode, t.title, t.description, t.assignedTo?.fullName].filter(Boolean).join(" ").toLowerCase();
+      const haystack = [
+        t.taskCode,
+        t.title,
+        t.description,
+        t.assignedTo?.fullName,
+      ]
+        .filter(Boolean)
+        .join(" ")
+        .toLowerCase();
       if (!haystack.includes(q)) return false;
     }
     return true;
@@ -521,7 +571,9 @@ export function exportTasks(viewer: User | null, filter: {
   return {
     result: mockExportResult(
       `tasks-export.${filter.format === "CSV" ? "csv" : "xlsx"}`,
-      filter.format === "CSV" ? "text/csv" : "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+      filter.format === "CSV"
+        ? "text/csv"
+        : "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
       filter.format ?? "XLSX",
     ),
     count: result.length,
@@ -533,4 +585,4 @@ export function scopedTaskCount(viewer: User | null): number {
   return scopeTasks(viewer).length;
 }
 
-export { tasks as allTasks, taskById as allTaskById };
+export { taskById as allTaskById, tasks as allTasks };

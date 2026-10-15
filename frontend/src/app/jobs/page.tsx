@@ -1,26 +1,46 @@
 "use client";
 
+import { Plus } from "lucide-react";
 import { useEffect, useState } from "react";
-import { useSession } from "@/lib/mock/session";
-import { listTasks } from "@/lib/mock/services/jobs";
 import { StateBadge } from "@/components/shared/state-badge";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
-  DropdownMenuTrigger,
-  DropdownMenuContent,
-  DropdownMenuItem,
   DropdownMenuCheckboxItem,
+  DropdownMenuContent,
   DropdownMenuGroup,
+  DropdownMenuItem,
   DropdownMenuLabel,
   DropdownMenuSeparator,
+  DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
-import { Pagination, PaginationContent, PaginationItem, PaginationLink } from "@/components/ui/pagination";
-import { Plus } from "lucide-react";
+import {
+  Pagination,
+  PaginationContent,
+  PaginationItem,
+  PaginationLink,
+} from "@/components/ui/pagination";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import { listTasks } from "@/lib/mock/services/jobs";
+import { useSession } from "@/lib/mock/session";
 
-type StateFilter = "REQ" | "ACT" | "PEN" | "APP" | "REJ" | "CAN" | "OVERDUE" | "";
+type StateFilter =
+  | "REQ"
+  | "ACT"
+  | "PEN"
+  | "APP"
+  | "REJ"
+  | "CAN"
+  | "OVERDUE"
+  | "";
 type PriorityFilter = "LOW" | "MEDIUM" | "HIGH" | "URGENT" | "";
 type TypeFilter = "HOURLY" | "DAILY" | "MULTI_DAY" | "";
 
@@ -44,9 +64,12 @@ export default function JobsPage() {
   if (!viewer) return null;
 
   const now = new Date();
-  const startOfDay = (d: Date) => new Date(d.getFullYear(), d.getMonth(), d.getDate());
+  const startOfDay = (d: Date) =>
+    new Date(d.getFullYear(), d.getMonth(), d.getDate());
   const target = startOfDay(new Date(now));
-  target.setUTCDate(target.getUTCDate() + DAYS.find((d) => d.key === day)!.offset);
+  target.setUTCDate(
+    target.getUTCDate() + DAYS.find((d) => d.key === day)!.offset,
+  );
   const targetIso = target.toISOString();
   const nextIso = new Date(target.getTime() + 86400000).toISOString();
 
@@ -112,15 +135,17 @@ export default function JobsPage() {
                   >
                     All
                   </DropdownMenuCheckboxItem>
-                  {["REQ", "ACT", "PEN", "APP", "REJ", "CAN", "OVERDUE"].map((s) => (
-                    <DropdownMenuCheckboxItem
-                      key={s}
-                      checked={stateFilter === s}
-                      onCheckedChange={() => setStateFilter(s as StateFilter)}
-                    >
-                      {s}
-                    </DropdownMenuCheckboxItem>
-                  ))}
+                  {["REQ", "ACT", "PEN", "APP", "REJ", "CAN", "OVERDUE"].map(
+                    (s) => (
+                      <DropdownMenuCheckboxItem
+                        key={s}
+                        checked={stateFilter === s}
+                        onCheckedChange={() => setStateFilter(s as StateFilter)}
+                      >
+                        {s}
+                      </DropdownMenuCheckboxItem>
+                    ),
+                  )}
                 </DropdownMenuGroup>
               </DropdownMenuContent>
             </DropdownMenu>
@@ -134,14 +159,19 @@ export default function JobsPage() {
               </DropdownMenuTrigger>
               <DropdownMenuContent align="start">
                 <DropdownMenuGroup>
-                  <DropdownMenuCheckboxItem checked={priorityFilter === ""} onCheckedChange={() => setPriorityFilter("")}>
+                  <DropdownMenuCheckboxItem
+                    checked={priorityFilter === ""}
+                    onCheckedChange={() => setPriorityFilter("")}
+                  >
                     All
                   </DropdownMenuCheckboxItem>
                   {["LOW", "MEDIUM", "HIGH", "URGENT"].map((p) => (
                     <DropdownMenuCheckboxItem
                       key={p}
                       checked={priorityFilter === p}
-                      onCheckedChange={() => setPriorityFilter(p as PriorityFilter)}
+                      onCheckedChange={() =>
+                        setPriorityFilter(p as PriorityFilter)
+                      }
                     >
                       {p}
                     </DropdownMenuCheckboxItem>
@@ -159,7 +189,10 @@ export default function JobsPage() {
               </DropdownMenuTrigger>
               <DropdownMenuContent align="start">
                 <DropdownMenuGroup>
-                  <DropdownMenuCheckboxItem checked={typeFilter === ""} onCheckedChange={() => setTypeFilter("")}>
+                  <DropdownMenuCheckboxItem
+                    checked={typeFilter === ""}
+                    onCheckedChange={() => setTypeFilter("")}
+                  >
                     All
                   </DropdownMenuCheckboxItem>
                   {["HOURLY", "DAILY", "MULTI_DAY"].map((t) => (
@@ -220,21 +253,34 @@ export default function JobsPage() {
             <TableBody>
               {nodes.map((task) => (
                 <TableRow key={task.id}>
-                  <TableCell className="font-mono text-xs">{task.taskCode}</TableCell>
+                  <TableCell className="font-mono text-xs">
+                    {task.taskCode}
+                  </TableCell>
                   <TableCell>{task.title}</TableCell>
-                  <TableCell><StateBadge code={task.state} variant="state" /></TableCell>
+                  <TableCell>
+                    <StateBadge code={task.state} variant="state" />
+                  </TableCell>
                   <TableCell className="text-xs">{task.priority}</TableCell>
                   <TableCell className="text-xs">{task.taskType}</TableCell>
-                  <TableCell className="text-xs">{task.progressPercentage}%</TableCell>
-                  <TableCell className="text-xs">{task.assignedTo?.fullName ?? "—"}</TableCell>
+                  <TableCell className="text-xs">
+                    {task.progressPercentage}%
+                  </TableCell>
+                  <TableCell className="text-xs">
+                    {task.assignedTo?.fullName ?? "—"}
+                  </TableCell>
                   <TableCell className="text-xs font-mono">
-                    {task.endDate ? new Date(task.endDate).toISOString().slice(0, 10) : "—"}
+                    {task.endDate
+                      ? new Date(task.endDate).toISOString().slice(0, 10)
+                      : "—"}
                   </TableCell>
                 </TableRow>
               ))}
               {nodes.length === 0 && (
                 <TableRow>
-                  <TableCell colSpan={8} className="text-muted-foreground text-center py-4">
+                  <TableCell
+                    colSpan={8}
+                    className="text-muted-foreground text-center py-4"
+                  >
                     No tasks found.
                   </TableCell>
                 </TableRow>
@@ -246,7 +292,9 @@ export default function JobsPage() {
         {/* Pagination */}
         <div className="flex items-center justify-between mt-6">
           <div className="text-xs text-muted-foreground">
-            Showing {pageInfo.offset + 1}–{Math.min(pageInfo.offset + nodes.length, pageInfo.totalCount)} of {pageInfo.totalCount}
+            Showing {pageInfo.offset + 1}–
+            {Math.min(pageInfo.offset + nodes.length, pageInfo.totalCount)} of{" "}
+            {pageInfo.totalCount}
           </div>
           <Pagination>
             <PaginationContent>
@@ -254,14 +302,18 @@ export default function JobsPage() {
                 <>
                   <PaginationItem key="prev">
                     <PaginationLink
-                      onClick={() => page > 0 && setPage((p) => Math.max(p - 1, 0))}
+                      onClick={() =>
+                        page > 0 && setPage((p) => Math.max(p - 1, 0))
+                      }
                     >
                       Prev
                     </PaginationLink>
                   </PaginationItem>
                   <PaginationItem key="next">
                     <PaginationLink
-                      onClick={() => pageInfo.hasNextPage && setPage((p) => p + 1)}
+                      onClick={() =>
+                        pageInfo.hasNextPage && setPage((p) => p + 1)
+                      }
                     >
                       Next
                     </PaginationLink>

@@ -7,45 +7,45 @@
  * Makes zero network calls.
  */
 
+import {
+  KPI_POINT_RULES,
+  LEAVE_CODE_BY_CODE,
+  LEAVE_CODES,
+  TICKET_STATE_BY_CODE,
+  TICKET_STATES,
+} from "./registries";
 import type {
-  User,
-  Department,
-  Role,
-  Permission,
-  Project,
-  Task,
-  TaskStateTransition,
-  TaskProgressLog,
-  TaskRequest,
+  ApprovalStatus,
+  AppSetting,
   Attachment,
   AttendanceRecord,
-  LeaveRequest,
-  LeaveBalanceEntry,
-  LeaveBalance,
-  OvertimeRecord,
-  KpiScoreEvent,
+  Department,
+  DepartmentType,
   KpiMonthlySummary,
   KpiPointRule,
-  SystemAuditLog,
-  AppSetting,
-  TelegramWebhookConfig,
-  Notification,
-  TicketStateCode,
+  KpiScoreEvent,
+  LeaveBalance,
+  LeaveBalanceEntry,
   LeaveCode,
-  TaskType,
+  LeaveRequest,
+  Notification,
+  OvertimeRecord,
+  Permission,
   Priority,
-  ApprovalStatus,
-  TaskRequestType,
-  DepartmentType,
+  Project,
+  Role,
   RoleCode,
+  SystemAuditLog,
+  Task,
+  TaskProgressLog,
+  TaskRequest,
+  TaskRequestType,
+  TaskStateTransition,
+  TaskType,
+  TelegramWebhookConfig,
+  TicketStateCode,
+  User,
 } from "./types";
-import {
-  TICKET_STATES,
-  LEAVE_CODES,
-  KPI_POINT_RULES,
-  TICKET_STATE_BY_CODE,
-  LEAVE_CODE_BY_CODE,
-} from "./registries";
 
 /*──────────────────────────── helpers ────────────────────────────────────────*/
 
@@ -162,14 +162,22 @@ const divisions: Department[] = [
   },
 ];
 
-const departments: Department[] = [deptOps, deptSales, deptEng, deptHR, ...divisions];
+const departments: Department[] = [
+  deptOps,
+  deptSales,
+  deptEng,
+  deptHR,
+  ...divisions,
+];
 
 const deptByCode: Record<string, Department> = {};
 for (const d of departments) deptByCode[d.code] = d;
 
 /*──────────────────────────── user fixtures ──────────────────────────────────*/
 
-const makeUser = (overrides: Partial<User> & { departmentCode?: string }): User => {
+const makeUser = (
+  overrides: Partial<User> & { departmentCode?: string },
+): User => {
   const department = overrides.departmentCode
     ? deptByCode[overrides.departmentCode] || null
     : null;
@@ -289,29 +297,125 @@ const userByCode: Record<string, User> = {};
 for (const u of users) userByCode[u.userCode] = u;
 
 /* demo accounts: exactly one per role */
-const DEMO_ACCOUNTS: User[] = [adminUser, techLeadUser, hrManagerUser, deptHeadUser, employeeUser];
+const DEMO_ACCOUNTS: User[] = [
+  adminUser,
+  techLeadUser,
+  hrManagerUser,
+  deptHeadUser,
+  employeeUser,
+];
 
 /*──────────────────────────── roles & permissions ────────────────────────────*/
 
 const permissions: Permission[] = [
-  { id: id(), code: "jobs.ticket.create", moduleCode: "jobs", description: "Create / allocate a ticket (REQ)." },
-  { id: id(), code: "jobs.ticket.accept_report", moduleCode: "jobs", description: "Accept a task (ACT) and report (PEN)." },
-  { id: id(), code: "jobs.ticket.approve_return", moduleCode: "jobs", description: "Approve (APP) or return (REJ) a report." },
-  { id: id(), code: "jobs.ticket.cancel", moduleCode: "jobs", description: "Cancel a ticket (CAN)." },
-  { id: id(), code: "jobs.ticket.request_extension", moduleCode: "jobs", description: "Request an extension or explain a late submission." },
-  { id: id(), code: "jobs.ticket.print_export", moduleCode: "jobs", description: "Print ticket slips / export task data." },
-  { id: id(), code: "planning.calendar.view", moduleCode: "planning", description: "View the attendance matrix calendar." },
-  { id: id(), code: "planning.leave.register", moduleCode: "planning", description: "Register a leave request." },
-  { id: id(), code: "planning.leave.approve", moduleCode: "planning", description: "Approve leave requests / work." },
-  { id: id(), code: "planning.leave.assign_penalty", moduleCode: "planning", description: "Assign penalty leave codes (UAL, USL)." },
-  { id: id(), code: "planning.print_export", moduleCode: "planning", description: "Print leave requests / export attendance data." },
-  { id: id(), code: "performance.kpi.view_personal", moduleCode: "performance", description: "View the personal KPI dashboard." },
-  { id: id(), code: "performance.audit.level3_view", moduleCode: "performance", description: "View Audit Level 3 (employees in a department)." },
-  { id: id(), code: "performance.audit.level1_2_view", moduleCode: "performance", description: "View Audit Levels 1 & 2 (company / department)." },
-  { id: id(), code: "performance.print_export", moduleCode: "performance", description: "Print / export KPI and audit reports." },
-  { id: id(), code: "settings.users.manage", moduleCode: "settings", description: "Manage accounts (create/edit/reset/lock)." },
-  { id: id(), code: "settings.rbac.manage", moduleCode: "settings", description: "Manage RBAC authorization." },
-  { id: id(), code: "settings.webhook.manage", moduleCode: "settings", description: "Manage the Telegram webhook configuration." },
+  {
+    id: id(),
+    code: "jobs.ticket.create",
+    moduleCode: "jobs",
+    description: "Create / allocate a ticket (REQ).",
+  },
+  {
+    id: id(),
+    code: "jobs.ticket.accept_report",
+    moduleCode: "jobs",
+    description: "Accept a task (ACT) and report (PEN).",
+  },
+  {
+    id: id(),
+    code: "jobs.ticket.approve_return",
+    moduleCode: "jobs",
+    description: "Approve (APP) or return (REJ) a report.",
+  },
+  {
+    id: id(),
+    code: "jobs.ticket.cancel",
+    moduleCode: "jobs",
+    description: "Cancel a ticket (CAN).",
+  },
+  {
+    id: id(),
+    code: "jobs.ticket.request_extension",
+    moduleCode: "jobs",
+    description: "Request an extension or explain a late submission.",
+  },
+  {
+    id: id(),
+    code: "jobs.ticket.print_export",
+    moduleCode: "jobs",
+    description: "Print ticket slips / export task data.",
+  },
+  {
+    id: id(),
+    code: "planning.calendar.view",
+    moduleCode: "planning",
+    description: "View the attendance matrix calendar.",
+  },
+  {
+    id: id(),
+    code: "planning.leave.register",
+    moduleCode: "planning",
+    description: "Register a leave request.",
+  },
+  {
+    id: id(),
+    code: "planning.leave.approve",
+    moduleCode: "planning",
+    description: "Approve leave requests / work.",
+  },
+  {
+    id: id(),
+    code: "planning.leave.assign_penalty",
+    moduleCode: "planning",
+    description: "Assign penalty leave codes (UAL, USL).",
+  },
+  {
+    id: id(),
+    code: "planning.print_export",
+    moduleCode: "planning",
+    description: "Print leave requests / export attendance data.",
+  },
+  {
+    id: id(),
+    code: "performance.kpi.view_personal",
+    moduleCode: "performance",
+    description: "View the personal KPI dashboard.",
+  },
+  {
+    id: id(),
+    code: "performance.audit.level3_view",
+    moduleCode: "performance",
+    description: "View Audit Level 3 (employees in a department).",
+  },
+  {
+    id: id(),
+    code: "performance.audit.level1_2_view",
+    moduleCode: "performance",
+    description: "View Audit Levels 1 & 2 (company / department).",
+  },
+  {
+    id: id(),
+    code: "performance.print_export",
+    moduleCode: "performance",
+    description: "Print / export KPI and audit reports.",
+  },
+  {
+    id: id(),
+    code: "settings.users.manage",
+    moduleCode: "settings",
+    description: "Manage accounts (create/edit/reset/lock).",
+  },
+  {
+    id: id(),
+    code: "settings.rbac.manage",
+    moduleCode: "settings",
+    description: "Manage RBAC authorization.",
+  },
+  {
+    id: id(),
+    code: "settings.webhook.manage",
+    moduleCode: "settings",
+    description: "Manage the Telegram webhook configuration.",
+  },
 ];
 
 const permByCode: Record<string, Permission> = {};
@@ -319,13 +423,17 @@ for (const p of permissions) permByCode[p.code] = p;
 
 const grants: Record<RoleCode, string[]> = {
   SUPER_ADMIN: permissions.map((p) => p.code),
-  TECH_LEAD: permissions.filter((p) => p.code !== "settings.users.manage").map((p) => p.code),
-  HR_MANAGER: permissions.filter(
-    (p) =>
-      p.code !== "settings.rbac.manage" &&
-      p.code !== "settings.webhook.manage" &&
-      p.moduleCode !== "audit-log",
-  ).map((p) => p.code),
+  TECH_LEAD: permissions
+    .filter((p) => p.code !== "settings.users.manage")
+    .map((p) => p.code),
+  HR_MANAGER: permissions
+    .filter(
+      (p) =>
+        p.code !== "settings.rbac.manage" &&
+        p.code !== "settings.webhook.manage" &&
+        p.moduleCode !== "audit-log",
+    )
+    .map((p) => p.code),
   DEPT_HEAD: [
     "jobs.ticket.create",
     "jobs.ticket.accept_report",
@@ -505,7 +613,12 @@ const makeTask = (overrides: Partial<Task>): Task => {
   return task;
 };
 
-const pushTransition = (task: Task, toState: TicketStateCode, actor: User, reason?: string) => {
+const pushTransition = (
+  task: Task,
+  toState: TicketStateCode,
+  actor: User,
+  reason?: string,
+) => {
   const transition: TaskStateTransition = {
     id: id(),
     task,
@@ -520,7 +633,14 @@ const pushTransition = (task: Task, toState: TicketStateCode, actor: User, reaso
   task.updatedAt = iso(now());
 };
 
-const pushProgressLog = (task: Task, user: User, previous: number, next: number, comment?: string, verified = false) => {
+const pushProgressLog = (
+  task: Task,
+  user: User,
+  previous: number,
+  next: number,
+  comment?: string,
+  verified = false,
+) => {
   const log: TaskProgressLog = {
     id: id(),
     task,
@@ -828,7 +948,7 @@ for (const title of extraTitles) {
       department: dept,
       progressPercentage: state === "APP" ? 100 : counter % 100,
       isOverdue: state === "OVERDUE",
-      endDate: iso(addDays(today, counter % 10 - 5)),
+      endDate: iso(addDays(today, (counter % 10) - 5)),
       createdAt: iso(addDays(today, -counter % 30)),
     }),
   );
@@ -839,18 +959,47 @@ const taskById: Record<string, Task> = {};
 for (const t of tasks) taskById[t.id] = t;
 
 /* seed a few progress logs & transitions for realism */
-const t1004 = taskById[Array.from(Object.keys(taskById)).find((k) => taskById[k].taskCode === "T-1004")!];
+const t1004 =
+  taskById[
+    Array.from(Object.keys(taskById)).find(
+      (k) => taskById[k].taskCode === "T-1004",
+    )!
+  ];
 pushTransition(t1004, "ACT", deptHeadUser, "Accepted for implementation");
-pushProgressLog(t1004, employeeUser, 0, 50, "Wireframe approved, drafting layout", false);
+pushProgressLog(
+  t1004,
+  employeeUser,
+  0,
+  50,
+  "Wireframe approved, drafting layout",
+  false,
+);
 pushProgressLog(t1004, employeeUser, 50, 75, "Components implemented", false);
 
-const t1009 = taskById[Array.from(Object.keys(taskById)).find((k) => taskById[k].taskCode === "T-1009")!];
+const t1009 =
+  taskById[
+    Array.from(Object.keys(taskById)).find(
+      (k) => taskById[k].taskCode === "T-1009",
+    )!
+  ];
 pushTransition(t1009, "ACT", deptHeadUser, "Accepted");
 pushTransition(t1009, "PEN", employeeUser2, "Report submitted");
 pushTransition(t1009, "APP", deptHeadUser, "Approved as-is");
-pushProgressLog(t1009, employeeUser2, 0, 100, "All onboarding steps complete", true);
+pushProgressLog(
+  t1009,
+  employeeUser2,
+  0,
+  100,
+  "All onboarding steps complete",
+  true,
+);
 
-const t1013 = taskById[Array.from(Object.keys(taskById)).find((k) => taskById[k].taskCode === "T-1013")!];
+const t1013 =
+  taskById[
+    Array.from(Object.keys(taskById)).find(
+      (k) => taskById[k].taskCode === "T-1013",
+    )!
+  ];
 pushTransition(t1013, "REQ", hrManagerUser, "Allocated");
 pushTransition(t1013, "OVERDUE", hrManagerUser, "Missed 10:30 hourly deadline");
 
@@ -912,7 +1061,9 @@ for (const a of attachments) attachmentById[a.id] = a;
 
 const dayOffset = (n: number): Date => addDays(today, n);
 
-const makeAttendance = (overrides: Partial<AttendanceRecord>): AttendanceRecord => ({
+const makeAttendance = (
+  overrides: Partial<AttendanceRecord>,
+): AttendanceRecord => ({
   id: overrides.id || id(),
   user: overrides.user || employeeUser,
   workDate: overrides.workDate || iso(today),
@@ -1023,7 +1174,9 @@ const leaveRequests: LeaveRequest[] = [
 const leaveById: Record<string, LeaveRequest> = {};
 for (const lr of leaveRequests) leaveById[lr.id] = lr;
 
-const makeLeaveBalanceEntry = (overrides: Partial<LeaveBalanceEntry>): LeaveBalanceEntry => ({
+const makeLeaveBalanceEntry = (
+  overrides: Partial<LeaveBalanceEntry>,
+): LeaveBalanceEntry => ({
   id: overrides.id || id(),
   user: overrides.user || employeeUser,
   leaveCode: overrides.leaveCode || "AL",
@@ -1038,18 +1191,63 @@ const makeLeaveBalanceEntry = (overrides: Partial<LeaveBalanceEntry>): LeaveBala
 });
 
 const leaveBalanceEntries: LeaveBalanceEntry[] = [
-  makeLeaveBalanceEntry({ user: employeeUser, leaveCode: "AL", entryType: "ACCRUAL", deltaDays: 15 }),
-  makeLeaveBalanceEntry({ user: employeeUser, leaveCode: "AL", entryType: "USAGE", deltaDays: -3 }),
-  makeLeaveBalanceEntry({ user: employeeUser, leaveCode: "TOIL", entryType: "ACCRUAL", deltaDays: 8 }),
-  makeLeaveBalanceEntry({ user: employeeUser2, leaveCode: "AL", entryType: "ACCRUAL", deltaDays: 12 }),
-  makeLeaveBalanceEntry({ user: employeeUser2, leaveCode: "TOIL", entryType: "ACCRUAL", deltaDays: 4 }),
+  makeLeaveBalanceEntry({
+    user: employeeUser,
+    leaveCode: "AL",
+    entryType: "ACCRUAL",
+    deltaDays: 15,
+  }),
+  makeLeaveBalanceEntry({
+    user: employeeUser,
+    leaveCode: "AL",
+    entryType: "USAGE",
+    deltaDays: -3,
+  }),
+  makeLeaveBalanceEntry({
+    user: employeeUser,
+    leaveCode: "TOIL",
+    entryType: "ACCRUAL",
+    deltaDays: 8,
+  }),
+  makeLeaveBalanceEntry({
+    user: employeeUser2,
+    leaveCode: "AL",
+    entryType: "ACCRUAL",
+    deltaDays: 12,
+  }),
+  makeLeaveBalanceEntry({
+    user: employeeUser2,
+    leaveCode: "TOIL",
+    entryType: "ACCRUAL",
+    deltaDays: 4,
+  }),
 ];
 
 const leaveBalances: LeaveBalance[] = [
-  { user: employeeUser, leaveCode: "AL", leaveName: "Annual Leave", balanceDays: 12 },
-  { user: employeeUser, leaveCode: "TOIL", leaveName: "Time Off In Lieu", balanceDays: 8 },
-  { user: employeeUser2, leaveCode: "AL", leaveName: "Annual Leave", balanceDays: 12 },
-  { user: employeeUser2, leaveCode: "TOIL", leaveName: "Time Off In Lieu", balanceDays: 4 },
+  {
+    user: employeeUser,
+    leaveCode: "AL",
+    leaveName: "Annual Leave",
+    balanceDays: 12,
+  },
+  {
+    user: employeeUser,
+    leaveCode: "TOIL",
+    leaveName: "Time Off In Lieu",
+    balanceDays: 8,
+  },
+  {
+    user: employeeUser2,
+    leaveCode: "AL",
+    leaveName: "Annual Leave",
+    balanceDays: 12,
+  },
+  {
+    user: employeeUser2,
+    leaveCode: "TOIL",
+    leaveName: "Time Off In Lieu",
+    balanceDays: 4,
+  },
 ];
 
 /*──────────────────────────── overtime fixtures ──────────────────────────────*/
@@ -1121,7 +1319,9 @@ const kpiScoreEvents: KpiScoreEvent[] = [
   },
 ];
 
-const makeKpiMonthlySummary = (overrides: Partial<KpiMonthlySummary>): KpiMonthlySummary => ({
+const makeKpiMonthlySummary = (
+  overrides: Partial<KpiMonthlySummary>,
+): KpiMonthlySummary => ({
   id: overrides.id || id(),
   user: overrides.user || employeeUser,
   periodMonth: overrides.periodMonth ?? periodMonth,
@@ -1211,7 +1411,10 @@ const systemAuditLogs: SystemAuditLog[] = [
     resourceType: "USER",
     resourceId: employeeUser.id,
     oldData: null,
-    newData: { userCode: employeeUser.userCode, fullName: employeeUser.fullName },
+    newData: {
+      userCode: employeeUser.userCode,
+      fullName: employeeUser.fullName,
+    },
     ipAddress: "192.168.1.10",
     userAgent: "mock-client",
     createdAt: iso(addDays(today, -30)),
@@ -1285,65 +1488,65 @@ const notifications: Notification[] = [];
 /*──────────────────────────── module exports ─────────────────────────────────*/
 
 export {
-  tasks,
-  taskById,
-  taskRequestById,
-  attachmentById,
-  attendanceRecords,
-  attendanceById,
-  leaveRequests,
-  leaveById,
-  leaveBalanceEntries,
-  leaveBalances,
-  overtimeRecords,
-  kpiScoreEvents,
-  kpiScoreEventsById,
-  kpiMonthlySummaries,
-  kpiMonthlySummariesById,
-  systemAuditLogs,
-  systemAuditLogsById,
+  addDays,
+  adminUser,
   appSettings,
   appSettingsById,
-  telegramWebhookConfig,
-  notifications,
-  periodYear,
-  periodMonth,
-  prevMonth,
-  prevYear,
-  now,
-  uid,
-  id,
-  iso,
-  addDays,
-  startOfDay,
-  endOfDay,
+  attachmentById,
+  attendanceById,
+  attendanceRecords,
   clamp,
-  today,
-  yesterday,
-  tomorrow,
-  nowIso,
+  DEMO_ACCOUNTS,
   departments,
   deptByCode,
-  users,
-  userById,
-  userByCode,
-  DEMO_ACCOUNTS,
-  adminUser,
-  techLeadUser,
-  hrManagerUser,
+  deptEng,
   deptHeadUser,
-  employeeUser,
-  roles,
-  roleByCode,
-  permissions,
-  permByCode,
-  permSetByRole,
-  grants,
-  projects,
-  projectById,
-  projGeneral,
+  deptHR,
   deptOps,
   deptSales,
-  deptEng,
-  deptHR,
+  employeeUser,
+  endOfDay,
+  grants,
+  hrManagerUser,
+  id,
+  iso,
+  kpiMonthlySummaries,
+  kpiMonthlySummariesById,
+  kpiScoreEvents,
+  kpiScoreEventsById,
+  leaveBalanceEntries,
+  leaveBalances,
+  leaveById,
+  leaveRequests,
+  notifications,
+  now,
+  nowIso,
+  overtimeRecords,
+  periodMonth,
+  periodYear,
+  permByCode,
+  permissions,
+  permSetByRole,
+  prevMonth,
+  prevYear,
+  projectById,
+  projects,
+  projGeneral,
+  roleByCode,
+  roles,
+  startOfDay,
+  systemAuditLogs,
+  systemAuditLogsById,
+  taskById,
+  taskRequestById,
+  tasks,
+  techLeadUser,
+  telegramWebhookConfig,
+  today,
+  tomorrow,
+  uid,
+  userByCode,
+  userById,
+  users,
+  yesterday,
 };

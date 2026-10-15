@@ -1,24 +1,54 @@
 "use client";
 
-import { useEffect } from "react";
-import { useRouter } from "next/navigation";
-import { useSession } from "@/lib/mock/session";
-import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import {
-  LayoutDashboard,
+  BarChart3,
   Briefcase,
   Calendar,
-  BarChart3,
+  LayoutDashboard,
   Settings as SettingsIcon,
   Users,
 } from "lucide-react";
+import { useRouter } from "next/navigation";
+import { useEffect } from "react";
+import { Button } from "@/components/ui/button";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import { useSession } from "@/lib/mock/session";
 
 const ENTRIES = [
-  { key: "jobs", label: "Jobs", href: "/jobs", icon: Briefcase, description: "Ticket lists, lifecycle and quick-add." },
-  { key: "planning", label: "Planning", href: "/planning", icon: Calendar, description: "Matrix calendar, leave and attendance." },
-  { key: "performance", label: "Performance", href: "/performance", icon: BarChart3, description: "KPI dashboard and audit tables." },
-  { key: "settings", label: "Settings", href: "/settings", icon: SettingsIcon, description: "Users, org, RBAC and webhook." },
+  {
+    key: "jobs",
+    label: "Jobs",
+    href: "/jobs",
+    icon: Briefcase,
+    description: "Ticket lists, lifecycle and quick-add.",
+  },
+  {
+    key: "planning",
+    label: "Planning",
+    href: "/planning",
+    icon: Calendar,
+    description: "Matrix calendar, leave and attendance.",
+  },
+  {
+    key: "performance",
+    label: "Performance",
+    href: "/performance",
+    icon: BarChart3,
+    description: "KPI dashboard and audit tables.",
+  },
+  {
+    key: "settings",
+    label: "Settings",
+    href: "/settings",
+    icon: SettingsIcon,
+    description: "Users, org, RBAC and webhook.",
+  },
 ];
 
 const SETTINGS_ALLOWED: Record<string, boolean> = {
@@ -46,9 +76,12 @@ export default function Home() {
     <div className="flex min-h-screen flex-col">
       <main className="flex-1 px-6 py-8">
         <div className="mb-8">
-          <h1 className="text-2xl font-semibold tracking-tight">Home Page Dashboard</h1>
+          <h1 className="text-2xl font-semibold tracking-tight">
+            Home Page Dashboard
+          </h1>
           <p className="text-muted-foreground">
-            Select an app. Entries shown depend on your role ({viewer.roles[0]?.code}).
+            Select an app. Entries shown depend on your role (
+            {viewer.roles[0]?.code}).
           </p>
         </div>
         <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-3">
@@ -58,7 +91,10 @@ export default function Home() {
           }).map((entry) => {
             const Icon = entry.icon;
             return (
-              <Card key={entry.key} className="shadow-none border border-border">
+              <Card
+                key={entry.key}
+                className="shadow-none border border-border"
+              >
                 <CardHeader>
                   <CardTitle>{entry.label}</CardTitle>
                   <CardDescription>{entry.description}</CardDescription>

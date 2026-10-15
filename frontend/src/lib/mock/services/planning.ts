@@ -7,39 +7,39 @@
  * API_CONTACT_SPECIFICATION.md §6.2.
  */
 
-import type {
-  AttendanceRecord,
-  LeaveRequest,
-  LeaveBalance,
-  OvertimeRecord,
-  MatrixCalendar,
-  MatrixCalendarRow,
-  MatrixCalendarDay,
-  User,
-  LeaveCode,
-  ApprovalStatus,
-  Department,
-  Role,
-} from "../types";
 import {
-  attendanceRecords,
+  addDays,
   attendanceById,
-  leaveRequests,
-  leaveById,
-  leaveBalances,
-  overtimeRecords,
-  users,
-  userById,
+  attendanceRecords,
   departments,
   deptByCode,
+  endOfDay,
   id,
   iso,
+  leaveBalances,
+  leaveById,
+  leaveRequests,
   now,
+  overtimeRecords,
   startOfDay,
-  endOfDay,
-  addDays,
+  userById,
+  users,
 } from "../db";
-import { paginate, mockExportResult } from "./shared";
+import type {
+  ApprovalStatus,
+  AttendanceRecord,
+  Department,
+  LeaveBalance,
+  LeaveCode,
+  LeaveRequest,
+  MatrixCalendar,
+  MatrixCalendarDay,
+  MatrixCalendarRow,
+  OvertimeRecord,
+  Role,
+  User,
+} from "../types";
+import { mockExportResult, paginate } from "./shared";
 
 /*──────────────────────────── local filter shapes ────────────────────────────*/
 
@@ -125,15 +125,16 @@ export function matrixCalendar(
       );
       const leave = leaveRequests.find(
         (lr) =>
-          lr.user.id === user.id && lr.startDate <= workDate && lr.endDate >= workDate,
+          lr.user.id === user.id &&
+          lr.startDate <= workDate &&
+          lr.endDate >= workDate,
       );
       days.push({
         workDate,
         state: null,
         progressPercentage: null,
-        leaveCode: (att?.leaveCode || (leave ? leave.leaveCode : null)) as
-          | LeaveCode
-          | null,
+        leaveCode: (att?.leaveCode ||
+          (leave ? leave.leaveCode : null)) as LeaveCode | null,
         isLate: att?.isLate ?? false,
         isEarlyLeave: att?.isEarlyLeave ?? false,
       });
@@ -150,13 +151,23 @@ export function matrixCalendar(
 export function listAttendance(
   viewer: User | null,
   filter: PlanningAttendanceFilter = {},
-): { nodes: AttendanceRecord[]; pageInfo: { offset: number; limit: number; totalCount: number; hasNextPage: boolean } } {
+): {
+  nodes: AttendanceRecord[];
+  pageInfo: {
+    offset: number;
+    limit: number;
+    totalCount: number;
+    hasNextPage: boolean;
+  };
+} {
   const { offset = 0, limit = 20 } = filter;
   const usersInScope = new Set(scopeUsers(viewer).map((u) => u.id));
   let result = attendanceRecords.filter((a) => usersInScope.has(a.user.id));
   if (filter.userId) result = result.filter((a) => a.user.id === filter.userId);
   if (filter.departmentId) {
-    result = result.filter((a) => a.user.department?.id === filter.departmentId);
+    result = result.filter(
+      (a) => a.user.department?.id === filter.departmentId,
+    );
   }
   if (filter.fromDate) {
     const fromDate = filter.fromDate;
@@ -179,7 +190,15 @@ export function listAttendance(
 export function listOvertime(
   viewer: User | null,
   filter: { userId?: string; offset?: number; limit?: number } = {},
-): { nodes: OvertimeRecord[]; pageInfo: { offset: number; limit: number; totalCount: number; hasNextPage: boolean } } {
+): {
+  nodes: OvertimeRecord[];
+  pageInfo: {
+    offset: number;
+    limit: number;
+    totalCount: number;
+    hasNextPage: boolean;
+  };
+} {
   const { offset = 0, limit = 20 } = filter;
   const usersInScope = new Set(scopeUsers(viewer).map((u) => u.id));
   let result = overtimeRecords.filter((o) => usersInScope.has(o.user.id));
@@ -193,16 +212,29 @@ export function listOvertime(
 export function listLeaveRequests(
   viewer: User | null,
   filter: PlanningLeaveRequestFilter = {},
-): { nodes: LeaveRequest[]; pageInfo: { offset: number; limit: number; totalCount: number; hasNextPage: boolean } } {
+): {
+  nodes: LeaveRequest[];
+  pageInfo: {
+    offset: number;
+    limit: number;
+    totalCount: number;
+    hasNextPage: boolean;
+  };
+} {
   const { offset = 0, limit = 20 } = filter;
   const usersInScope = new Set(scopeUsers(viewer).map((u) => u.id));
   let result = leaveRequests.filter((lr) => usersInScope.has(lr.user.id));
-  if (filter.userId) result = result.filter((lr) => lr.user.id === filter.userId);
+  if (filter.userId)
+    result = result.filter((lr) => lr.user.id === filter.userId);
   if (filter.departmentId) {
-    result = result.filter((lr) => lr.user.department?.id === filter.departmentId);
+    result = result.filter(
+      (lr) => lr.user.department?.id === filter.departmentId,
+    );
   }
-  if (filter.leaveCode) result = result.filter((lr) => lr.leaveCode === filter.leaveCode);
-  if (filter.status) result = result.filter((lr) => lr.status === filter.status);
+  if (filter.leaveCode)
+    result = result.filter((lr) => lr.leaveCode === filter.leaveCode);
+  if (filter.status)
+    result = result.filter((lr) => lr.status === filter.status);
   if (filter.fromDate) {
     const fromDate = filter.fromDate;
     result = result.filter((lr) => lr.startDate >= fromDate);
@@ -215,7 +247,10 @@ export function listLeaveRequests(
   return paginate(result, offset, limit);
 }
 
-export function getLeaveRequest(viewer: User | null, id: string): LeaveRequest | null {
+export function getLeaveRequest(
+  viewer: User | null,
+  id: string,
+): LeaveRequest | null {
   const lr = leaveById[id];
   if (!lr) return null;
   const usersInScope = new Set(scopeUsers(viewer).map((u) => u.id));
@@ -234,7 +269,9 @@ export function registerLeave(
     attachmentIds?: string[];
   },
 ): LeaveRequest {
-  const handoverUser = input.handoverUserId ? userById[input.handoverUserId] : undefined;
+  const handoverUser = input.handoverUserId
+    ? userById[input.handoverUserId]
+    : undefined;
   const request: LeaveRequest = {
     id: id(),
     user: actor,
@@ -263,7 +300,8 @@ export function reviewLeave(
 ): LeaveRequest {
   const request = leaveById[requestId];
   if (!request) throw new Error("Leave request not found");
-  if (request.status !== "PENDING") throw new Error("Leave request already reviewed");
+  if (request.status !== "PENDING")
+    throw new Error("Leave request already reviewed");
   request.status = input.decision;
   request.approvedBy = actor;
   request.approvedAt = iso(now());
@@ -285,7 +323,8 @@ export function assignPenaltyLeave(
   const allowed = actor.roles.some(
     (r: Role) => r.code === "SUPER_ADMIN" || r.code === "HR_MANAGER",
   );
-  if (!allowed) throw new Error("Only HR Manager or Super Admin can assign penalty leave");
+  if (!allowed)
+    throw new Error("Only HR Manager or Super Admin can assign penalty leave");
   if (input.leaveCode !== "UAL" && input.leaveCode !== "USL") {
     throw new Error("Only UAL or USL may be assigned as penalty leave");
   }
@@ -311,7 +350,10 @@ export function assignPenaltyLeave(
 
 /*──────────────────────────── leave balances ─────────────────────────────────*/
 
-export function listLeaveBalances(viewer: User | null, userId?: string): LeaveBalance[] {
+export function listLeaveBalances(
+  viewer: User | null,
+  userId?: string,
+): LeaveBalance[] {
   const scope = PLANNING_SCOPES[viewer?.roles[0]?.code || "EMPLOYEE"];
   let targetUsers: User[];
   if (userId) {
@@ -321,7 +363,9 @@ export function listLeaveBalances(viewer: User | null, userId?: string): LeaveBa
   } else {
     targetUsers = scopeUsers(viewer);
   }
-  return leaveBalances.filter((lb) => targetUsers.some((u) => u.id === lb.user.id));
+  return leaveBalances.filter((lb) =>
+    targetUsers.some((u) => u.id === lb.user.id),
+  );
 }
 
 /*──────────────────────────── overtime ───────────────────────────────────────*/
@@ -373,7 +417,10 @@ export function printLeaveRequest(leaveRequestId: string) {
   );
 }
 
-export function printAttendanceCalendar(viewer: User | null, input: PlanningMatrixCalendarInput) {
+export function printAttendanceCalendar(
+  viewer: User | null,
+  input: PlanningMatrixCalendarInput,
+) {
   const cal = matrixCalendar(viewer, input);
   return mockExportResult(
     `attendance-calendar-${cal.fromDate}-to-${cal.toDate}.pdf`,
@@ -382,12 +429,17 @@ export function printAttendanceCalendar(viewer: User | null, input: PlanningMatr
   );
 }
 
-export function exportAttendance(viewer: User | null, filter: PlanningAttendanceFilter & { format?: "PDF" | "XLSX" | "CSV" } = {}) {
+export function exportAttendance(
+  viewer: User | null,
+  filter: PlanningAttendanceFilter & { format?: "PDF" | "XLSX" | "CSV" } = {},
+) {
   const conn = listAttendance(viewer, filter);
   return {
     result: mockExportResult(
       `attendance-export.${filter.format === "CSV" ? "csv" : "xlsx"}`,
-      filter.format === "CSV" ? "text/csv" : "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+      filter.format === "CSV"
+        ? "text/csv"
+        : "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
       filter.format ?? "XLSX",
     ),
     count: conn.nodes.length,

@@ -9,23 +9,74 @@
  */
 
 import type {
+  KpiPointRule,
   LeaveCode,
   LeaveCodeInfo,
   TicketState,
   TicketStateCode,
-  KpiPointRule,
 } from "./types";
 
 /*──────────────────────────── Ticket states ──────────────────────────────────*/
 
 export const TICKET_STATES: TicketState[] = [
-  { code: "REQ", name: "Requested", color: "White", description: "Newly allocated ticket, or not confirmed/planned before 08:30.", isTerminal: false, sortOrder: 1 },
-  { code: "ACT", name: "Active", color: "Yellow", description: "Accepted and in progress.", isTerminal: false, sortOrder: 2 },
-  { code: "PEN", name: "Pending", color: "Blue", description: "Complete pressed, or multi-day task at 100% with report submitted.", isTerminal: false, sortOrder: 3 },
-  { code: "APP", name: "Approved", color: "Green", description: "Approved by Manager/HR; progress accepted.", isTerminal: true, sortOrder: 4 },
-  { code: "REJ", name: "Rejected", color: "Orange", description: "Rejected by Manager/HR; progress returned for revision.", isTerminal: false, sortOrder: 5 },
-  { code: "CAN", name: "Cancelled", color: "Red", description: "Cancelled by the Employee or Manager (reason mandatory).", isTerminal: true, sortOrder: 6 },
-  { code: "OVERDUE", name: "Overdue", color: "Red (Warning)", description: "Past the hourly/daily/multi-day deadline.", isTerminal: false, sortOrder: 7 },
+  {
+    code: "REQ",
+    name: "Requested",
+    color: "White",
+    description:
+      "Newly allocated ticket, or not confirmed/planned before 08:30.",
+    isTerminal: false,
+    sortOrder: 1,
+  },
+  {
+    code: "ACT",
+    name: "Active",
+    color: "Yellow",
+    description: "Accepted and in progress.",
+    isTerminal: false,
+    sortOrder: 2,
+  },
+  {
+    code: "PEN",
+    name: "Pending",
+    color: "Blue",
+    description:
+      "Complete pressed, or multi-day task at 100% with report submitted.",
+    isTerminal: false,
+    sortOrder: 3,
+  },
+  {
+    code: "APP",
+    name: "Approved",
+    color: "Green",
+    description: "Approved by Manager/HR; progress accepted.",
+    isTerminal: true,
+    sortOrder: 4,
+  },
+  {
+    code: "REJ",
+    name: "Rejected",
+    color: "Orange",
+    description: "Rejected by Manager/HR; progress returned for revision.",
+    isTerminal: false,
+    sortOrder: 5,
+  },
+  {
+    code: "CAN",
+    name: "Cancelled",
+    color: "Red",
+    description: "Cancelled by the Employee or Manager (reason mandatory).",
+    isTerminal: true,
+    sortOrder: 6,
+  },
+  {
+    code: "OVERDUE",
+    name: "Overdue",
+    color: "Red (Warning)",
+    description: "Past the hourly/daily/multi-day deadline.",
+    isTerminal: false,
+    sortOrder: 7,
+  },
 ] as const;
 
 export const TICKET_STATE_BY_CODE: Record<TicketStateCode, TicketState> =
@@ -175,14 +226,70 @@ export const LEAVE_CODES_LIST: LeaveCode[] = LEAVE_CODES.map((c) => c.code);
 /*──────────────────────────── KPI point rules ────────────────────────────────*/
 
 export const KPI_POINT_RULES: KpiPointRule[] = [
-  { code: "KPI_ON_TIME_TICKET", event: "on_time_ticket", points: 10, description: "+10 per on-time ticket (APP).", isActive: true, sortOrder: 1 },
-  { code: "KPI_ON_TIME_URGENT", event: "on_time_urgent_ticket", points: 20, description: "+20 per on-time urgent ticket (APP).", isActive: true, sortOrder: 2 },
-  { code: "KPI_FIRST_TIME_APPROVAL", event: "first_time_approval", points: 5, description: "+5 per instance approved immediately without edits.", isActive: true, sortOrder: 3 },
-  { code: "KPI_PERFECT_ATTENDANCE", event: "perfect_attendance", points: 50, description: "+50 per month of excellent attendance.", isActive: true, sortOrder: 4 },
-  { code: "KPI_OVERDUE_TICKET", event: "overdue_ticket", points: -15, description: "-15 per overdue ticket (OVERDUE).", isActive: true, sortOrder: 5 },
-  { code: "KPI_RETURNED_TICKET", event: "returned_ticket", points: -5, description: "-5 per instance returned (REJ).", isActive: true, sortOrder: 6 },
-  { code: "KPI_EXTENSION_REQUEST", event: "extension_request", points: -2, description: "-2 per extension request.", isActive: true, sortOrder: 7 },
-  { code: "KPI_UNAPPROVED_LEAVE", event: "unapproved_leave", points: -10, description: "-10 per late/early instance or unapproved leave (UAL/USL).", isActive: true, sortOrder: 8 },
+  {
+    code: "KPI_ON_TIME_TICKET",
+    event: "on_time_ticket",
+    points: 10,
+    description: "+10 per on-time ticket (APP).",
+    isActive: true,
+    sortOrder: 1,
+  },
+  {
+    code: "KPI_ON_TIME_URGENT",
+    event: "on_time_urgent_ticket",
+    points: 20,
+    description: "+20 per on-time urgent ticket (APP).",
+    isActive: true,
+    sortOrder: 2,
+  },
+  {
+    code: "KPI_FIRST_TIME_APPROVAL",
+    event: "first_time_approval",
+    points: 5,
+    description: "+5 per instance approved immediately without edits.",
+    isActive: true,
+    sortOrder: 3,
+  },
+  {
+    code: "KPI_PERFECT_ATTENDANCE",
+    event: "perfect_attendance",
+    points: 50,
+    description: "+50 per month of excellent attendance.",
+    isActive: true,
+    sortOrder: 4,
+  },
+  {
+    code: "KPI_OVERDUE_TICKET",
+    event: "overdue_ticket",
+    points: -15,
+    description: "-15 per overdue ticket (OVERDUE).",
+    isActive: true,
+    sortOrder: 5,
+  },
+  {
+    code: "KPI_RETURNED_TICKET",
+    event: "returned_ticket",
+    points: -5,
+    description: "-5 per instance returned (REJ).",
+    isActive: true,
+    sortOrder: 6,
+  },
+  {
+    code: "KPI_EXTENSION_REQUEST",
+    event: "extension_request",
+    points: -2,
+    description: "-2 per extension request.",
+    isActive: true,
+    sortOrder: 7,
+  },
+  {
+    code: "KPI_UNAPPROVED_LEAVE",
+    event: "unapproved_leave",
+    points: -10,
+    description: "-10 per late/early instance or unapproved leave (UAL/USL).",
+    isActive: true,
+    sortOrder: 8,
+  },
 ] as const;
 
 export const KPI_POINT_RULE_BY_CODE: Record<string, KpiPointRule> =
