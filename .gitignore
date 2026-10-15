@@ -39,6 +39,7 @@ yarn-error.log*
 /backend/package-lock.json
 /frontend/bun.lock
 /backend/bun.lock
+/backend/app/bun.lock
 
 # vercel
 .vercel
