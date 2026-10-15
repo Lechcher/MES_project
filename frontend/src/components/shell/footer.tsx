@@ -1,14 +1,12 @@
-/**
- * Inverse charcoal footer — the only dark surface on the page (`DESIGN.md`).
- */
+"use client";
+
 export function Footer() {
   return (
-    <footer className="mt-auto bg-inverse-canvas text-inverse-ink-muted">
-      <div className="mx-auto flex w-full max-w-[1312px] flex-col gap-2 px-6 py-10 sm:flex-row sm:items-center sm:justify-between">
-        <p className="text-sm text-inverse-ink">MES Prototype</p>
-        <p className="text-xs">
-          Project planning, attendance, leave, and performance management —
-          mock data only.
+    <footer className="mt-auto border-t border-border bg-[#161616] text-[#ffffff] py-6">
+      <div className="flex flex-col items-center gap-1 px-4">
+        <p className="text-sm font-medium">MES Prototype</p>
+        <p className="text-xs text-[#8c8c8c]">
+          Mock-data prototype — no backend, no network, session clears on reload.
         </p>
       </div>
     </footer>

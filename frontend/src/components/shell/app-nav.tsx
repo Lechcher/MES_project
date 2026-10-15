@@ -1,122 +1,71 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname, useRouter } from "next/navigation";
-import { ChevronsUpDown, LogOut, RefreshCcw } from "lucide-react";
+import { useSession } from "@/lib/mock/session";
 import { Button } from "@/components/ui/button";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuGroup,
-  DropdownMenuItem,
-  DropdownMenuLabel,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
-import { visibleLauncherApps } from "@/lib/mock/permissions";
-import { useSession, useViewer } from "@/lib/mock/session";
-import { cn } from "@/lib/utils";
+import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem } from "@/components/ui/dropdown-menu";
 
-const APP_LABELS: Record<string, string> = {
-  jobs: "Jobs",
-  planning: "Planning",
-  performance: "Performance",
-  settings: "Settings",
+const APPS = [
+  { key: "dashboard", label: "Home", href: "/" },
+  { key: "jobs", label: "Jobs", href: "/jobs" },
+  { key: "planning", label: "Planning", href: "/planning" },
+  { key: "performance", label: "Performance", href: "/performance" },
+  { key: "settings", label: "Settings", href: "/settings" },
+];
+
+const APPS_ALLOWED: Record<string, string[]> = {
+  SUPER_ADMIN: ["dashboard", "jobs", "planning", "performance", "settings"],
+  TECH_LEAD: ["dashboard", "jobs", "planning", "performance", "settings"],
+  HR_MANAGER: ["dashboard", "jobs", "planning", "performance", "settings"],
+  DEPT_HEAD: ["dashboard", "jobs", "planning", "performance"],
+  EMPLOYEE: ["dashboard", "jobs", "planning", "performance"],
 };
 
 export function AppNav() {
-  const viewer = useViewer();
-  const { signOut } = useSession();
-  const pathname = usePathname();
-  const router = useRouter();
-
+  const { viewer, can, signOut } = useSession();
   if (!viewer) return null;
-
-  const navItems = [
-    { code: "dashboard", name: "Dashboard", href: "/" },
-    ...visibleLauncherApps(viewer).map((app) => ({
-      code: app.code as string,
-      name: APP_LABELS[app.code] ?? app.name,
-      href: app.href,
-    })),
-  ];
-
-  const isActive = (href: string) =>
-    href === "/" ? pathname === "/" : pathname.startsWith(href);
+  const role = viewer.roles[0]?.code ?? "EMPLOYEE";
+  const allowed = APPS_ALLOWED[role] ?? [];
 
   return (
-    <header className="sticky top-0 z-40 h-12 border-b border-border bg-background">
-      <div className="mx-auto flex h-full w-full max-w-[1312px] items-center gap-2 px-6">
-        <Link
-          href="/"
-          className="mr-2 text-sm font-semibold tracking-wide text-foreground"
-        >
-          MES
-        </Link>
-        <nav className="flex h-full items-center">
-          {navItems.map((item) => (
-            <Link
-              key={item.code}
-              href={item.href}
-              className={cn(
-                "flex h-full items-center border-b-2 border-transparent px-3 text-sm text-muted-foreground transition-colors hover:text-foreground",
-                isActive(item.href) && "border-primary font-medium text-foreground",
-              )}
-            >
-              {item.name}
-            </Link>
-          ))}
-        </nav>
-
-        <div className="ml-auto">
-          <DropdownMenu>
-            <DropdownMenuTrigger
-              render={
-                <Button variant="ghost" className="gap-2">
-                  <span className="text-sm font-medium text-foreground">
-                    {viewer.fullName}
-                  </span>
-                  <ChevronsUpDown className="size-4" />
-                </Button>
-              }
-            />
-            <DropdownMenuContent align="end" className="min-w-56">
-              <DropdownMenuGroup>
-                <DropdownMenuLabel>
-                  <span className="block text-sm font-medium text-foreground">
-                    {viewer.fullName}
-                  </span>
-                  <span className="block text-xs text-muted-foreground">
-                    {viewer.roles.map((role) => role.name).join(", ")}
-                  </span>
-                  <span className="block text-xs text-muted-foreground">
-                    {viewer.department?.name ?? "No department"}
-                  </span>
-                </DropdownMenuLabel>
-              </DropdownMenuGroup>
-              <DropdownMenuSeparator />
-              <DropdownMenuItem
-                onClick={() => {
-                  signOut();
-                  router.push("/signin");
-                }}
+    <nav className="sticky top-0 z-20 border-b border-border bg-background/95 backdrop-blur">
+      <div className="flex items-center justify-between px-4 py-2">
+        <div className="flex items-center gap-3">
+          <Link href="/" className="font-semibold tracking-tight">MES Prototype</Link>
+          <div className="hidden md:flex items-center gap-2">
+            {APPS.filter((a) => allowed.includes(a.key)).map((app) => (
+              <Link
+                key={app.key}
+                href={app.href}
+                className="text-sm font-medium text-foreground hover:text-primary transition-colors"
               >
-                <RefreshCcw className="size-4" />
+                {app.label}
+              </Link>
+            ))}
+          </div>
+        </div>
+        <div className="flex items-center gap-2">
+          <DropdownMenu>
+            <DropdownMenuTrigger>
+              <Button variant="outline" className="flex items-center gap-2 whitespace-nowrap">
+                <span className="text-sm">{viewer.fullName}</span>
+                <span className="text-xs text-muted-foreground">{viewer.roles[0]?.code}</span>
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="start">
+              <DropdownMenuItem className="text-sm">
+                {viewer.department?.name} &middot; {viewer.roles[0]?.code}
+              </DropdownMenuItem>
+              <DropdownMenuItem className="text-sm text-muted-foreground cursor-default" disabled>
                 Switch account
               </DropdownMenuItem>
-              <DropdownMenuItem
-                onClick={() => {
-                  signOut();
-                  router.push("/signin");
-                }}
-              >
-                <LogOut className="size-4" />
+              <DropdownMenuItem onClick={signOut} className="text-sm text-destructive">
                 Sign out
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
         </div>
       </div>
-    </header>
+    </nav>
   );
 }

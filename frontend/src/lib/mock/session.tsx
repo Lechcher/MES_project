@@ -6,6 +6,7 @@
  * `can(viewer, permissionCode)` enforces the Layer-2 permission grants seeded
  * in db.ts, mirroring the future backend's authorization.
  */
+"use client";
 
 import { createContext, useContext, useState, useCallback, ReactNode } from "react";
 import type { User, Permission, RoleCode } from "./types";

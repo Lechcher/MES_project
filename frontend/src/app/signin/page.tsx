@@ -1,70 +1,69 @@
 "use client";
 
+import { useState } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Button } from "@/components/ui/button";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
-import { demoUsers } from "@/lib/mock/db";
+import type { User } from "@/lib/mock/types";
+import { DEMO_ACCOUNTS } from "@/lib/mock/db";
 import { useSession } from "@/lib/mock/session";
-import { useMockVersion } from "@/lib/mock/use-store";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+
+const demoAccounts: User[] = DEMO_ACCOUNTS;
 
 export default function SignInPage() {
-  useMockVersion();
-  const { signIn } = useSession();
+  const { setViewer } = useSession();
   const router = useRouter();
-  const accounts = demoUsers();
+  const [error, setError] = useState("");
+
+  const signIn = (user: User) => {
+    setError("");
+    setViewer(user);
+    router.push("/");
+  };
 
   return (
-    <main className="min-h-screen bg-background">
-      <div className="mx-auto w-full max-w-[1056px] px-6 py-16">
-        <p className="text-xs tracking-widest text-muted-foreground uppercase">
-          MES Prototype
-        </p>
-        <h1 className="mt-3 text-4xl font-light text-foreground">
-          Sign in with a demo account
-        </h1>
-        <p className="mt-3 max-w-2xl text-sm text-muted-foreground">
-          No password is required in this mock-data prototype. Choose a role to
-          explore the apps exactly as that role sees them. The session is
-          ephemeral — reloading the page signs you out.
-        </p>
-
-        <div className="mt-10 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {accounts.map((account) => (
-            <Card key={account.id}>
-              <CardHeader>
-                <CardTitle>{account.fullName}</CardTitle>
-                <CardDescription>
-                  {account.roles.map((role) => role.name).join(", ")}
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="flex flex-col gap-2">
-                <p className="text-sm text-muted-foreground">{account.email}</p>
-                <p className="text-sm text-muted-foreground">
-                  {account.department?.name ?? "No department"}
-                </p>
-                <p className="font-mono text-xs text-muted-foreground">
-                  {account.roles.map((role) => role.code).join(", ")}
-                </p>
-                <Button
-                  className="mt-2"
-                  onClick={() => {
-                    signIn(account);
-                    router.push("/");
-                  }}
-                >
-                  Sign in as {account.roles[0].code}
-                </Button>
-              </CardContent>
-            </Card>
+    <div className="flex min-h-screen items-center justify-center bg-muted/50">
+      <Card className="w-full max-w-md shadow-none border border-border">
+        <CardHeader>
+          <CardTitle className="text-center">Sign in to MES Prototype</CardTitle>
+          <p className="text-center text-sm text-muted-foreground">
+            Select a demo account to establish your viewer session. No password
+            required — mock-data prototype.
+          </p>
+        </CardHeader>
+        <CardContent className="grid gap-2 p-4">
+          {error && (
+            <div className="text-sm text-destructive">{error}</div>
+          )}
+          {demoAccounts.map((account) => (
+            <Button
+              key={account.id}
+              variant="outline"
+              className="w-full justify-between text-left border border-border hover:bg-primary hover:text-primary-foreground"
+              onClick={() => signIn(account)}
+            >
+              <div className="flex items-center gap-2">
+                <span className="font-medium">{account.fullName}</span>
+                <span className="text-xs inline-block px-1.5 py-0.5 rounded border border-border">{account.userCode}</span>
+              </div>
+              <div className="flex flex-col items-end gap-0.5 text-xs">
+                <span className="font-medium">{account.roles[0]?.code}</span>
+                <span className="text-muted-foreground">{account.department?.name}</span>
+              </div>
+            </Button>
           ))}
+        </CardContent>
+        <div className="border-t border-border p-4 text-center text-xs text-muted-foreground">
+          MES Prototype &middot; mock data only &middot; session clears on reload
         </div>
-      </div>
-    </main>
+      </Card>
+      <Link
+        href="/"
+        className="absolute bottom-4 left-1/2 -translate-x-1/2 text-xs text-muted-foreground underline underline-offset-4 hover:text-foreground"
+      >
+        Back to home
+      </Link>
+    </div>
   );
 }

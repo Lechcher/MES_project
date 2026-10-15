@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { IBM_Plex_Sans } from "next/font/google";
 import { TooltipProvider } from "@/components/ui/tooltip";
+import { SessionProvider } from "@/lib/mock/session";
 import "./globals.css";
 
 const ibmPlexSans = IBM_Plex_Sans({
@@ -21,7 +22,9 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
       className={`${ibmPlexSans.variable} h-full antialiased`}
     >
       <body className="min-h-full flex flex-col">
-        <TooltipProvider>{children}</TooltipProvider>
+        <TooltipProvider>
+          <SessionProvider>{children}</SessionProvider>
+        </TooltipProvider>
       </body>
     </html>
   );

@@ -1,57 +1,46 @@
 "use client";
 
+import type { ExportFormat } from "@/lib/mock/types";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import {
-  Dialog,
-  DialogClose,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
-import type { MockExportDescriptor } from "@/lib/mock/services/shared";
 
-/**
- * One shared mock print/export result dialog. Every Print/Export button opens
- * this — it shows the would-be artifact and states plainly that no real file is
- * generated and no network request is made.
- */
-export function MockExportDialog({
-  result,
-  open,
-  onOpenChange,
-}: {
-  result: MockExportDescriptor | null;
+type MockExportDialogProps = {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-}) {
+  fileName: string;
+  format: ExportFormat;
+  mimeType: string;
+  scope?: string;
+  onClose?: () => void;
+};
+
+export function MockExportDialog({
+  open,
+  onOpenChange,
+  fileName,
+  format,
+  mimeType,
+  scope,
+  onClose,
+}: MockExportDialogProps) {
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent>
+      <DialogContent className="sm:max-w-md shadow-none border border-border">
         <DialogHeader>
-          <DialogTitle>Mock {result?.format ?? ""} result</DialogTitle>
+          <DialogTitle>Print / Export result</DialogTitle>
           <DialogDescription>
-            mock — no file generated. This prototype makes no network requests.
+            {`${fileName} &middot; ${format} &middot; ${mimeType}${scope ? ` &middot; ${scope}` : ""}`}
           </DialogDescription>
         </DialogHeader>
-
-        {result ? (
-          <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-2 text-sm">
-            <dt className="text-muted-foreground">Document</dt>
-            <dd className="font-mono break-all">{result.fileName}</dd>
-            <dt className="text-muted-foreground">Format</dt>
-            <dd>{result.format}</dd>
-            <dt className="text-muted-foreground">MIME type</dt>
-            <dd className="break-all">{result.mimeType}</dd>
-            <dt className="text-muted-foreground">Scope</dt>
-            <dd>{result.scopeNote}</dd>
-          </dl>
-        ) : null}
-
-        <DialogFooter>
-          <DialogClose render={<Button variant="outline" />}>Close</DialogClose>
-        </DialogFooter>
+        <p className="text-sm text-muted-foreground mb-4">
+          Mock result — no file generated and no network call. Print/export in
+          this prototype returns a descriptor only.
+        </p>
+        <div className="flex justify-end">
+          <Button onClick={() => { onOpenChange(false); onClose?.(); }} variant="outline">
+            Close
+          </Button>
+        </div>
       </DialogContent>
     </Dialog>
   );
