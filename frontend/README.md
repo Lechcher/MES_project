@@ -1,36 +1,45 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# MES Prototype — Frontend
 
-## Getting Started
+The web client for the **MES Prototype**: project planning, attendance, leave, and
+performance management. It is a [Next.js](https://nextjs.org) App Router
+application (Next.js 16, React 19) styled with Tailwind CSS v4 and built from
+shadcn + Base UI primitives.
 
-First, run the development server:
+## Running locally
 
 ```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+bun install
+bun run dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Open [http://localhost:3000](http://localhost:3000) to see the app.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+Other scripts:
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+| Script | Purpose |
+| --- | --- |
+| `bun run dev` | Start the development server. |
+| `bun run build` | Production build. |
+| `bun run start` | Serve the production build. |
+| `bun run lint` | Biome check (lint + format + import order). |
+| `bun run format` | Biome format, writing changes. |
 
-## Learn More
+## Mock data only
 
-To learn more about Next.js, take a look at the following resources:
+This frontend runs on a **typed, in-memory mock data layer** under
+`src/lib/mock/`. There is no backend integration: every screen reads from
+fixtures shaped by the GraphQL contract in
+[`../API_CONTACT_SPECIFICATION.md`](../API_CONTACT_SPECIFICATION.md), write
+actions mutate in-memory state only, and Print/Export produce mock results
+without generating real files. No network requests are made, and a page reload
+restores the seed data.
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+The mock layer is the seam where the real GraphQL client will plug in later: the
+per-module service functions (`src/lib/mock/services/*`) are the swap point, and
+the screens do not depend on the transport.
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+## Theme
 
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+The visual theme follows [`../DESIGN.md`](../DESIGN.md) — a light IBM
+Carbon-inspired system: white canvas, IBM Blue `#0f62fe` accent, flat-square 0px
+corners, IBM Plex Sans, and hairline borders.
