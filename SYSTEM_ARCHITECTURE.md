@@ -30,6 +30,7 @@ The system serves five roles: **Employee**, **Department Head**, **HR Manager**,
 | **Planning & Attendance** (`Planning`) | Matrix work calendar, attendance, acceptance-report approval, and leave registration. |
 | **Performance & Audit** (`Performance`) | Performance measurement that computes scores automatically from a fixed deterministic rule set. |
 | **Settings & IAM** (`Settings`) | Administration: authorization, organization management, and connection configuration. |
+| **Audit Log** (`AuditLog`) | Technical activity monitoring: system-wide and per-module inspection of the recorded audit trail. |
 
 Shared, system-wide code registries — **ticket state codes** and **leave codes** — give every app a common vocabulary (see §7 and §13).
 
@@ -60,10 +61,10 @@ The system is a core surrounded by apps. The core provides identity, authorizati
 │  - Global Leave Codes (AL, UAL, SL, USL, PL, ML, CL, EL, LWP, TOIL, VTO)│
 └───────────┬───────────────────┬───────────────────┬────────────────────┘
             │                   │                   │
-    ┌───────┴───────┐   ┌───────┴───────┐   ┌───────┴───────┐   ┌───────┴───────┐
-    │  App 1: Jobs  │   │App 2: Planning│   │App 3: Perform │   │App 4: Settings│
-    │  & Projects   │   │  & Attendance │   │  & KPI Audit  │   │    & IAM      │
-    └───────────────┘   └───────────────┘   └───────────────┘   └───────────────┘
+    ┌───────┴───────┐   ┌───────┴───────┐   ┌───────┴───────┐   ┌───────┴───────┐   ┌───────┴───────┐
+    │  App 1: Jobs  │   │App 2: Planning│   │App 3: Perform │   │App 4: Settings│   │ App 5: Audit  │
+    │  & Projects   │   │  & Attendance │   │  & KPI Audit  │   │    & IAM      │   │      Log      │
+    └───────────────┘   └───────────────┘   └───────────────┘   └───────────────┘   └───────────────┘
 ```
 
 **Core Base Module contents:**
@@ -85,7 +86,7 @@ The same system viewed as stacked layers, from what the user sees down to what i
 | Layer | Responsibility |
 | --- | --- |
 | **Presentation / UI rendering** | Renders the role-specific interface: the app dashboard, in-app tabs, data columns, action buttons, and print/export controls. Rendered from the authorization model, so each role sees a different assembly of the same features. |
-| **App / module layer** | Hosts the four capability apps (`Jobs`, `Planning`, `Performance`, `Settings`) and their domain behavior — task lifecycle, attendance and leave, scoring and audit views, and administration. |
+| **App / module layer** | Hosts the five capability apps (`Jobs`, `Planning`, `Performance`, `Settings`, `AuditLog`) and their domain behavior — task lifecycle, attendance and leave, scoring and audit views, administration, and technical activity monitoring. |
 | **Core-services layer** | Shared platform services supplied by the Core Base Module: permission evaluation, notification dispatch, deterministic performance calculation, and the shared code registries. |
 | **Data layer** | Holds the system's domain entities and their states: people and organizational units, projects and tickets with progress, acceptance and request records, attendance and leave records, performance summaries, and audit logs. |
 
@@ -122,6 +123,13 @@ Dependencies point inward: the presentation layer depends on the app layer, the 
 - **Responsibilities.** Manage the user directory; manage departments/divisions and the auto-forking mechanism; record system audit logs; configure notification/webhook settings.
 - **Key capabilities.** Account lifecycle management (view, create, edit, reset password, soft delete); organizational structure management; system audit logging; notification/webhook configuration (bot, alert group chat ID, webhook URL endpoints).
 - **Role-based interface visibility.** The app is fully hidden from Employees and Department Heads. HR Managers see the user directory only; authorization and webhook menus are hidden. Super Admins and Technical Leads see the complete technical configuration set.
+
+### 6.5 App 5 — Audit Log (`AuditLog`)
+
+- **Purpose.** The technical activity-monitoring center for inspecting the recorded audit trail.
+- **Responsibilities.** Surface the append-only audit event store to technical roles; present a system-wide activity stream and per-module activity; support filtering and export.
+- **Key capabilities.** System-wide activity stream over recorded events (user, action, resource, field changes, timestamp, IP address); per-module activity for each app module (`jobs`, `planning`, `performance`, `settings`, `audit-log`); filtering by module, user, action, resource type/id, and date range; Excel/CSV export of the filtered results. The app reads the same event store that the `Settings` app writes to and is read-only (append-only).
+- **Role-based interface visibility.** The app is visible only to Super Admins and Manager/Tech Leads; it is fully hidden from HR Manager, Department Head, and Employee.
 
 ---
 
@@ -189,6 +197,7 @@ The permission matrix maps roles to functions across the four apps. Its scope vo
 | **Planning** (matrix calendar, approve work/leave, register leave) | ✅ (All) | ✅ (All) | ✅ (Company-wide) | ✅ (Department-only) | ✅ (Personal detail) |
 | **Performance** (personal KPI, audit tables) | ✅ (All) | ✅ (All) | ✅ (Company-wide) | ✅ (Department-only) | ✅ (Personal KPI) |
 | **Settings & IAM** | ✅ (visible) | ✅ (hidden from Employees) | 🟡 (view users only) | ❌ (fully hidden) | ❌ (fully hidden) |
+| **Audit Log** (`AuditLog`) | ✅ (visible) | ✅ (visible) | ❌ (fully hidden) | ❌ (fully hidden) | ❌ (fully hidden) |
 
 **Notable asymmetries** that the architecture must preserve:
 
@@ -236,7 +245,7 @@ Owns the shared code vocabulary — ticket state codes (`REQ`, `ACT`, `PEN`, `AP
 
 ## 10. Cross-Cutting Concerns & Non-Functional Notes
 
-- **Auditability.** The Settings app records the full history of technical interventions — **user, action, field changes, timestamp, and IP address** — so administrative changes are traceable.
+- **Auditability.** State-changing and administrative activity is written to a single append-only audit store — **user, action, resource, field changes, timestamp, and IP address** — so changes are traceable. The `Settings` app writes these events; the `AuditLog` app provides the technical inspection surface (system-wide and per-module) over the same store.
 - **Notification.** State changes and approval events are delivered through the Telegram webhook; notification configuration (bot, alert group chat ID, webhook URL endpoints) is centralized in Settings.
 - **Report outputs.** Print outputs are standard PDF; spreadsheet exports are `.xlsx` and `.csv`. Print layouts include A4 (e.g. leave requests, KPI reports) and A4 Landscape (e.g. monthly attendance calendars). The multi-level audit export produces a workbook with one sheet per audit level.
 - **Timekeeping constraints.** Deadlines and transitions are rule-based: the daily planning/confirmation cutoff is **08:30**; urgent tasks use the hourly slots **10:30**, **14:00**, and **16:30**; daily tasks default to **17:00**/**18:00** the same day; multi-day tasks are tracked by accumulated progress with milestones at **25%**, **50%**, **75%**, and **100%**. A ticket becomes **OVERDUE** when it passes the relevant deadline.
@@ -253,7 +262,7 @@ The system has a single external integration: the **Telegram webhook**. The Tele
 
 ## 12. Extensibility & Future Modules
 
-Because capabilities are delivered as apps on top of the Core Base Module, new modules are embedded directly into the home dashboard without redesigning the core. The planned additions are:
+Because capabilities are delivered as apps on top of the Core Base Module, new modules are embedded directly into the home dashboard without redesigning the core. The Audit Log app (§6.5) was added this way and reads core services plus the existing audit store rather than reimplementing anything. The remaining planned additions are:
 
 1. **App Recruitment (`Recruitment`).** Manages the recruitment process and automatically creates an account in the `Settings` app when a candidate is hired.
 2. **App Payroll (`Payroll`).** Reads attendance data from the `Planning` app and KPI points from the `Performance` app to automatically compute and export the monthly payroll.
@@ -284,11 +293,12 @@ Each architecture section derives from the following section(s) of `SYSTEM_PROCE
 | 3. Architectural Principles | `CORE BASE MODULE` diagram; Standard Code Tables; RBAC & UI Rendering; App 3 scoring algorithm; per-app role-based display |
 | 4. Logical Architecture | `CORE BASE MODULE` diagram |
 | 5. Layered View | Synthesized from the core diagram, RBAC & UI Rendering, and the four app sections |
-| 6. Module Catalog | App 1 (Jobs & Projects), App 2 (Planning & Attendance), App 3 (Performance & Audit), App 4 (Settings & IAM) |
+| 6. Module Catalog | App 1 (Jobs & Projects), App 2 (Planning & Attendance), App 3 (Performance & Audit), App 4 (Settings & IAM), App 5 (Audit Log) |
+| 6.5 App 5 — Audit Log | App 5 (Audit Log) |
 | 7. Shared Domain Model | Ticket State Codes & Color Codes; Leave State Codes; App 1 state-transition flow |
 | 8. Authorization Architecture | RBAC & UI Rendering Mechanism; Detailed Access Control Matrix |
 | 9. Core Engines & Services | `CORE BASE MODULE` contents; App 3 quantitative scoring algorithm; App 1 auto-forking; per-app Print/Export Engine |
-| 10. Cross-Cutting Concerns | App 4 system audit logs; App 4 webhook settings; per-app Print/Export Engine; App 1 time/progress classification; App 2 leave workflow |
+| 10. Cross-Cutting Concerns | App 4 system audit logs; App 5 audit inspection; App 4 webhook settings; per-app Print/Export Engine; App 1 time/progress classification; App 2 leave workflow |
 | 11. Integration Points | App 4 Telegram Webhook Settings; `CORE BASE MODULE` notification engine |
 | 12. Extensibility & Future Modules | Future Module Expansion |
 | 13. Glossary of Codes | Ticket State Codes & Color Codes; Leave State Codes |

@@ -14,10 +14,10 @@ This document is structured entirely around a **Modular App-Based Engine (Odoo-l
 │  - Global Leave Codes (AL, UAL, SL, USL, PL, ML, CL, EL, LWP, TOIL, VTO)│
 └───────────┬───────────────────┬───────────────────┬────────────────────┘
             │                   │                   │
-    ┌───────┴───────┐   ┌───────┴───────┐   ┌───────┴───────┐   ┌───────┴───────┐
-    │  App 1: Jobs  │   │App 2: Planning│   │App 3: Perform │   │App 4: Settings│
-    │  & Projects   │   │  & Attendance │   │  & KPI Audit  │   │    & IAM      │
-    └───────────────┘   └───────────────┘   └───────────────┘   └───────────────┘
+    ┌───────┴───────┐   ┌───────┴───────┐   ┌───────┴───────┐   ┌───────┴───────┐   ┌───────┴───────┐
+    │  App 1: Jobs  │   │App 2: Planning│   │App 3: Perform │   │App 4: Settings│   │ App 5: Audit  │
+    │  & Projects   │   │  & Attendance │   │  & KPI Audit  │   │    & IAM      │   │      Log      │
+    └───────────────┘   └───────────────┘   └───────────────┘   └───────────────┘   └───────────────┘
 
 ```
 
@@ -92,6 +92,10 @@ The system manages access rights through **2 Layers of Control**:
 | **App Settings & IAM (`Settings`)**<br> | ✅ (Hidden from Employees) | ✅ (Hidden from Employees) | 🟡 (View Users only) | ❌ (Fully hidden) | ❌ (Fully hidden) |
 | • *Manage Accounts (Create/Edit/Reset/Lock)* | ✅ | ❌ | ✅ | ❌ | ❌ |
 | • *Manage RBAC Authorization & Webhook* | ✅ | ✅ | ❌ | ❌ | ❌ |
+| **App Audit Log (`AuditLog`)**<br> | ✅ (All) | ✅ (All) | ❌ (Fully hidden) | ❌ (Fully hidden) | ❌ (Fully hidden) |
+| • *View System-Wide Activity Stream* | ✅ | ✅ | ❌ | ❌ | ❌ |
+| • *View Per-Module Activity (each App module)* | ✅ | ✅ | ❌ | ❌ | ❌ |
+| • *Filter / Export Audit Events* | ✅ | ✅ | ❌ | ❌ | ❌ |
 
 ---
 
@@ -247,6 +251,27 @@ $$\text{Total Performance Score} = \text{Total Bonus Points (+)} - \text{Total P
 
 * **HR Manager:** Sees the *User Directory* menu for personnel management; the RBAC and Webhook menus are hidden.
 * **Technical Lead / Super Admin:** Shows 100% of all the technical configuration menus.
+
+---
+
+### 📱 APP 5: AUDIT LOG (`AuditLog`)
+
+
+
+> **Purpose:** The technical activity-monitoring center for inspecting system-wide and per-module activity recorded by the audit log.
+
+#### 1. Core Functions:
+
+* **System-Wide Activity Stream:** View every recorded audit event across all App modules (User, Action, Resource, Field Changes, Timestamp, IP Address), newest first.
+* **Per-Module Activity:** Inspect activity for a single App module (`jobs`, `planning`, `performance`, `settings`, `audit-log`), including an activity summary for that module (event count and most recent activity for the chosen period).
+* **Filtering:** Filter the activity stream by module, user, action, resource type, resource id, and date range.
+* **Export:** Export the currently filtered audit events to an Excel (`.xlsx`) or `.csv` file.
+* **Read-only / Append-only:** Audit events are append-only; the App offers no action to edit or delete a recorded event. The same event store also backs the Settings audit trail.
+
+#### 2. Functional Screens & Role-Based Display:
+
+* **Employee, Department Head & HR Manager:** The App icon is fully hidden on the Home Page Dashboard.
+* **Technical Lead / Super Admin:** Full access to the system-wide stream, per-module activity, filters, and export.
 
 ---
 

@@ -119,6 +119,7 @@ erDiagram
     system_audit_logs {
         uuid id PK
         uuid user_id FK
+        varchar module_code FK
         varchar action
         varchar resource_type
         varchar resource_id
@@ -403,6 +404,7 @@ erDiagram
     departments ||--o{ users : "department_id"
 
     modules ||--|{ permissions : "module_code"
+    modules ||--o{ system_audit_logs : "module_code"
     users ||--|{ user_roles : "user_id"
     roles ||--|{ user_roles : "role_id"
     roles ||--|{ role_permissions : "role_id"
@@ -603,6 +605,7 @@ erDiagram
     system_audit_logs {
         uuid id PK
         uuid user_id FK
+        varchar module_code FK
         varchar action
         varchar resource_type
         varchar resource_id
@@ -622,6 +625,7 @@ erDiagram
     }
 
     modules ||--|{ permissions : "module_code"
+    modules ||--o{ system_audit_logs : "module_code"
     users ||--|{ user_roles : "user_id"
     roles ||--|{ user_roles : "role_id"
     roles ||--|{ role_permissions : "role_id"

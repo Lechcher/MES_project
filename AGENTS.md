@@ -7,6 +7,7 @@
 - **Directories**:
   - `frontend/` — the web client (Next.js).
   - `backend/` — the API server (Bun + Elysia).
+- **App modules**: `Jobs`, `Planning`, `Performance`, `Settings & IAM`, `Audit Log` (module codes `jobs`, `planning`, `performance`, `settings`, `audit-log`).
 
 ## Stack
 

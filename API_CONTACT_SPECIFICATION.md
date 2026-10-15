@@ -1,6 +1,6 @@
 # API_CONTACT_SPECIFICATION.md
 
-> GraphQL API contract for the MES prototype. This document defines the **interface** between clients and the system: the transport and JSON wire format, how sessions are established, how the two-layer authorization model is expressed, the GraphQL type system, and every query and mutation for the four apps (`Jobs`, `Planning`, `Performance`, `Settings & IAM`) plus shared/core concerns.
+> GraphQL API contract for the MES prototype. This document defines the **interface** between clients and the system: the transport and JSON wire format, how sessions are established, how the two-layer authorization model is expressed, the GraphQL type system, and every query and mutation for the five apps (`Jobs`, `Planning`, `Performance`, `Settings & IAM`, `Audit Log`) plus shared/core concerns.
 
 This is a **contract specification**, not code. It contains GraphQL SDL and JSON examples only; it introduces no resolvers, schema file, SQL, or client codegen.
 
@@ -18,7 +18,7 @@ It is derived from, and should be read alongside:
 
 **API style.** A single **GraphQL** endpoint over HTTP, with **JSON** request and response payloads.
 
-**In scope:** API conventions and the JSON wire format; authentication and session operations; the authorization model and per-operation access; the GraphQL type system (scalars, enums, shared object types); queries and mutations for all four apps and for shared/core concerns; the error catalog; worked examples; and traceability back to the source documents.
+**In scope:** API conventions and the JSON wire format; authentication and session operations; the authorization model and per-operation access; the GraphQL type system (scalars, enums, shared object types); queries and mutations for all five apps and for shared/core concerns; the error catalog; worked examples; and traceability back to the source documents.
 
 **Out of scope:** implementation detail (resolvers, persistence, indexes, migrations); the concrete runtime stack beyond the transport and wire-format conventions this contract requires; REST/OpenAPI as an alternative surface; and any behavior, code, role, or value not described by the source documents. The planned apps `Recruitment`, `Payroll`, and `Assets` are noted as non-contractual extension points only.
 
@@ -268,12 +268,14 @@ An operation invoked by a role that lacks access returns `FORBIDDEN` (§8). A ro
 | **Planning** | `ALL` | `ALL` | `COMPANY_WIDE` | `DEPARTMENT_ONLY` | `PERSONAL` |
 | **Performance** | `ALL` | `ALL` | `COMPANY_WIDE` | `DEPARTMENT_ONLY` | `PERSONAL` |
 | **Settings & IAM** | visible | visible | user directory only | fully hidden | fully hidden |
+| **Audit Log** | visible | visible | fully hidden | fully hidden | fully hidden |
 
 ### 4.6 Documented asymmetries (must be preserved)
 
 - Only **HR Manager** and **Super Admin** can assign the penalty leave codes **`UAL`** / **`USL`**; Manager/Tech Lead and Department Head cannot (§6.2).
 - Only **Super Admin** and **Manager / Tech Lead** can manage RBAC authorization and the Telegram webhook configuration (§6.4).
 - HR Manager can manage accounts in the user directory but does **not** see the RBAC or webhook menus.
+- The **Audit Log** app is visible only to **Super Admin** and **Manager / Tech Lead**; it is fully hidden from HR Manager, Department Head, and Employee (§6.5), even though HR can view the audit trail in the user directory.
 - Department Head never sees the company-wide audit levels; Employee never sees any audit level above their personal KPI.
 - An Employee cannot create tickets allocated to others (no `createTask` access).
 
@@ -1307,6 +1309,58 @@ extend type Mutation {
 
 Access rules (preserved): the app is fully hidden from Employee and Department Head; HR Manager sees the user directory only (RBAC and webhook are hidden); Super Admin and Manager/Tech Lead see the full technical configuration set. The system audit log records user, action, field changes, timestamp, and IP address.
 
+### 6.5 Audit Log
+
+The technical activity-monitoring app. It exposes a system-wide activity stream and per-module activity over the append-only audit event store, with filtering and export. It is accessible only to Super Admin and Manager/Tech Lead, and reads the same `system_audit_logs` store that backs `systemAuditLogs` in §6.4.
+
+#### Types
+
+```graphql
+type ModuleActivitySummary {
+  moduleCode: String!
+  moduleName: String!
+  eventCount: Int!
+  lastActivityAt: DateTime
+}
+```
+
+`SystemAuditLog` and `SystemAuditLogConnection` are defined in §6.4 and reused here.
+
+#### Inputs
+
+```graphql
+input ModuleAuditFilter {
+  moduleCode: String
+  userId: ID
+  action: String
+  resourceType: String
+  resourceId: String
+  fromDate: DateTime
+  toDate: DateTime
+}
+```
+
+#### Operations
+
+| Operation | Type | Signature | Roles | Scope |
+| --- | --- | --- | --- | --- |
+| `auditLogs` | query | `(filter: ModuleAuditFilter, offset, limit): SystemAuditLogConnection!` | SA, TL | `ALL`; system-wide activity stream |
+| `moduleActivity` | query | `(filter: ModuleAuditFilter): [ModuleActivitySummary!]!` | SA, TL | `ALL`; per-module activity summary |
+| `exportAuditLogs` | mutation | `(filter: ModuleAuditFilter, format: ExportFormat = XLSX): ExportResult!` | SA, TL | `ALL`; `.xlsx` / `.csv` |
+
+```graphql
+extend type Query {
+  auditLogs(filter: ModuleAuditFilter, offset: Int = 0, limit: Int = 20): SystemAuditLogConnection!
+  moduleActivity(filter: ModuleAuditFilter): [ModuleActivitySummary!]!
+}
+
+extend type Mutation {
+  exportAuditLogs(filter: ModuleAuditFilter, format: ExportFormat = XLSX): ExportResult!
+}
+```
+
+Access rules: the app is fully hidden from HR Manager, Department Head, and Employee; only Super Admin and Manager/Tech Lead can read the stream, view per-module activity, or export. The app is read-only over an append-only store — no operation edits or deletes a recorded audit event. `moduleCode` filtering and per-module grouping use the registered module codes (`jobs`, `planning`, `performance`, `settings`, `audit-log`); events with no module are treated as unattributed.
+
 ---
 
 ## 7. Shared & Core APIs
@@ -1517,6 +1571,7 @@ Response (caller is a Department Head, who cannot assign `UAL`/`USL`):
 | 6.2 Planning & Attendance | `SYSTEM_PROCESS_FLOW-en.md` App 2 + leave-state codes; `SYSTEM_ARCHITECTURE.md` §6.2, §10 (attendance rules); `DATABASE_SCHEMA_EXAMPLE_OPTIMIZED.sql` `attendance_records`, `leave_requests`, `leave_balance_entries`, `overtime_records`, `v_user_leave_balances`. |
 | 6.3 Performance & Audit | `SYSTEM_PROCESS_FLOW-en.md` App 3 (scoring algorithm, Tables 1–3); `SYSTEM_ARCHITECTURE.md` §6.3, §9.3; `DATABASE_SCHEMA_EXAMPLE_OPTIMIZED.sql` `kpi_point_rules`, `kpi_score_events`, `kpi_monthly_summaries`, `v_kpi_audit_level1_company`, `v_kpi_audit_level2_department`, `v_kpi_audit_level3_employee`. |
 | 6.4 Settings & IAM | `SYSTEM_PROCESS_FLOW-en.md` App 4; `SYSTEM_ARCHITECTURE.md` §6.4, §10 (auditability, notification); `DATABASE_SCHEMA_EXAMPLE_OPTIMIZED.sql` `system_audit_logs`, `app_settings`, `notifications`, `roles`, `permissions`, `role_permissions`, `modules`. |
+| 6.5 Audit Log | `SYSTEM_PROCESS_FLOW-en.md` App 5; `SYSTEM_ARCHITECTURE.md` §6.5, §10 (auditability); `DATABASE_SCHEMA_EXAMPLE_OPTIMIZED.sql` `system_audit_logs` (`module_code`), `modules`. |
 | 7. Shared & Core APIs | `SYSTEM_ARCHITECTURE.md` §9.5 (Print/Export Engine), §9.6 (Global State & Leave Code Registry), §9.2 (Telegram Webhook Notification Engine), §11; `SYSTEM_PROCESS_FLOW-en.md` Print/Export per app; `DATABASE_SCHEMA_EXAMPLE_OPTIMIZED.sql` `ticket_states`, `leave_codes`, `notifications`. |
 | 8. Errors | Design D7; `SYSTEM_ARCHITECTURE.md` §8 (authorization outcomes). |
 | 9. Examples | Illustrative of §2–§7; no new behavior. |

@@ -14,13 +14,14 @@
 6. [Leave-Request Workflow](#6-leave-request-workflow)
 7. [Authorization / RBAC Decision Flow](#7-authorization--rbac-decision-flow)
 8. [KPI & Audit Data Flow](#8-kpi--audit-data-flow)
-9. [Extensibility Roadmap](#9-extensibility-roadmap)
+9. [Audit Log Data Flow](#9-audit-log-data-flow)
+10. [Extensibility Roadmap](#10-extensibility-roadmap)
 
 ---
 
 ## 1. System & Module Map
 
-The Core Base Module provides shared platform services; the four apps plug into it.
+The Core Base Module provides shared platform services; the five apps plug into it.
 
 ```mermaid
 flowchart TD
@@ -37,11 +38,13 @@ flowchart TD
     P["App 2: Planning & Attendance"]
     F["App 3: Performance & Audit"]
     S["App 4: Settings & IAM"]
+    A["App 5: Audit Log"]
 
     CORE --> J
     CORE --> P
     CORE --> F
     CORE --> S
+    CORE --> A
 ```
 
 *Source:* `SYSTEM_ARCHITECTURE.md` §2 (System Overview & Context) and §4 (Logical Architecture); `SYSTEM_PROCESS_FLOW-en.md` — the `CORE BASE MODULE` diagram.
@@ -59,7 +62,7 @@ flowchart TB
     end
 
     subgraph L2["App / module layer"]
-        APPS["Jobs | Planning | Performance | Settings"]
+        APPS["Jobs | Planning | Performance | Settings | AuditLog"]
     end
 
     subgraph L3["Core-services layer"]
@@ -98,11 +101,13 @@ flowchart LR
     P["Planning"]
     F["Performance"]
     S["Settings"]
+    A["Audit Log"]
 
     E1 --> J
     E1 --> P
     E1 --> F
     E1 --> S
+    E1 --> A
 
     E2 --> J
     E2 --> P
@@ -114,6 +119,7 @@ flowchart LR
     E5 --> J
     E5 --> P
     E5 --> F
+    E5 --> A
 
     E6 --> J
     E6 --> P
@@ -247,6 +253,7 @@ The two-layer guard: which apps a role may open, then which views and actions re
 flowchart TD
     ROLE["Role"] --> L1{"Layer 1 - App-level access guard: which apps can this role open?"}
     L1 --> APPS["Render app icons on the home dashboard"]
+    L1 --> AUDIT["App 5: Audit Log - granted to Super Admin and Manager / Tech Lead only"]
     APPS --> L2{"Layer 2 - View / action-level access guard: which tabs, columns, buttons, and exports render?"}
     L2 --> VIEW["Render the role-specific interface"]
 
@@ -306,7 +313,41 @@ flowchart LR
 
 ---
 
-## 9. Extensibility Roadmap
+## 9. Audit Log Data Flow
+
+How every app module's state-changing and administrative actions feed the shared, module-attributed audit store that the Audit Log app inspects.
+
+```mermaid
+flowchart LR
+    subgraph MODS["App modules (event sources)"]
+        J["Jobs"]
+        P["Planning"]
+        F["Performance"]
+        S["Settings"]
+        AL["Audit Log"]
+    end
+
+    EV["Audit events - append-only: user, action, resource, field changes, timestamp, IP address"]
+    STORE[("Audit event store - module-attributed")]
+
+    J -->|state changes| EV
+    P -->|state changes| EV
+    F -->|state changes| EV
+    S -->|admin / config changes| EV
+    AL -->|inspection actions| EV
+    EV --> STORE
+
+    STORE --> GATE["Layer 1 gate - Super Admin & Manager / Tech Lead only"]
+    GATE --> STREAM["System-wide activity stream"]
+    GATE --> AGG["Per-module activity - jobs, planning, performance, settings, audit-log"]
+    GATE --> EXP["Filtered export (.xlsx / .csv)"]
+```
+
+*Source:* `SYSTEM_ARCHITECTURE.md` §6.5 (Audit Log), §2 and §10 (auditability); `SYSTEM_PROCESS_FLOW-en.md` — App 5 (Audit Log).
+
+---
+
+## 10. Extensibility Roadmap
 
 Planned apps (dashed) plug into the existing core and reuse other apps' data.
 
@@ -320,11 +361,13 @@ flowchart TD
     P["Planning"]
     F["Performance"]
     S["Settings"]
+    A["Audit Log"]
 
     CORE --> J
     CORE --> P
     CORE --> F
     CORE --> S
+    CORE --> A
 
     REC["Recruitment (planned)"]
     PAY["Payroll (planned)"]
@@ -347,4 +390,4 @@ flowchart TD
 
 ---
 
-*Dashed nodes in Diagram 9 denote planned (not yet present) modules. All other diagrams depict the current architecture.*
+*Dashed nodes in Diagram 10 denote planned (not yet present) modules. All other diagrams depict the current architecture.*

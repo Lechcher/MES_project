@@ -212,6 +212,7 @@ CREATE TABLE IF NOT EXISTS role_permissions (
 CREATE TABLE IF NOT EXISTS system_audit_logs (
     id            UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     user_id       UUID REFERENCES users(id) ON DELETE SET NULL,
+    module_code   VARCHAR(30) REFERENCES modules(code) ON DELETE SET NULL,  -- originating app module (nullable; NULL = unattributed)
     action        VARCHAR(100) NOT NULL,           -- USER_LOCK, PERMISSION_CHANGE, TASK_CANCEL, ...
     resource_type VARCHAR(50)  NOT NULL,           -- USER, TASK, LEAVE, PERMISSION, ...
     resource_id   VARCHAR(100),
@@ -221,6 +222,9 @@ CREATE TABLE IF NOT EXISTS system_audit_logs (
     user_agent    TEXT,
     created_at    TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
+
+-- Idempotent migration for databases created before module attribution existed.
+ALTER TABLE system_audit_logs ADD COLUMN IF NOT EXISTS module_code VARCHAR(30) REFERENCES modules(code) ON DELETE SET NULL;
 
 -- -----------------------------------------------------------------------------
 -- 7. JOBS & PROJECTS
@@ -564,6 +568,9 @@ FROM kpi_monthly_summaries s
 JOIN users u       ON u.id = s.user_id
 JOIN departments d ON d.id = u.department_id;
 
+-- Note: per-module audit activity is served by queries over system_audit_logs
+-- using idx_audit_module / idx_audit_module_created; no dedicated rollup view is defined.
+
 -- -----------------------------------------------------------------------------
 -- 12. INDEXES
 -- -----------------------------------------------------------------------------
@@ -582,6 +589,8 @@ CREATE INDEX IF NOT EXISTS idx_role_permissions_permission ON role_permissions(p
 CREATE INDEX IF NOT EXISTS idx_audit_user                ON system_audit_logs(user_id);
 CREATE INDEX IF NOT EXISTS idx_audit_resource            ON system_audit_logs(resource_type, resource_id);
 CREATE INDEX IF NOT EXISTS idx_audit_created             ON system_audit_logs(created_at);
+CREATE INDEX IF NOT EXISTS idx_audit_module              ON system_audit_logs(module_code);
+CREATE INDEX IF NOT EXISTS idx_audit_module_created      ON system_audit_logs(module_code, created_at);
 
 -- Jobs
 CREATE INDEX IF NOT EXISTS idx_projects_department    ON projects(department_id);
@@ -676,7 +685,8 @@ INSERT INTO modules (code, name, description, sort_order) VALUES
     ('jobs',        'Jobs & Projects',      'Task assignment, progress and acceptance.',        1),
     ('planning',    'Planning & Attendance','Matrix calendar, attendance and leave.',           2),
     ('performance', 'Performance & Audit',  'Deterministic KPI scoring and audit tables.',      3),
-    ('settings',    'Settings & IAM',       'Authorization, organization and configuration.',   4)
+    ('settings',    'Settings & IAM',       'Authorization, organization and configuration.',   4),
+    ('audit-log',   'Audit Log',            'Technical monitoring of system-wide and per-module activity.', 5)
 ON CONFLICT (code) DO NOTHING;
 
 -- Roles
@@ -707,7 +717,10 @@ INSERT INTO permissions (code, module_code, description) VALUES
     ('performance.print_export',      'performance', 'Print / export KPI and audit reports.'),
     ('settings.users.manage',         'settings',    'Manage accounts (create/edit/reset/lock).'),
     ('settings.rbac.manage',          'settings',    'Manage RBAC authorization.'),
-    ('settings.webhook.manage',       'settings',    'Manage the Telegram webhook configuration.')
+    ('settings.webhook.manage',       'settings',    'Manage the Telegram webhook configuration.'),
+    ('auditlog.view',                 'audit-log',   'View the system-wide activity stream.'),
+    ('auditlog.module.view',          'audit-log',   'View per-module activity.'),
+    ('auditlog.export',               'audit-log',   'Export filtered audit events.')
 ON CONFLICT (code) DO NOTHING;
 
 -- KPI point rules (documented bonus / penalty values)
@@ -734,7 +747,8 @@ WHERE
     OR (r.code = 'TECH_LEAD' AND p.code <> 'settings.users.manage')
     -- HR Manager: all app functions; user directory only in Settings
     OR (r.code = 'HR_MANAGER'
-        AND p.code NOT IN ('settings.rbac.manage', 'settings.webhook.manage'))
+        AND p.code NOT IN ('settings.rbac.manage', 'settings.webhook.manage')
+        AND p.module_code <> 'audit-log')
     -- Department Head: department-scoped app functions; Settings hidden
     OR (r.code = 'DEPT_HEAD' AND p.code IN (
         'jobs.ticket.create', 'jobs.ticket.accept_report', 'jobs.ticket.approve_return',

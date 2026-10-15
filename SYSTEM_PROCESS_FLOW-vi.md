@@ -14,10 +14,10 @@ Tài liệu được cấu trúc hoàn toàn theo **Kiến trúc Mô-đun hóa (
 │  - Global Leave Codes (AL, UAL, SL, USL, PL, ML, CL, EL, LWP, TOIL, VTO)│
 └───────────┬───────────────────┬───────────────────┬────────────────────┘
             │                   │                   │
-    ┌───────┴───────┐   ┌───────┴───────┐   ┌───────┴───────┐   ┌───────┴───────┐
-    │  App 1: Jobs  │   │App 2: Planning│   │App 3: Perform │   │App 4: Settings│
-    │  & Projects   │   │  & Attendance │   │  & KPI Audit  │   │    & IAM      │
-    └───────────────┘   └───────────────┘   └───────────────┘   └───────────────┘
+    ┌───────┴───────┐   ┌───────┴───────┐   ┌───────┴───────┐   ┌───────┴───────┐   ┌───────┴───────┐
+    │  App 1: Jobs  │   │App 2: Planning│   │App 3: Perform │   │App 4: Settings│   │ App 5: Audit  │
+    │  & Projects   │   │  & Attendance │   │  & KPI Audit  │   │    & IAM      │   │      Log      │
+    └───────────────┘   └───────────────┘   └───────────────┘   └───────────────┘   └───────────────┘
 
 ```
 
@@ -92,6 +92,10 @@ Hệ thống quản lý quyền truy cập qua **2 Lớp Kiểm soát**:
 | **App Settings & IAM (`Settings`)**<br> | ✅ (Ẩn với NV) | ✅ (Ẩn với NV) | 🟡 (Chỉ xem User) | ❌ (Ẩn hoàn toàn) | ❌ (Ẩn hoàn toàn) |
 | • *Quản lý Tài khoản (Tạo/Sửa/Reset/Lock)* | ✅ | ❌ | ✅ | ❌ | ❌ |
 | • *Quản lý Phân quyền RBAC & Webhook* | ✅ | ✅ | ❌ | ❌ | ❌ |
+| **App Audit Log (`AuditLog`)**<br> | ✅ (Toàn bộ) | ✅ (Toàn bộ) | ❌ (Ẩn hoàn toàn) | ❌ (Ẩn hoàn toàn) | ❌ (Ẩn hoàn toàn) |
+| • *Xem Luồng Hoạt động Toàn Hệ thống* | ✅ | ✅ | ❌ | ❌ | ❌ |
+| • *Xem Hoạt động Theo Từng Module (mỗi App)* | ✅ | ✅ | ❌ | ❌ | ❌ |
+| • *Lọc / Xuất Sự kiện Audit* | ✅ | ✅ | ❌ | ❌ | ❌ |
 
 ---
 
@@ -247,6 +251,27 @@ $$\text{Tổng Điểm Hiệu Suất} = \text{Tổng Điểm Cộng (+)} - \text
 
 * **HR Manager:** Thấy menu *User Directory* để quản lý nhân sự; Bị ẩn menu RBAC và Webhook.
 * **Technical Lead / Super Admin:** Hiển thị 100% đầy đủ tất cả menu cấu hình kỹ thuật.
+
+---
+
+### 📱 APP 5: AUDIT LOG (`AuditLog`)
+
+
+
+> **Mục đích:** Trung tâm giám sát hoạt động kỹ thuật để tra cứu hoạt động toàn hệ thống và theo từng App module từ nhật ký kiểm toán (audit log).
+
+#### 1. Các Chức năng Core:
+
+* **Luồng Hoạt động Toàn Hệ thống (System-Wide Activity Stream):** Xem mọi sự kiện audit đã ghi nhận trên tất cả App module (User, Action, Resource, Field Changes, Timestamp, IP Address), mới nhất trước.
+* **Hoạt động Theo Từng Module (Per-Module Activity):** Tra cứu hoạt động của một App module (`jobs`, `planning`, `performance`, `settings`, `audit-log`), kèm tóm tắt hoạt động của module đó (số lượng sự kiện và hoạt động gần nhất theo khoảng thời gian đã chọn).
+* **Bộ lọc (Filtering):** Lọc luồng hoạt động theo module, người dùng, hành động, loại/tài nguyên và khoảng thời gian.
+* **Xuất (Export):** Xuất các sự kiện audit đang được lọc ra file Excel (`.xlsx`) hoặc `.csv`.
+* **Chỉ đọc / Append-only:** Sự kiện audit là append-only; App không có thao tác sửa hay xóa sự kiện đã ghi. Cùng một kho sự kiện cũng chính là nền tảng cho nhật ký audit trong App `Settings`.
+
+#### 2. Màn hình Chức năng & Hiển thị theo Vai trò:
+
+* **Nhân viên, Trưởng ban & HR Manager:** Icon App bị ẩn hoàn toàn trên Home Page Dashboard.
+* **Technical Lead / Super Admin:** Toàn quyền xem luồng toàn hệ thống, hoạt động theo module, bộ lọc và xuất dữ liệu.
 
 ---
 
