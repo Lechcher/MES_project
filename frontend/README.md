@@ -1,37 +1,36 @@
-# MES Prototype — Frontend
-
-A Next.js 16 (App Router) frontend prototype for the MES (project planning, attendance, leave, and performance management) system. It runs entirely on a typed in-memory mock data layer — no backend, no network calls, no real authentication.
+This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
 
 ## Getting Started
 
-Install dependencies:
+First, run the development server:
 
 ```bash
-bun install
+npm run dev
+# or
+yarn dev
+# or
+pnpm dev
+# or
+bun dev
 ```
 
-Run the development server:
+Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
 
-```bash
-bun run dev
-```
+You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the app.
+This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
 
-Available scripts (match `frontend/package.json`):
+## Learn More
 
-| Script | Purpose |
-|--------|---------|
-| `bun run dev` | Start the Next.js dev server |
-| `bun run build` | Build for production |
-| `bun run start` | Start the production server |
-| `bun run lint` | Run Biome lint |
-| `bun run format` | Run Biome formatter (write) |
+To learn more about Next.js, take a look at the following resources:
 
-## Mock data only
+- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
+- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
 
-Every screen is powered by the mock layer under `frontend/src/lib/mock/`. Mutations mutate in-memory state and vanish on reload. Print/export produces a mock result dialog — no real files, no network. This lets every role view and flow be demonstrated immediately, with a typed seam ready for the future GraphQL client.
+You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
 
-## Sign in
+## Deploy on Vercel
 
-Without a viewer established, app routes redirect to `/signin`, which offers one demo account per role (`SUPER_ADMIN`, `TECH_LEAD`, `HR_MANAGER`, `DEPT_HEAD`, `EMPLOYEE`). Selecting an account establishes the viewer for the session; reloading clears it.
+The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+
+Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.

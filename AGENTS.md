@@ -27,10 +27,7 @@
 
 ## Design
 
-The visual theme is a light IBM Carbon-inspired interface (white canvas,
-IBM Blue #0f62fe accent, flat-square 0px corners, IBM Plex Sans typography,
-hairline borders, footer-only inversion). For color palette, component
-styling, typography, and layout, see [**`DESIGN.md`**](DESIGN.md).
+The visual theme is a dark, data-dashboard interface (dark background, cyan data accent, monospaced KPI numbers). For color palette, component styling, typography, and layout, see [**`DESIGN.md`**](DESIGN.md).
 
 This project uses **shadcn** for UI components (configured in `frontend/components.json`, with primitives under `frontend/src/components/ui/`). **Prefer shadcn components over native TSX/HTML tags**: add components with the shadcn CLI instead of writing raw markup, and compose or extend the existing primitives rather than re-implementing them. Use a native tag only when no shadcn component (or a thin wrapper around one) fits, and keep any such tag styled with Tailwind.
 
