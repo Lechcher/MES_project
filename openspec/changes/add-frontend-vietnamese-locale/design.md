@@ -150,29 +150,29 @@ diff of the route table in `next build` output against the pre-change table.
 
 ## Risks / Trade-offs
 
-- **Route relocation breaks prerender or the static-segment checks.** → Tasks
-  1.x move the tree and immediately run `bun run build` comparing the route
-  table (`○`/`◐`/`ƒ`) before any copy is extracted; a regression is caught
-  before ~200 strings are touched.
+- **Route relocation breaks prerender or the static-segment checks.** → Task
+  1.5 moves the tree and immediately runs `bun run build` comparing the route
+  table (`○`/`◐`/`ƒ`) against the pre-move build, before any copy is extracted,
+  so a regression is caught before ~200 strings are touched.
 - **A `next/link` or `useRouter` left behind navigates to a locale-less URL.**
-  → All navigation imports are replaced by `@/i18n/navigation` re-exports in
-  task 1.x, and a grep gate (task 7.4) fails if any component still imports
-  `next/link` or `next/navigation`.
+  → Task 1.6 replaces every navigation import with the `@/i18n/navigation`
+  re-exports and gates on a grep for `next/link` and `next/navigation`, which is
+  task 7.4's final re-run across the whole surface.
 - **Copy extraction is large and easy to get wrong per screen.** → Extraction is
-  grouped per module (groups 2–5), each group verified in both locales in the
+  grouped per surface (groups 3–5), each group verified in both locales in the
   browser before the next starts.
 - **Vietnamese strings are longer and can overflow tables/badges.** → The
   existing compact-badge truncation and hover-title behavior is reused for
-  Vietnamese; task 6.3 walks the dense surfaces (badges, calendar cells, nav) in
+  Vietnamese; task 6.2 walks the dense surfaces (badges, calendar cells, nav) in
   Vietnamese and checks overflow.
 - **`useTranslations` inside the registry would break its current
-  non-Component call sites.** → The registry helpers become hooks plus a
-  server-side variant; task 2.2 asserts no label helper is called from a
-  plain-function context, and the typecheck catches leftovers.
+  non-Component call sites.** → Task 2.2 makes the registry helpers hooks plus a
+  server-side variant, and the typecheck catches any leftover plain-function
+  call site.
 - **A missing Vietnamese entry silently renders English.** → The key-parity test
-  (task 6.1) and the extended coverage test (task 2.3) both fail on a missing
+  (task 6.3) and the extended coverage test (task 2.3) both fail on a missing
   translation, per the specs.
-- **The proxy matcher may swallow the API/SSE routes.** → Task 1.3 verifies
+- **The proxy matcher may swallow the API/SSE routes.** → Task 1.4 verifies
   `/api/mes/graphql`, `/api/mes/session`, and the SSE endpoint still respond
   un-prefixed and un-localized.
 
