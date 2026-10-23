@@ -21,7 +21,11 @@
 --       broader index coverage, and idempotent seed data
 --
 -- Scope
---   Reference schema only. PostgreSQL dialect. Idempotent: safe to re-run
+--   Reference schema only. PostgreSQL dialect. The running prototype stores
+--   the same model in SQLite through Drizzle ORM; the Drizzle schema in
+--   backend/src/db/schema.ts is authoritative at runtime. Session and
+--   password-reset token tables belong to the auth library and are not
+--   modelled here. Idempotent: safe to re-run
 --   (CREATE ... IF NOT EXISTS / OR REPLACE, and ON CONFLICT DO NOTHING seeds).
 --   Planned modules (Recruitment, Payroll, Assets) are represented by the
 --   `modules` registry extension point only; their domain tables are out of scope.
@@ -262,8 +266,12 @@ CREATE TABLE IF NOT EXISTS tasks (
     end_date            TIMESTAMPTZ,               -- Deadline / expiration
     extended_deadline   TIMESTAMPTZ,               -- Deadline after an approved extension
 
-    -- Progress (multi-day tasks: 0 -> 100)
+    -- Progress (multi-day tasks: derived from the approved stage ledger; 0 -> 100)
     progress_percentage SMALLINT NOT NULL DEFAULT 0 CHECK (progress_percentage BETWEEN 0 AND 100),
+
+    -- Multi-day only: how many stages the assignee expects the job to take.
+    -- Progress is derived from approved MILESTONE completion requests against it.
+    planned_stage_count  SMALLINT CHECK (planned_stage_count IS NULL OR planned_stage_count > 0),
 
     -- Flags / warnings
     is_urgent_hourly    BOOLEAN NOT NULL DEFAULT FALSE,
@@ -321,14 +329,45 @@ CREATE TABLE IF NOT EXISTS task_requests (
 -- Normalized attachment store (replaces repeated attachment_urls JSONB blobs)
 CREATE TABLE IF NOT EXISTS attachments (
     id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    owner_type  VARCHAR(40) NOT NULL,              -- TASK_PROGRESS, TASK_REQUEST, LEAVE_REQUEST, ...
+    owner_type  VARCHAR(40) NOT NULL,              -- TASK, TASK_REQUEST, TASK_COMPLETION_REQUEST,
+                                                   -- TASK_COMPLETION_DECISION, LEAVE_REQUEST, ...
     owner_id    UUID NOT NULL,
-    url         TEXT NOT NULL,
+    url         TEXT NOT NULL,                     -- object key: tasks/<task_id>/<uuid>-<file name>
     file_name   VARCHAR(255),
     mime_type   VARCHAR(120),
+    size_bytes  BIGINT,                            -- byte length, shown in the UI without a read
     uploaded_by UUID REFERENCES users(id) ON DELETE SET NULL,
     created_at  TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
+
+-- One submitted work stage awaiting (or carrying) an approval decision.
+-- The journey list is the progress ledger: state reuses the ticket codes
+-- (PEN awaiting review, APP approved, REJ sent back), scope is MILESTONE for a
+-- multi-day stage or FULL_JOB for the whole ticket, and a FULL_JOB approval is
+-- the completion signal (no 100% progress gate).
+CREATE TABLE IF NOT EXISTS task_completion_requests (
+    id                  UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    task_id             UUID NOT NULL REFERENCES tasks(id) ON DELETE CASCADE,
+    requested_by        UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    scope               VARCHAR(20) NOT NULL CHECK (scope IN ('MILESTONE', 'FULL_JOB')),
+    title               VARCHAR(255) NOT NULL,
+    description         TEXT,
+    declared_progress   SMALLINT CHECK (declared_progress IS NULL OR declared_progress BETWEEN 0 AND 100),
+    planned_stage_count SMALLINT CHECK (planned_stage_count IS NULL OR planned_stage_count > 0),
+    state               VARCHAR(10) NOT NULL DEFAULT 'PEN' REFERENCES ticket_states(code)
+                        CHECK (state IN ('PEN', 'APP', 'REJ')),
+    decided_by          UUID REFERENCES users(id) ON DELETE SET NULL,
+    decided_at          TIMESTAMPTZ,
+    decision_reason     TEXT,                       -- mandatory on REJ
+    created_at          TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at          TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+-- A reopened ticket keeps its earlier decisions: only one entry may be PEN.
+CREATE UNIQUE INDEX IF NOT EXISTS uq_task_completion_pending
+    ON task_completion_requests(task_id) WHERE state = 'PEN';
+CREATE INDEX IF NOT EXISTS idx_task_completion_task  ON task_completion_requests(task_id);
+CREATE INDEX IF NOT EXISTS idx_task_completion_state ON task_completion_requests(state);
 
 -- -----------------------------------------------------------------------------
 -- 8. PLANNING, ATTENDANCE & LEAVE FUNDS
@@ -472,7 +511,9 @@ CREATE TABLE IF NOT EXISTS app_settings (
     CONSTRAINT uq_app_settings_module_key UNIQUE (module_code, key)
 );
 
--- Outbound notification log (Telegram webhook delivery tracking)
+-- Outbound notification log: one row per delivery attempt on any channel
+-- ('TELEGRAM' webhook, 'EMAIL' password-reset mail). A failed attempt keeps
+-- status 'FAILED' and its reason in error_message (never the credential).
 CREATE TABLE IF NOT EXISTS notifications (
     id            UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     channel       VARCHAR(30) NOT NULL DEFAULT 'TELEGRAM',

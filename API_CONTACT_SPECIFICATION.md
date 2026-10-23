@@ -206,6 +206,13 @@ extend type Query {
 }
 ```
 
+**Password-reset behavior.**
+
+- `requestPasswordReset` returns `true` for an unknown address without sending anything, so account existence is not disclosed.
+- For a known address, the reset message is mailed with a link to the web application's `/reset-password` route carrying the token. Each attempt is recorded in the notification log (`channel: EMAIL`).
+- A failed delivery returns `INTERNAL` with `details.delivery = "FAILED"` and the `notificationId`; it is never reported as `true`. With no mail server configured, the call fails with `INTERNAL` ("mail sender unavailable") and nothing is sent.
+- `resetPassword` rejects a bad token with `VALIDATION_FAILED` and `details.reason` = `INVALID_TOKEN` (invalid or expired) or `RESET_REJECTED`. The new password follows the same policy as the administrative `resetUserPassword`.
+
 Every operation in §6 and §7 other than the public auth operations requires an authenticated session. Administrative account flows (create/edit/reset/lock a user) live in §6.4 and require the `Settings` authorization.
 
 ---
@@ -473,7 +480,7 @@ type ExportResult {
 
 ### 6.1 Jobs & Projects
 
-The main operational and ticket-handling module: project/campaign tracking, time and progress classification, the ticket state lifecycle, extension requests, and late-submission handling.
+The main operational and ticket-handling module: project/campaign tracking, time and progress classification, the ticket state lifecycle, completion requests, extension requests, and late-submission handling.
 
 #### Types
 
@@ -513,9 +520,14 @@ type Task {
   approvedAt: DateTime
   reviewedBy: User
   reviewedAt: DateTime
+  # `MULTI_DAY` only: how many stages the assignee expects the job to take.
+  plannedStageCount: Int
   progressLogs: [TaskProgressLog!]!
   stateTransitions: [TaskStateTransition!]!
   requests: [TaskRequest!]!
+  # The completion-request ledger, oldest first: the ticket's work stages and
+  # the decision each one received.
+  journey: [TaskCompletionRequest!]!
   attachments: [Attachment!]!
   createdAt: DateTime!
   updatedAt: DateTime!
@@ -564,6 +576,30 @@ type TaskRequest {
   updatedAt: DateTime!
 }
 
+type TaskCompletionRequest {
+  id: ID!
+  task: Task!
+  user: User!
+  # MILESTONE (one stage of a multi-day job) or FULL_JOB (the whole ticket).
+  scope: String!
+  title: String!
+  description: String
+  # The assignee's estimate at request time; never a completion gate.
+  declaredProgress: Int
+  plannedStageCount: Int
+  # PEN awaiting review, APP approved, REJ sent back.
+  state: TicketStateCode!
+  reviewedBy: User
+  reviewComment: String
+  reviewedAt: DateTime
+  # The assignee's evidence.
+  attachments: [Attachment!]!
+  # The required-fix files an approver attached to a REJ.
+  decisionAttachments: [Attachment!]!
+  createdAt: DateTime!
+  updatedAt: DateTime!
+}
+
 type Attachment {
   id: ID!
   ownerType: String!
@@ -571,6 +607,7 @@ type Attachment {
   url: String!
   fileName: String
   mimeType: String
+  sizeBytes: Int
   uploadedBy: User
   createdAt: DateTime!
 }
@@ -595,7 +632,11 @@ type ProjectConnection {
 | `AWAITING_EXTENSION_APPROVAL` | `ACT - Awaiting Extension Approval` |
 | `AWAITING_PROGRESS_VERIFICATION` | `ACT - Awaiting Progress Verification` |
 
-Time and progress classification (preserved): **Hourly** tasks follow the urgent slots `10:30`, `14:00`, `16:30`; **Daily** tasks default to `17:00`/`18:00` the same day; **Multi-day** tasks track accumulated progress `0% → 100%` with milestones `25%`, `50%`, `75%`, `100%`. The daily planning/confirmation cutoff is `08:30`.
+Time and progress classification (preserved): **Hourly** tasks follow the urgent slots `10:30`, `14:00`, `16:30`; **Daily** tasks default to `17:00`/`18:00` the same day. The daily planning/confirmation cutoff is `08:30`.
+
+**Multi-day progress is derived from the stage ledger, not from milestone gates.** Each approved `MILESTONE` completion request is one stage of the journey; a ticket's `progressPercentage` is recomputed on every approval as `min(100, floor(approved * 100 / plannedStageCount))` when the assignee planned a number of stages, and otherwise as the request's `declaredProgress` (falling back to the recorded value). Progress never decreases. Approving a `MILESTONE` request does **not** complete the ticket — it stays `PEN` so the next stage can be requested. A `FULL_JOB` approval completes the ticket, and **no completion requires progress to reach 100%**: the approval is the completion signal. `logTaskProgress` still records quick notes and percentages, but no longer implies a milestone ladder.
+
+> **Behavior change:** the documented `25%` / `50%` / `75%` / `100%` milestone gates no longer drive the ticket lifecycle, and a multi-day ticket can be completed at any progress. The milestone labels remain for rendering historical rows only.
 
 #### Inputs
 
@@ -678,6 +719,27 @@ input ReviewTaskRequestInput {
   reviewComment: String
 }
 
+input SubmitTaskCompletionRequestInput {
+  taskId: ID!
+  # MILESTONE or FULL_JOB. DAILY and HOURLY tickets submit FULL_JOB.
+  scope: String!
+  title: String!
+  description: String
+  declaredProgress: Int
+  plannedStageCount: Int
+  attachmentIds: [ID!]
+}
+
+input ReviewTaskCompletionRequestInput {
+  requestId: ID!
+  # APPROVED or REJECTED.
+  decision: ApprovalStatus!
+  # Mandatory when the decision is REJECTED.
+  reviewComment: String
+  # Required-fix files, REJECTED only.
+  attachmentIds: [ID!]
+}
+
 input CancelTaskInput {
   taskId: ID!
   reason: String!
@@ -702,6 +764,8 @@ input CancelTaskInput {
 | `requestExtension` | mutation | `(input: RequestExtensionInput!): TaskRequest!` | all roles | creates an `EXTENSION` request |
 | `explainLateSubmission` | mutation | `(input: ExplainLateSubmissionInput!): TaskRequest!` | all roles | creates a `LATE_EXPLANATION` request for `OVERDUE` |
 | `reviewTaskRequest` | mutation | `(input: ReviewTaskRequestInput!): TaskRequest!` | SA, TL, HR, DH | approve updates the deadline; reject keeps it |
+| `submitTaskCompletionRequest` | mutation | `(input: SubmitTaskCompletionRequestInput!): TaskCompletionRequest!` | all roles | `ACT → PEN` (and `REJ → PEN`, or the next stage of an open multi-day ticket); records a journey entry |
+| `reviewTaskCompletionRequest` | mutation | `(input: ReviewTaskCompletionRequestInput!): TaskCompletionRequest!` | SA, TL, HR, DH | `FULL_JOB` approval → `APP`; `MILESTONE` approval keeps `PEN`; rejection → `REJ` with a mandatory reason |
 
 ```graphql
 extend type Query {
@@ -722,6 +786,8 @@ extend type Mutation {
   requestExtension(input: RequestExtensionInput!): TaskRequest!
   explainLateSubmission(input: ExplainLateSubmissionInput!): TaskRequest!
   reviewTaskRequest(input: ReviewTaskRequestInput!): TaskRequest!
+  submitTaskCompletionRequest(input: SubmitTaskCompletionRequestInput!): TaskCompletionRequest!
+  reviewTaskCompletionRequest(input: ReviewTaskCompletionRequestInput!): TaskCompletionRequest!
 }
 ```
 
@@ -867,6 +933,49 @@ input MatrixCalendarInput {
   toDate: DateTime!
 }
 
+input ScheduleInput {
+  departmentId: ID
+  fromDate: DateTime!
+  toDate: DateTime!
+  state: TicketStateCode
+}
+
+input UpdateTaskInput {
+  taskId: ID!
+  title: String
+  description: String
+  taskType: TaskType
+  priority: Priority
+  assignedToId: ID
+  departmentId: ID
+  startDate: DateTime
+  endDate: DateTime
+  isUrgentHourly: Boolean
+}
+
+input DuplicateTaskInput {
+  taskId: ID!
+  assignedToId: ID
+  startDate: DateTime
+}
+
+input ImportFileInput {
+  fileName: String!      # must end in .csv or .xlsx
+  contentBase64: String! # file bytes, at most 2 MB decoded
+}
+
+type TaskImportRow {
+  line: Int!     # 1-based line in the file (header is line 1)
+  values: JSON!  # the row keyed by template column
+  errors: [String!]!
+}
+
+type TaskImportPreview {
+  rows: [TaskImportRow!]!
+  validCount: Int!
+  errorCount: Int!
+}
+
 input AttendanceFilter {
   userId: ID
   departmentId: ID
@@ -914,10 +1023,17 @@ input ReviewOvertimeInput {
 | `assignPenaltyLeave` | mutation | `(input: AssignPenaltyLeaveInput!): AttendanceRecord!` | **SA, HR only** | tags `UAL`/`USL`; deducts 100% of the daily wage + KPI points |
 | `recordOvertime` | mutation | `(input: RecordOvertimeInput!): OvertimeRecord!` | SA, TL, HR, DH | feeds the OT hours fund backing `TOIL` |
 | `reviewOvertime` | mutation | `(input: ReviewOvertimeInput!): OvertimeRecord!` | SA, TL, HR, DH | approve/reject |
+| `scheduledTasks` | query | `(input: ScheduleInput!): [Task!]!` | all roles | Planning Schedule: non-deleted tasks overlapping `[fromDate, toDate)`; same scoping as `tasks` |
+| `updateTask` | mutation | `(input: UpdateTaskInput!): Task!` | SA, TL, HR, DH | edit planner fields / move / reassign; DH own department only (task and target assignee); `endDate ≥ startDate` |
+| `deleteTask` | mutation | `(taskId: ID!): Boolean!` | SA, TL, HR, DH | soft delete (`deleted_at`); DH own department only |
+| `duplicateTask` | mutation | `(input: DuplicateTaskInput!): Task!` | SA, TL, HR, DH | new `REQ` copy at 0%; optional new assignee and start (duration kept) |
+| `previewTaskImport` | mutation | `(file: ImportFileInput!): TaskImportPreview!` | SA, TL, HR, DH | parse + validate CSV/XLSX rows; writes nothing; DH rows outside own department are errors |
+| `commitTaskImport` | mutation | `(file: ImportFileInput!): [Task!]!` | SA, TL, HR, DH | re-validates; creates every row as `REQ` in one transaction, or nothing (`VALIDATION_FAILED` with `details.rows`) |
 
 ```graphql
 extend type Query {
   matrixCalendar(input: MatrixCalendarInput!): MatrixCalendar!
+  scheduledTasks(input: ScheduleInput!): [Task!]!
   attendanceRecords(filter: AttendanceFilter, offset: Int = 0, limit: Int = 20): AttendanceRecordConnection!
   leaveRequests(filter: LeaveRequestFilter, offset: Int = 0, limit: Int = 20): LeaveRequestConnection!
   leaveBalances(userId: ID): [LeaveBalance!]!
@@ -930,6 +1046,11 @@ extend type Mutation {
   assignPenaltyLeave(input: AssignPenaltyLeaveInput!): AttendanceRecord!
   recordOvertime(input: RecordOvertimeInput!): OvertimeRecord!
   reviewOvertime(input: ReviewOvertimeInput!): OvertimeRecord!
+  updateTask(input: UpdateTaskInput!): Task!
+  deleteTask(taskId: ID!): Boolean!
+  duplicateTask(input: DuplicateTaskInput!): Task!
+  previewTaskImport(file: ImportFileInput!): TaskImportPreview!
+  commitTaskImport(file: ImportFileInput!): [Task!]!
 }
 ```
 
@@ -1392,6 +1513,8 @@ extend type Query {
 | `exportAttendance` | mutation | `(filter: AttendanceFilter, format: ExportFormat = XLSX): ExportResult!` | all roles | `.xlsx` (AL/TOIL balances) |
 | `printKpiReport` | mutation | `(input: KpiPeriodInput!): ExportResult!` | all roles | PDF, A4 |
 | `exportAuditWorkbook` | mutation | `(filter: KpiAuditFilter!): ExportResult!` | SA, TL, HR, DH | `.xlsx`, one sheet per audit level |
+| `exportSchedule` | mutation | `(input: ScheduleInput!, format: ExportFormat = XLSX): ExportResult!` | all roles | Planning Schedule report; PDF A4 landscape, `.xlsx`, `.csv`; scoped as `scheduledTasks` |
+| `taskImportTemplate` | mutation | `(format: ExportFormat = XLSX): ExportResult!` | SA, TL, HR, DH | `.xlsx` / `.csv` with header `title, category, priority, assigneeEmail, startDate, endDate, hourSlot, description` and one example row; dates `DD/MM/YYYY` |
 
 Export scope follows the caller's scope for the corresponding read operation (for example an Employee exports only personal tasks; a Department Head exports only their department).
 
@@ -1404,8 +1527,21 @@ extend type Mutation {
   exportAttendance(filter: AttendanceFilter, format: ExportFormat = XLSX): ExportResult!
   printKpiReport(input: KpiPeriodInput!): ExportResult!
   exportAuditWorkbook(filter: KpiAuditFilter!): ExportResult!
+  exportSchedule(input: ScheduleInput!, format: ExportFormat = XLSX): ExportResult!
+  taskImportTemplate(format: ExportFormat = XLSX): ExportResult!
 }
 ```
+
+### 7.3 Live change channel
+
+A non-GraphQL companion endpoint that tells open clients **when** to refetch; data is still read through GraphQL.
+
+- **Endpoint:** `GET /api/v1/events`, `Authorization: Bearer <sessionToken>`. Missing or invalid session → HTTP `401`, no stream. Browsers reach it through a same-origin handler so the token never reaches client script.
+- **Format:** Server-Sent Events (`text/event-stream`). Frames:
+  - `event: connected` / `data: {"ok":true}` — sent once on open.
+  - `event: change` / `data: {"area":"<area>"}` — one per successful mutation; `area` ∈ `tickets`, `leave`, `performance`, `users`, `audit`.
+  - `: heartbeat` comment lines keep idle connections open.
+- **Semantics:** events are invalidation signals only — no record payloads, so a refetch is authorized exactly like any other read. Failed or rolled-back mutations publish nothing. Events are not replayed: a client that reconnects refetches its open views. The server may close a stream at any time (e.g. a lifetime cap); clients reconnect.
 
 ---
 
@@ -1564,7 +1700,7 @@ Response (caller is a Department Head, who cannot assign `UAL`/`USL`):
 | --- | --- |
 | 1. Purpose & Scope | Document scope of all three sources; `SYSTEM_ARCHITECTURE.md` §1. |
 | 2. API Conventions | `SYSTEM_ARCHITECTURE.md` §5 (layered view) and §11 (integration points) for the client-facing transport framing; `DATABASE_SCHEMA_EXAMPLE_OPTIMIZED.sql` for naming/scalar mapping. |
-| 3. Authentication & Session | `SYSTEM_ARCHITECTURE.md` §9.1 (RBAC & Permission Matrix Engine), §2/§4 (User Directory); `SYSTEM_PROCESS_FLOW-en.md` RBAC section (login/access guard). |
+| 3. Authentication & Session | `SYSTEM_ARCHITECTURE.md` §9.1 (RBAC & Permission Matrix Engine), §9.7 (Email Delivery Service), §2/§4 (User Directory); `SYSTEM_PROCESS_FLOW-en.md` RBAC section (login/access guard). |
 | 4. Authorization Model | `SYSTEM_PROCESS_FLOW-en.md` "Authorization & UI Rendering Mechanism" + Detailed Access Control Matrix; `SYSTEM_ARCHITECTURE.md` §8; `DATABASE_SCHEMA_EXAMPLE_OPTIMIZED.sql` seed roles (`SUPER_ADMIN`, `TECH_LEAD`, `HR_MANAGER`, `DEPT_HEAD`, `EMPLOYEE`) and `role_permissions`. |
 | 5. Type System | `DATABASE_SCHEMA_EXAMPLE_OPTIMIZED.sql` enums, `ticket_states`, `leave_codes`, `users`, `departments`, `roles`, `permissions`, `user_roles`, `role_permissions`; `SYSTEM_ARCHITECTURE.md` §7 (shared domain model). |
 | 6.1 Jobs & Projects | `SYSTEM_PROCESS_FLOW-en.md` App 1; `SYSTEM_ARCHITECTURE.md` §6.1, §7.1–7.2, §9.4; `DATABASE_SCHEMA_EXAMPLE_OPTIMIZED.sql` `projects`, `tasks`, `task_state_transitions`, `task_progress_logs`, `task_requests`, `attachments`. |
@@ -1572,6 +1708,6 @@ Response (caller is a Department Head, who cannot assign `UAL`/`USL`):
 | 6.3 Performance & Audit | `SYSTEM_PROCESS_FLOW-en.md` App 3 (scoring algorithm, Tables 1–3); `SYSTEM_ARCHITECTURE.md` §6.3, §9.3; `DATABASE_SCHEMA_EXAMPLE_OPTIMIZED.sql` `kpi_point_rules`, `kpi_score_events`, `kpi_monthly_summaries`, `v_kpi_audit_level1_company`, `v_kpi_audit_level2_department`, `v_kpi_audit_level3_employee`. |
 | 6.4 Settings & IAM | `SYSTEM_PROCESS_FLOW-en.md` App 4; `SYSTEM_ARCHITECTURE.md` §6.4, §10 (auditability, notification); `DATABASE_SCHEMA_EXAMPLE_OPTIMIZED.sql` `system_audit_logs`, `app_settings`, `notifications`, `roles`, `permissions`, `role_permissions`, `modules`. |
 | 6.5 Audit Log | `SYSTEM_PROCESS_FLOW-en.md` App 5; `SYSTEM_ARCHITECTURE.md` §6.5, §10 (auditability); `DATABASE_SCHEMA_EXAMPLE_OPTIMIZED.sql` `system_audit_logs` (`module_code`), `modules`. |
-| 7. Shared & Core APIs | `SYSTEM_ARCHITECTURE.md` §9.5 (Print/Export Engine), §9.6 (Global State & Leave Code Registry), §9.2 (Telegram Webhook Notification Engine), §11; `SYSTEM_PROCESS_FLOW-en.md` Print/Export per app; `DATABASE_SCHEMA_EXAMPLE_OPTIMIZED.sql` `ticket_states`, `leave_codes`, `notifications`. |
+| 7. Shared & Core APIs | `SYSTEM_ARCHITECTURE.md` §9.5 (Print/Export Engine), §9.6 (Global State & Leave Code Registry), §9.2 (Telegram Webhook Notification Engine), §9.8 (Live Change Channel), §11; `SYSTEM_PROCESS_FLOW-en.md` Print/Export per app; `DATABASE_SCHEMA_EXAMPLE_OPTIMIZED.sql` `ticket_states`, `leave_codes`, `notifications`. |
 | 8. Errors | Design D7; `SYSTEM_ARCHITECTURE.md` §8 (authorization outcomes). |
 | 9. Examples | Illustrative of §2–§7; no new behavior. |
