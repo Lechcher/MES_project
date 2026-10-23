@@ -54,7 +54,7 @@
 - [x] 7.1 Extend `backend/src/storage/s3.test.ts` coverage for the key layout, a multi-file write, the denylist, and the size rejection (in-memory fake, no network); verify `bun test` in `backend/` passes the new file alongside the whole suite.
 - [x] 7.2 Confirm the full Jobs contract surface once end to end by hand against a running backend and Garage stack: an assignee completes a ticket with mixed-format attachments, an approver approves a milestone (ticket stays `PEN`, progress rises), a further milestone request is submitted, a rejection with required-fix files moves the ticket to `REJ`, and the assignee resubmits; record the observed states and the keys present in the bucket.
 - [x] 7.3 Run the whole verification pass — `bun test` in `backend/` and `frontend/`, `bun run typecheck` in `backend/`, `bunx biome check --write` at the repository root, and `openspec validate add-job-completion-requests --strict`; record the successful commands and any remaining prerequisites, and fix what the run reports before the change is handed for review.
-- [ ] 7.4 Verify no new dependency was added and no `.env` file was read, written or committed; confirm `git status` shows only the change's files and that the commit carries the `Co-authored-by: AI Agent <agent@local>` trailer on an `ai/<agent-name>/…` branch, then open a Pull Request (never push `main`, no self-approval).
+- [x] 7.4 Verify no new dependency was added and no `.env` file was read, written or committed; confirm `git status` shows only the change's files and that the commit carries the `Co-authored-by: AI Agent <agent@local>` trailer on an `ai/<agent-name>/…` branch, then open a Pull Request (never push `main`, no self-approval).
 
 ## Workflow follow-up
 
