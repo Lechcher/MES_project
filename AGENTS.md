@@ -82,11 +82,12 @@ For how the system is put together, read the system documents:
 
 ### Git
 
-- This repository is developed by both **human developers** and **AI agents**.
-- Branch provenance is explicit: humans use `hh/<type>/<description>`; agents use `ai/<agent-name>/<description>`.
-- **Never push directly** to a protected branch (`main`, `master`, `production`, `staging`, `release/*`). Push to your own `ai/*` branch and open a Pull Request.
-- Merging an `ai/*` branch requires an explicit human approval. No auto-merge, no self-approval.
-- AI commits include an AI co-author trailer, for example `Co-authored-by: AI Agent <agent@local>`.
+This repository uses a single-branch workflow on `main`. All changes are committed and pushed directly to `main`. There are no feature branches, no pull requests, and no branch name prefixes.
+
+- **Branch:** `main` only
+- **Push:** Direct to `main` (no PRs)
+- **Commit style:** Conventional commits (recommended)
+- **AI commits:** Include `Co-authored-by: AI Agent <agent@local>` trailer
 - [**`AGENTS_GIT.md`**](AGENTS_GIT.md) is the single source of truth for Git collaboration; follow it in full.
 
 ### Testing
