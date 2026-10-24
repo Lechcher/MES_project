@@ -1,0 +1,69 @@
+- generic [ref=f13e1]:
+  - button "Open Next.js Dev Tools" [ref=f13e13] [cursor=pointer]
+  - alert [ref=f13e17]
+  - generic [ref=f13e18]:
+    - navigation [ref=f13e19]:
+      - generic [ref=f13e20]:
+        - generic [ref=f13e21]:
+          - link "ERP-MES System" [ref=f13e22] [cursor=pointer]:
+            - /url: /
+          - generic [ref=f13e23]:
+            - link "Trang chủ" [ref=f13e24] [cursor=pointer]:
+              - /url: /
+            - link "Công việc" [ref=f13e25] [cursor=pointer]:
+              - /url: /jobs
+            - link "Kế hoạch" [ref=f13e26] [cursor=pointer]:
+              - /url: /planning
+            - link "Hiệu suất" [ref=f13e27] [cursor=pointer]:
+              - /url: /performance
+            - link "Cài đặt" [ref=f13e28] [cursor=pointer]:
+              - /url: /settings
+            - link "Nhật ký hệ thống" [ref=f13e29] [cursor=pointer]:
+              - /url: /audit-log
+        - generic [ref=f13e30]:
+          - generic "Đang kết nối kênh trực tiếp…" [ref=f13e31]:
+            - generic [aria-hidden] [ref=f13e34]: Đang kết nối
+            - generic [ref=f13e35]: "Kênh trực tiếp: Đang kết nối. Đang kết nối kênh trực tiếp…"
+          - combobox "Language" [ref=f13e36]:
+            - generic [ref=f13e37]: Tiếng Việt
+            - img [aria-hidden]: ▼
+          - textbox [aria-hidden] [ref=f13e38]: vi
+          - button "Priya Raman Trưởng nhóm kỹ thuật" [ref=f13e39]:
+            - generic [ref=f13e40]: Priya Raman
+            - generic [ref=f13e41]: Trưởng nhóm kỹ thuật
+    - main [ref=f13e42]:
+      - generic [ref=f13e43]:
+        - generic [ref=f13e44]:
+          - generic [ref=f13e45]:
+            - paragraph [ref=f13e46]: Lập kế hoạch & Chấm công
+            - heading "Lịch công việc, nghỉ phép và chấm công" [level=1] [ref=f13e47]
+            - paragraph [ref=f13e48]: Lập kế hoạch theo vai trò (Trưởng nhóm kỹ thuật). Bảng duyệt bị ẩn với Nhân viên.
+          - button "Tạo yêu cầu nghỉ phép" [ref=f13e50] [cursor=pointer]
+        - generic [ref=f13e51]:
+          - tablist [ref=f13e52]:
+            - tab "Lịch ma trận" [selected] [ref=f13e53]
+            - tab "Yêu cầu nghỉ phép" [ref=f13e54]
+            - tab "Bảng duyệt" [ref=f13e55]
+            - tab "Chấm công & Số dư" [ref=f13e56]
+          - tabpanel "Lịch ma trận" [ref=f13e57]:
+            - generic [ref=f13e58]:
+              - generic [ref=f13e59]:
+                - generic [ref=f13e60]:
+                  - generic [ref=f13e61]:
+                    - button "‹" [ref=f13e62]
+                    - generic [ref=f13e63]: tháng 10 năm 2026
+                    - button "›" [ref=f13e64]
+                  - generic [ref=f13e65]:
+                    - generic [ref=f13e66]: Phòng ban
+                    - combobox "Phòng ban" [ref=f13e67]:
+                      - generic [ref=f13e68]: Mọi phòng ban
+                      - img [aria-hidden]: ▼
+                    - textbox [aria-hidden] [ref=f13e69]: ALL
+                - generic [ref=f13e70]:
+                  - button "In lịch (PDF A4 ngang)" [ref=f13e72]
+                  - button "Làm mới" [ref=f13e73]
+              - paragraph [ref=f13e74]: "Phạm vi theo vai trò: Nhân viên cá nhân · Trưởng phòng/ban theo phòng ban · Quản lý nhân sự, Trưởng nhóm kỹ thuật, Quản trị cấp cao toàn công ty kèm bộ lọc phòng ban."
+              - status [ref=f13e75]:
+                - generic [ref=f13e76]: Đang tải lịch…
+                - generic [ref=f13e83]: Đang tải lịch…
+              - paragraph [ref=f13e84]: Ô ngày hiển thị huy hiệu nghỉ phép đã duyệt theo tên, hoặc thẻ nghỉ phạt cho nghỉ không phép, cùng các dấu đi muộn và về sớm (chấm tròn có tiêu đề khi di chuột). Thanh phiếu việc mang tên trạng thái và phần trăm tiến độ thực tế.

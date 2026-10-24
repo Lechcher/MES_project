@@ -1,0 +1,23 @@
+- generic [ref=f1e1]:
+  - generic [ref=f1e3]:
+    - generic [ref=f1e5]:
+      - generic [ref=f1e6]:
+        - generic [ref=f1e7]: Đăng nhập vào MES Prototype
+        - paragraph [ref=f1e8]: Sử dụng email và mật khẩu tài khoản MES của bạn.
+      - combobox "Language" [ref=f1e9]:
+        - generic [ref=f1e10]: Tiếng Việt
+        - img [aria-hidden]: ▼
+      - textbox [aria-hidden] [ref=f1e11]: vi
+    - generic [ref=f1e13]:
+      - generic [ref=f1e14]:
+        - generic [ref=f1e15]: Email
+        - textbox "Email" [ref=f1e16]:
+          - /placeholder: you@company.com
+      - generic [ref=f1e17]:
+        - generic [ref=f1e18]: Mật khẩu
+        - textbox "Mật khẩu" [ref=f1e19]
+      - button "Đăng nhập" [ref=f1e20]
+      - button "Quên mật khẩu?" [ref=f1e21]
+    - generic [ref=f1e22]: "Môi trường phát triển cục bộ: hãy đăng nhập bằng một tài khoản trong dữ liệu phát triển."
+  - button "Open Next.js Dev Tools" [ref=f1e29] [cursor=pointer]
+  - alert [ref=f1e33]

@@ -19,9 +19,8 @@ type Catalogue = Record<string, Record<string, never>>;
 
 /** Flatten a namespace's keys into a comparable list. */
 function keysIn(catalogue: Catalogue, section: string): string[] {
-  const namespace = (catalogue as Record<string, Record<string, unknown>>)[
-    "jobs"
-  ]?.[section];
+  const namespace = (catalogue as Record<string, Record<string, unknown>>)
+    .jobs?.[section];
   if (!namespace) return [];
   return Object.keys(namespace).sort();
 }

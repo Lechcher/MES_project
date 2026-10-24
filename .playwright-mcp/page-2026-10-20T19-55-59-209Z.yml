@@ -1,0 +1,15 @@
+- generic [ref=f4e3]:
+  - generic [ref=f4e4]:
+    - generic [ref=f4e5]: Sign in to MES Prototype
+    - paragraph [ref=f4e6]: Use your MES account email and password.
+  - generic [ref=f4e8]:
+    - generic [ref=f4e9]:
+      - generic [ref=f4e10]: Email
+      - textbox "Email" [ref=f4e11]:
+        - /placeholder: you@company.com
+    - generic [ref=f4e12]:
+      - generic [ref=f4e13]: Password
+      - textbox "Password" [ref=f4e14]
+    - button "Sign in" [ref=f4e15]
+    - button "Forgot your password?" [ref=f4e16]
+  - generic [ref=f4e17]: "Local development: sign in with an account from the development seed data."

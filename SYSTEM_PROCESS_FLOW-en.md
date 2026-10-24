@@ -99,6 +99,23 @@ The system manages access rights through **2 Layers of Control**:
 
 ---
 
+## 🔁 SHARED FLOWS (ALL ROLES)
+
+### Self-Service Password Reset
+
+1. On the sign-in screen, the user chooses **Forgot password** and enters their email.
+2. The system always shows the same confirmation, whether or not the address has an account (account existence is never disclosed).
+3. If the account exists, a reset email is sent with a link to the **Reset Password** page carrying a one-time token. If the email cannot be delivered, or no mail server is configured, the user sees an error instead of the confirmation.
+4. On the **Reset Password** page (reachable without signing in), the user enters a new password that follows the same policy as an administrator reset. An invalid or expired link is reported as such, with a way to request a new one. The new password is never stored in the browser.
+
+### Live Updates
+
+* Every App screen refreshes in place when another user changes the data it shows (for example, an approved `PEN` ticket turns `APP` on everyone's list) — no manual reload, and filters, selected day, and scroll position are kept.
+* A refresh never shows more than the viewer's role may already see.
+* A status indicator shows whether live updates are connected. While disconnected, the last data stays visible and the manual **Refresh** action still works; on reconnect, open screens refresh automatically.
+
+---
+
 ## 📱 CUSTOM APPLICATION MODULES (CUSTOM APPS)
 
 ### 📱 APP 1: JOBS & PROJECTS (`Jobs`)

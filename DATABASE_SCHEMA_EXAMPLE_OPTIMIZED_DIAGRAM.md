@@ -916,7 +916,7 @@ erDiagram
 
 ## 8. Platform Settings & Notifications
 
-Per-module configuration and the outbound notification log.
+Per-module configuration and the outbound notification log. `notifications.channel` is `TELEGRAM` or `EMAIL` (password-reset mail); each row is one delivery attempt, and `FAILED` rows keep the reason in `error_message`.
 
 ```mermaid
 erDiagram

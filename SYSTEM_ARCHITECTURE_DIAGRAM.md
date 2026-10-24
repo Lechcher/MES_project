@@ -29,6 +29,8 @@ flowchart TD
         UD["User Directory"]
         RBAC["RBAC & Permission Matrix Engine"]
         TG["Telegram Webhook Notification Engine"]
+        EM["Email Delivery Service"]
+        LIVE["Live Change Channel"]
         KPI["Deterministic Performance Calculation Engine (KPIs)"]
         SC["Global State Codes (REQ, ACT, PEN, APP, REJ, CAN, OVERDUE)"]
         LC["Global Leave Codes (AL, UAL, SL, USL, PL, ML, CL, EL, LWP, TOIL, VTO)"]
@@ -84,7 +86,7 @@ flowchart TB
 
 ## 3. Core Engines & Services
 
-The six shared services of the Core Base Module and the apps that consume them.
+The eight shared services of the Core Base Module and the apps that consume them.
 
 ```mermaid
 flowchart LR
@@ -95,6 +97,8 @@ flowchart LR
         E4["Auto-forking Engine"]
         E5["Print/Export Engine"]
         E6["Global State & Leave Code Registry"]
+        E7["Email Delivery Service"]
+        E8["Live Change Channel"]
     end
 
     J["Jobs"]
@@ -124,6 +128,14 @@ flowchart LR
     E6 --> J
     E6 --> P
     E6 --> F
+
+    E7 --> S
+
+    E8 --> J
+    E8 --> P
+    E8 --> F
+    E8 --> S
+    E8 --> A
 
     S --> E2
 ```

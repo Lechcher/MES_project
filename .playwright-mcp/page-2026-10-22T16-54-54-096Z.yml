@@ -1,0 +1,57 @@
+- generic [active] [ref=e1]:
+  - generic [ref=e34]:
+    - navigation [ref=e35]:
+      - generic [ref=e36]:
+        - generic [ref=e37]:
+          - link "ERP-MES System" [ref=e38] [cursor=pointer]:
+            - /url: /
+          - generic [ref=e39]:
+            - link "Home" [ref=e40] [cursor=pointer]:
+              - /url: /
+            - link "Jobs" [ref=e41] [cursor=pointer]:
+              - /url: /jobs
+            - link "Planning" [ref=e42] [cursor=pointer]:
+              - /url: /planning
+            - link "Performance" [ref=e43] [cursor=pointer]:
+              - /url: /performance
+            - link "Settings" [ref=e44] [cursor=pointer]:
+              - /url: /settings
+        - generic [ref=e45]:
+          - generic "Live updates on — backend changes appear without a reload" [ref=e46]:
+            - generic [aria-hidden] [ref=e53]: Live
+            - generic [ref=e54]: "Live channel: Live. Live updates on — backend changes appear without a reload"
+          - combobox "Language" [ref=e55]:
+            - generic [ref=e56]: English
+            - img [aria-hidden]: ▼
+          - textbox [aria-hidden] [ref=e57]: en
+          - button "Hana Suzuki HR Manager" [ref=e58]:
+            - generic [ref=e59]: Hana Suzuki
+            - generic [ref=e60]: HR Manager
+    - main [ref=e61]:
+      - generic [ref=e62]:
+        - paragraph [ref=e63]: Home Page Dashboard
+        - heading "Welcome, Hana Suzuki" [level=1] [ref=e64]
+        - paragraph [ref=e65]: HR Manager · Headquarters
+        - generic [ref=e66]:
+          - link "Jobs & Projects Ticket lifecycle, progress, and acceptance." [ref=e67] [cursor=pointer]:
+            - /url: /jobs
+            - generic [ref=e69]:
+              - generic [ref=e73]: Jobs & Projects
+              - generic [ref=e74]: Ticket lifecycle, progress, and acceptance.
+          - link "Planning & Attendance Matrix work calendar, attendance, and leave." [ref=e75] [cursor=pointer]:
+            - /url: /planning
+            - generic [ref=e77]:
+              - generic [ref=e80]: Planning & Attendance
+              - generic [ref=e81]: Matrix work calendar, attendance, and leave.
+          - link "Performance & Audit Personal KPI dashboard and audit tables." [ref=e82] [cursor=pointer]:
+            - /url: /performance
+            - generic [ref=e84]:
+              - generic [ref=e87]: Performance & Audit
+              - generic [ref=e88]: Personal KPI dashboard and audit tables.
+          - link "Settings & IAM User Directory only." [ref=e89] [cursor=pointer]:
+            - /url: /settings
+            - generic [ref=e91]:
+              - generic [ref=e95]: Settings & IAM
+              - generic [ref=e96]: User Directory only.
+  - button "Open Next.js Dev Tools" [ref=e30] [cursor=pointer]
+  - alert [ref=e24]: Welcome, Hana Suzuki

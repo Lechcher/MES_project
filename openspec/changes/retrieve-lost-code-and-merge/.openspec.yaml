@@ -1,0 +1,4 @@
+schema: spec-driven
+created: 2026-10-24
+# No system behavior changes (one-time operational recovery), so no spec-level deltas.
+skip_specs: true

@@ -2,192 +2,202 @@
 
 ## Context
 
-Motivation and scope live in `proposal.md`; the behavior contract lives in the
-three spec deltas. This document records only the technical decisions that
-implementation must follow, and why each was chosen over the alternatives.
+See `proposal.md` for motivation. The constraints that shape the approach:
 
-Relevant current state, read from the codebase:
-
-- Next.js 16.4.0, React 19, App Router under `frontend/src/app`, route groups
-  `(app)`, plus `signin` and `reset-password`, and API routes under
-  `src/app/api/mes/*`.
-- `next.config.ts` sets `cacheComponents: true`, `partialPrefetching: true`,
-  `reactCompiler: true`. Pages declare `export const instant = false` and the
-  docs note a static-shell check that reads each segment's own declaration —
-  every module page currently prerenders (`◐` in `next build`), `/signin` and
-  `/reset-password` statically (`○`).
-- The viewer is resolved client-side from `/api/mes/session`; no page reads a
-  server-side viewer, which is why page components are thin wrappers over client
-  views.
-- `src/lib/mes/queries/registries.ts` (354 lines) owns every code→label mapping
-  as inline English strings, with `registries.test.ts` asserting full enum
-  coverage; `src/lib/mes/errors.ts` renders English `displayMessage` copies;
-  `src/lib/mes/navigation.ts` holds app names/short labels/descriptions as
-  inline English strings.
-- All 25 selects were just fixed by passing Base UI's `items` prop, which maps a
-  value to its rendered label — any label change must keep that mapping.
+- **Rendering model.** `frontend/next.config.ts` enables `cacheComponents: true`
+  (Cache Components / PPR) with `partialPrefetching`. The whole authenticated
+  tree resolves its viewer in the browser from `/api/mes/session`, and the
+  `(app)` layout declares `instant = false`. `frontend/realtime-updates` requires
+  that the static shell stays instant and "SHALL NOT make the shell dynamic".
+  Under Cache Components, any `cookies()` read must sit behind a `<Suspense>`
+  boundary, so reading the locale cookie on the server would push the tree behind
+  a boundary and turn the shell dynamic.
+- **Client-rendered UI.** All 19 files that consume the label registry are client
+  components. `src/app/signin/page.tsx` is a client component; the only
+  server-rendered user-facing text today is the `CardTitle` in
+  `src/app/reset-password/page.tsx` ("Choose a new password") plus the document
+  metadata.
+- **Label registry.** `src/lib/mes/queries/registries.ts` holds code → canonical
+  English name plus colors/flags for ticket states, leave codes, priority, task
+  type, approval status, task-request type, department type, roles, and modules,
+  with `labelFor` leaving unknown values untouched. ~109 call sites in 19 files
+  use its helpers; `registries.test.ts` already guards enum coverage.
+- **Formatting.** `src/components/shared/format.ts` hardcodes `en-GB`, and two
+  planning components format month labels with `toLocaleDateString("en-GB")`.
+- **Testing.** `bun test` runs five pure-logic files; there is no DOM testing
+  library, so component rendering is not unit-tested today.
+- **Typography.** `src/app/layout.tsx` loads IBM Plex Sans with
+  `subsets: ["latin"]`.
 
 ## Goals / Non-Goals
 
-Goals:
+**Goals:**
 
-- One locale source of truth (`src/i18n/routing.ts`) so routing, negotiation,
-  and navigation cannot disagree.
-- UI copy lives only in catalogs; the enum registry keeps code metadata
-  (colors, terminal flags) and takes its labels from the catalogs.
-- The build's prerender classification is unchanged when the change lands.
+- A Vietnamese version of every string the frontend authors, switchable at
+  runtime, defaulting to English, remembered per browser, with no URL change.
+- Keep the code/data contract and the "no unlabeled enum" guarantee intact.
+- Keep the rendering contract: no new server-side request data, unchanged
+  static/dynamic route classification.
 
-Non-Goals:
+**Non-Goals:**
 
-- No change to the GraphQL contract, stored data, or the demo session.
-- No server-side locale negotiation tied to the viewer (the viewer is
-  client-resolved by design), and no locale column/stored preference on the
-  user record.
-- No backend-authored message translation, no RTL support, no languages beyond
-  `en` and `vi`.
+- Locale-prefixed routing, localized URLs, or SEO alternates.
+- Server-rendering Vietnamese on the first paint (explicitly deferred, see D3).
+- Backend-generated text: XLSX/PDF exports, email messages, and API-supplied
+  error strings.
+- Translating brand names ("ERP-MES System") and domain code tokens.
+- RTL support or locale-aware plural rules beyond what English and Vietnamese
+  need.
 
 ## Decisions
 
-### 1. `next-intl` 4.x with an App Router `[locale]` segment
+### D1 — Translation library: `next-intl`
 
-Add `next-intl` (latest 4.x) to `frontend/package.json` and the AGENTS.md Stack
-table, and wrap `next.config.ts` with `createNextIntlPlugin()`. All layouts,
-pages, and route groups move under `src/app/[locale]/…`.
+Use `next-intl` (latest `4.14.x`; peers accept `next ^16` and `react ^19`).
 
-Alternatives considered: a hand-rolled dictionary provider (rejected —
-reimplements plural/date/number formatting, no typed keys, no locale-aware
-routing, and it would duplicate what next-intl already does well);
-`react-i18next` (rejected — App Router server/client message plumbing needs more
-bespoke setup for no gain); cookie-only locale with no path prefix (rejected —
-the chosen behavior requires a shareable, bookmarkable address per language).
+*Alternatives:* `react-i18next` brings a larger runtime and a plugin-oriented
+model that fits the App Router less directly; a hand-rolled catalogue avoids the
+dependency but reimplements message interpolation and `Intl` formatting. The user
+selected `next-intl`. `AGENTS.md`'s Stack table gains a row for it.
 
-### 2. `localePrefix: "always"`, negotiated by prefix → cookie → accept-language
+### D2 — Locale kept in a cookie, not in the URL
 
-next-intl's default prefix-based negotiation is kept: the prefix wins, then the
-`NEXT_LOCALE` cookie, then `accept-language`, then `defaultLocale: "en"`.
-Because the prefix is always emitted and unprefixed URLs are redirected, an old
-address like `/jobs` resolves to `/en/jobs` or `/vi/jobs` according to the
-viewer's stored choice — which is exactly the "old addresses keep working"
-scenario. The middleware also writes the cookie when a prefixed route is
-visited, so switching language needs no server action.
+A `mes_locale` cookie (`path=/`, `SameSite=Lax`, one-year max-age, script-
+readable so the client can set it) carries the preference; `en` is assumed when
+it is absent or unrecognized.
 
-Rejected: `localePrefix: "as-needed"` — it would make unprefixed `/jobs` fixed
-to English forever, contradicting the chosen behavior.
+*Alternatives:* a `/vi/...` prefix changes every route and `href`, the specs that
+name paths, deep links, and the `instant`/PPR declarations, and needs middleware;
+an account-level preference needs a backend field, a migration, and a contract
+change. Both were rejected as far larger than the requirement.
 
-### 3. Locale switching is a link, not an action
+### D3 — The locale is applied in the client; the server renders the English baseline
 
-`LocaleSwitcher` renders, for each locale, a `Link locale={…} href={pathname}`
-from `createNavigation(routing)`, so the current screen is re-resolved in the
-target locale and the proxy persists the cookie. It sits in the top-nav user
-menu (signed-in) and on the sign-in page (unauthenticated). No server action,
-no `document.cookie` handling, no route-string manipulation.
+The root layout wraps `children` in a client `LocaleProvider` that:
 
-Rejected: a `cookies().set()` server action followed by a router refresh —
-extra moving parts, and it would reload the page; a manual cookie write —
-duplicates what the proxy already does.
+- holds the active locale, starting at the default `en`;
+- reads the cookie once on mount and adopts a stored locale;
+- exposes the viewer's choice to a switcher, writing the cookie;
+- keeps `document.documentElement.lang` in step;
+- renders `NextIntlClientProvider` with the active locale's messages.
 
-### 4. Proxy, not middleware, and API routes stay outside the locale tree
+`src/i18n/request.ts` (required by the `next-intl` plugin) pins the server locale
+to `en`, so server components that call `getTranslations` render the English
+baseline. The one server-rendered string moves into a client component so it can
+be localized; the document metadata stays the English brand title.
 
-`src/proxy.ts` (the Next.js 16 name for `middleware.ts`) exports
-`createMiddleware(routing)` with next-intl's standard matcher, which already
-excludes `/api`, `/_next`, `/_vercel`, and dotted paths. The SSE route
-(`/api/mes/events`), session, and GraphQL proxy therefore never take a locale
-prefix, and the browser's relative fetches to `/api/mes/*` keep working from
-any locale path. The matcher must be checked against the two non-API public
-routes (`/signin`, `/reset-password`) so they still match.
+*Alternative (rejected):* read the cookie in `getRequestConfig` (next-intl's
+documented cookie flow) and let the provider inherit it. Under
+`cacheComponents: true`, that `cookies()` read must be wrapped in `<Suspense>`;
+because the provider must wrap all children, that boundary would place the whole
+tree behind a runtime fallback, making the shell dynamic and contradicting
+`frontend/realtime-updates`.
 
-### 5. Locale reaches client components through `NextIntlClientProvider`
+*Consequence:* a viewer whose stored preference is `vi` sees the English baseline
+for the first paint and Vietnamese once the provider mounts. Accepted for a
+prototype; the risk section records the trigger and the path to change it.
 
-`[locale]/layout.tsx` reads the locale from `next/root-params`, imports the two
-message files statically (they are tiny), and wraps children in
-`NextIntlClientProvider`. `src/i18n/request.ts` implements `getRequestConfig`
-so server components and metadata can use `getTranslations`. Because every
-view is a client component, provider-level messages cover all rendering; no
-per-page provider plumbing is needed.
+### D4 — Catalogues are JSON, namespaced by surface, with typed keys
 
-Rejected: per-feature `NextIntlClientProvider` instances — more code, and a
-second source of "which messages are loaded".
+`frontend/messages/en.json` and `frontend/messages/vi.json` are organized by
+surface: `shell`, `auth`, `jobs`, `planning`, `performance`, `settings`,
+`auditLog`, `common`, `enums`, and `errors`. `en` is the source of truth and `vi`
+mirrors its keys exactly. A `global.d.ts` augments next-intl's `IntlMessages`
+with `typeof en`, so an unknown key fails type-checking. Keys name the meaning
+(`jobs.list.emptyTitle`), not the English wording, so copy edits don't churn
+keys. Values with data use ICU placeholders (`{count}`, `{name}`, `{percent}`)
+instead of string concatenation, replacing the components' template-literal
+build-ups.
 
-### 6. The label registry keeps codes and colors, and takes names from catalogs
+### D5 — The registry stays the code contract; locale names are keyed by the same codes
 
-`registries.ts` keeps every code, hex color, and flag exactly as they are, and
-its per-enum label helpers become lookups into the catalogs
-(`labels.ticketState.<CODE>`, `labels.leave.<CODE>`, …) exposed as a
-`useDomainLabels()` hook for client components plus `getDomainLabels(locale)`
-for server components. Selects keep receiving `items` built from the same
-lookup, so trigger labels and option labels can never diverge.
+`registries.ts` keeps its role: the single inventory of codes with canonical
+names, colors, and flags, and the basis of the coverage test. Locale names live
+in `enums.*` in the catalogues, keyed by the identical codes. A bridge module
+`src/lib/mes/i18n/labels.ts` exposes a `useDomainLabels()` hook returning the
+label functions components use today (`ticketState`, `leaveCode`, `priority`,
+`taskType`, `approvalStatus`, `taskRequestType`, `departmentType`, `role`,
+`module`, `stateBadge`, `secondaryBadge`), preserving the current behavior of
+passing unknown values through unchanged. Components swap the registry helper
+import for the hook; every consumer is already a client component, so no call
+site loses reactivity on a language switch.
 
-The demonstrated Vietnamese strings from the spec deltas (`Trung bình`,
-`Nghỉ phép năm`, …) are the contract's examples, and `en.json` must hold exactly
-today's English wording so no screen changes in the default locale.
+A catalogue test asserts that (a) every code in every registry has an `enums.*`
+message in every locale, and (b) the locales expose identical key sets.
 
-Department and person names are record data, so they stay verbatim; a
-`labels.departments.<CODE>` catalog section gives a Vietnamese display name
-where one is authored, and anything absent falls back to the stored name (the
-display-labels "stored name remains the fallback" scenario).
+*Alternatives:* giving the pure helpers a `locale` argument (no hook) requires
+threading a locale through ~109 call sites and does not re-render on switch;
+inlining translations in the registry mixes the data contract with presentation
+and would put two languages into a module the backend-mirroring tests read.
 
-### 7. Error copy moves to the catalogs as a code-keyed map
+### D6 — Dates and numbers use next-intl's formatter
 
-`MesApiError` keeps `code` plus the raw server message, and `displayMessage`
-becomes a hook (`useErrorDisplayMessage`) that resolves `errors.<CODE>` from the
-catalog, falling back to the server message for codes with no catalog entry.
-The `en` entries are today's strings verbatim.
+Components format dates, times, and decimals through `useFormatter()` with the
+active locale. `format.ts` keeps its locale-independent helpers (`formatJson`,
+`toDateInputValue`, `dateInputToIso`, `dateInputToEndOfDayIso`) and the em-dash
+fallbacks; the `en-GB` calls and the two inline `toLocaleDateString("en-GB")`
+month labels move to the formatter.
 
-### 8. Typography: IBM Plex Sans loads the `vietnamese` subset
+*Alternative:* locale-parameterized pure functions, rejected for the same
+threading and reactivity reasons as D5.
 
-IBM Plex Sans ships a `vietnamese` subset on Google Fonts (verified against
-`fonts.googleapis.com/metadata`), so `subsets: ["latin", "vietnamese"]` keeps
-the documented typeface for Vietnamese without a fallback font. `<html lang>`
-is set per locale in the layout.
+### D7 — The switcher uses existing UI primitives
 
-### 9. Prerender classification is preserved by construction
+A `LanguageSwitcher` client component places the choice in the top navigation
+(`app-nav.tsx`) and on the sign-in card, built from the existing shadcn/Base UI
+`Select` primitive and labelled with each language's own name ("English",
+"Tiếng Việt"). It is not role-gated, so it satisfies
+`frontend/app-shell`'s new requirement for every role. No new UI dependency is
+introduced.
 
-`generateStaticParams` returns both locales in `[locale]/layout.tsx`, so each
-route has known params. Every page keeps its existing `export const instant =
-false` declaration — the static-shell check reads each segment's own
-declaration, and those declarations move with the files. Verification is a
-diff of the route table in `next build` output against the pre-change table.
+### D8 — Typography and document language
+
+`src/app/layout.tsx` adds the `vietnamese` subset to the IBM Plex Sans load so
+diacritics use the right glyphs, renders `lang="en"` as the baseline, and the
+provider updates `document.documentElement.lang` on a switch.
+
+### D9 — Rollout order keeps the diff reviewable
+
+Bridge and catalogue infrastructure first (D4–D6), then the shell (nav,
+dashboard, footer, sign-in), then one module at a time (Jobs, Planning,
+Performance, Settings, Audit Log), so the type-check and coverage test enumerate
+what is still un-migrated at each step.
 
 ## Risks / Trade-offs
 
-- **Route relocation breaks prerender or the static-segment checks.** → Task
-  1.5 moves the tree and immediately runs `bun run build` comparing the route
-  table (`○`/`◐`/`ƒ`) against the pre-move build, before any copy is extracted,
-  so a regression is caught before ~200 strings are touched.
-- **A `next/link` or `useRouter` left behind navigates to a locale-less URL.**
-  → Task 1.6 replaces every navigation import with the `@/i18n/navigation`
-  re-exports and gates on a grep for `next/link` and `next/navigation`, which is
-  task 7.4's final re-run across the whole surface.
-- **Copy extraction is large and easy to get wrong per screen.** → Extraction is
-  grouped per surface (groups 3–5), each group verified in both locales in the
-  browser before the next starts.
-- **Vietnamese strings are longer and can overflow tables/badges.** → The
-  existing compact-badge truncation and hover-title behavior is reused for
-  Vietnamese; task 6.2 walks the dense surfaces (badges, calendar cells, nav) in
-  Vietnamese and checks overflow.
-- **`useTranslations` inside the registry would break its current
-  non-Component call sites.** → Task 2.2 makes the registry helpers hooks plus a
-  server-side variant, and the typecheck catches any leftover plain-function
-  call site.
-- **A missing Vietnamese entry silently renders English.** → The key-parity test
-  (task 6.3) and the extended coverage test (task 2.3) both fail on a missing
-  translation, per the specs.
-- **The proxy matcher may swallow the API/SSE routes.** → Task 1.4 verifies
-  `/api/mes/graphql`, `/api/mes/session`, and the SSE endpoint still respond
-  un-prefixed and un-localized.
+- **[A stored `vi` preference shows English briefly on first paint]** → Accepted
+  for the prototype. Trigger to revisit: a requirement for Vietnamese in the
+  first paint or in shared links; the fix is D3's rejected alternative plus a
+  `<Suspense>` boundary, which also requires re-checking the `realtime-updates`
+  shell requirement.
+- **[Mechanical sweep of ~109 label sites plus all copy]** → Mitigation: land the
+  label bridge before the screens so type-check failures point at the remaining
+  call sites, migrate module by module, and keep each step's diff mechanical.
+- **[An untranslated string is left behind]** → Mitigation: the catalogue
+  key-parity test catches missing translations but not un-migrated strings; each
+  module task ends with a pass over that module's screens in both locales, and a
+  browser check runs in Vietnamese before completion.
+- **[`next-intl` interacts badly with Turbopack or Cache Components]** →
+  Mitigation: the only config change is the `createNextIntlPlugin` wrapper; a task
+  verifies `next build` keeps the same `○`/`◐`/`ƒ` classification for every route
+  and that no Uncached-data insight appears.
+- **[Vietnamese wording is wrong or unnatural]** → Mitigation: the `vi` catalogue
+  is reviewed with the user before the change is called done.
+- **[Additional font subset weight]** → Mitigation: one extra subset on an
+  already self-hosted Google font; verify with a build.
 
 ## Migration Plan
 
-No data or API migration. The URL shape changes (every public URL gains a
-prefix), so the one operational note is that previously bookmarked un-prefixed
-links keep working via the proxy redirect; no redirect table is needed. Deploy
-is the normal frontend build. Rollback is reverting the branch: no stored state
-depends on the locale, and the only new cookie (`NEXT_LOCALE`) is inert once the
-proxy is gone.
+The change is additive and reversible: the app defaults to English, and the
+cookie is inert without the provider. No data migration, environment variable,
+GraphQL contract, or backend coordination is involved — it ships with a normal
+frontend build. Rollback is reverting the commit. Per `AGENTS_GIT.md`, the work
+lands on an `ai/*` branch and merges only through a human-approved PR.
 
 ## Open Questions
 
-None that change the specs or this breakdown. The Vietnamese wording is a
-first-pass translation intended for a native-speaker review pass, and further
-languages can be added later by adding entries to `routing.locales` plus
-catalogs; both are follow-ups that do not alter the approach above.
+- Exact Vietnamese wording for domain labels (for example "Đang chờ" vs "Chờ
+  duyệt" for Pending) — answerable during catalogue review; it changes message
+  values only, not the specs or tasks.
+- Whether to move to server-applied locale later — deferrable; it would revisit
+  D3 and the `realtime-updates` shell requirement rather than this change's specs.

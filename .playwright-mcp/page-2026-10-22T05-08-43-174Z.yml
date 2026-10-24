@@ -1,0 +1,271 @@
+- generic [ref=f8e1]:
+  - generic [ref=f8e12] [cursor=pointer]:
+    - button "Open Next.js Dev Tools" [ref=f8e13]
+    - generic [ref=f8e104]:
+      - button "Open issues overlay" [ref=f8e105]:
+        - generic [ref=f8e106]:
+          - generic [aria-hidden] [ref=f8e107]: "0"
+          - generic [ref=f8e108]: "1"
+        - generic [ref=f8e109]: Issue
+      - button "Collapse issues badge" [ref=f8e110]
+  - alert [ref=f8e17]
+  - generic [ref=f8e18]:
+    - navigation [ref=f8e19]:
+      - generic [ref=f8e20]:
+        - generic [ref=f8e21]:
+          - link "ERP-MES System" [ref=f8e22] [cursor=pointer]:
+            - /url: /
+          - generic [ref=f8e23]:
+            - link "Trang chủ" [ref=f8e24] [cursor=pointer]:
+              - /url: /
+            - link "Công việc" [ref=f8e25] [cursor=pointer]:
+              - /url: /jobs
+            - link "Kế hoạch" [ref=f8e26] [cursor=pointer]:
+              - /url: /planning
+            - link "Hiệu suất" [ref=f8e27] [cursor=pointer]:
+              - /url: /performance
+        - generic [ref=f8e28]:
+          - generic "Cập nhật trực tiếp đang bật — thay đổi từ máy chủ hiển thị mà không cần tải lại" [ref=f8e91]:
+            - generic [aria-hidden] [ref=f8e32]: Trực tiếp
+            - generic [ref=f8e33]: "Kênh trực tiếp: Trực tiếp. Cập nhật trực tiếp đang bật — thay đổi từ máy chủ hiển thị mà không cần tải lại"
+          - combobox "Language" [ref=f8e34]:
+            - generic [ref=f8e35]: Tiếng Việt
+            - img [aria-hidden]: ▼
+          - textbox [aria-hidden] [ref=f8e36]: vi
+          - button "Mina Park Nhân viên" [ref=f8e37]:
+            - generic [ref=f8e38]: Mina Park
+            - generic [ref=f8e39]: Nhân viên
+    - main [ref=f8e40]:
+      - generic [ref=f8e41]:
+        - generic [ref=f8e42]:
+          - generic [ref=f8e43]:
+            - paragraph [ref=f8e44]: Công việc & Dự án
+            - heading "Danh sách phiếu việc" [level=1] [ref=f8e45]
+            - paragraph [ref=f8e46]: Phiếu việc theo vai trò (Nhân viên). Phạm vi dữ liệu của người xem do API áp dụng.
+          - generic [ref=f8e47]:
+            - button "Thêm nhanh hằng ngày" [ref=f8e48] [cursor=pointer]
+            - button "Xuất .xlsx" [ref=f8e50]
+            - button "Xuất .csv" [ref=f8e52]
+        - region "Bối cảnh ngày" [ref=f8e53]:
+          - paragraph [ref=f8e54]: Bối cảnh ngày
+          - generic [ref=f8e55]:
+            - button "[Hôm qua]" [ref=f8e56]
+            - button "[Hôm nay]" [ref=f8e57]
+            - button "[Ngày mai]" [ref=f8e58]
+            - button "Tất cả các ngày" [pressed] [ref=f8e59]
+        - generic [ref=f8e60]:
+          - generic [ref=f8e61]:
+            - generic [ref=f8e62]: Trạng thái
+            - combobox "Trạng thái" [expanded] [ref=f8e63]:
+              - generic [ref=f8e64]: Tất cả trạng thái
+              - img [aria-hidden]: ▼
+            - listbox [ref=f8e329]:
+              - option "Tất cả trạng thái" [active] [selected] [ref=f8e330]
+              - option "Đã yêu cầu" [ref=f8e332]
+              - option "Đang thực hiện" [ref=f8e334]
+              - option "Đang chờ" [ref=f8e336]
+              - option "Đã duyệt" [ref=f8e338]
+              - option "Bị từ chối" [ref=f8e340]
+              - option "Đã hủy" [ref=f8e342]
+              - option "Quá hạn" [ref=f8e344]
+            - textbox [aria-hidden] [ref=f8e65]: ALL
+          - generic [ref=f8e66]:
+            - generic [ref=f8e67]: Độ ưu tiên
+            - combobox "Độ ưu tiên" [ref=f8e68]:
+              - generic [ref=f8e69]: Mọi mức ưu tiên
+              - img [aria-hidden]: ▼
+            - textbox [aria-hidden] [ref=f8e70]: ALL
+          - generic [ref=f8e71]:
+            - generic [ref=f8e72]: Loại công việc
+            - combobox "Loại công việc" [ref=f8e73]:
+              - generic [ref=f8e74]: Mọi loại
+              - img [aria-hidden]: ▼
+            - textbox [aria-hidden] [ref=f8e75]: ALL
+          - generic [ref=f8e76]:
+            - generic [ref=f8e77]: Tìm kiếm
+            - textbox "Tìm kiếm" [ref=f8e78]:
+              - /placeholder: Mã phiếu, tiêu đề…
+          - generic [ref=f8e79]:
+            - button "Quá hạn" [ref=f8e80]
+            - button "Khung giờ gấp" [ref=f8e81]
+        - table [ref=f8e114]:
+          - rowgroup [ref=f8e115]:
+            - row [ref=f8e116]:
+              - columnheader "Tiêu đề" [ref=f8e117]
+              - columnheader "Trạng thái" [ref=f8e118]
+              - columnheader "Độ ưu tiên" [ref=f8e119]
+              - columnheader "Loại" [ref=f8e120]
+              - columnheader "Tiến độ" [ref=f8e121]
+              - columnheader "Người nhận" [ref=f8e122]
+              - columnheader "Phòng ban" [ref=f8e123]
+              - columnheader "Dự án" [ref=f8e124]
+              - columnheader "Hạn chót" [ref=f8e125]
+          - rowgroup [ref=f8e126]:
+            - row [ref=f8e127]:
+              - cell [ref=f8e128]:
+                - link "uiboiuo" [ref=f8e130] [cursor=pointer]:
+                  - /url: /jobs/tasks/e79418af-4905-467a-b042-25b0ee12f630
+              - cell "Đã duyệt" [ref=f8e131]:
+                - generic "Đã duyệt" [ref=f8e133]
+              - cell "Trung bình" [ref=f8e135]
+              - cell "Hằng ngày" [ref=f8e136]
+              - cell "0%" [ref=f8e137]
+              - cell "Mina Park" [ref=f8e138]
+              - cell "Engineering Core" [ref=f8e139]
+              - cell "Vận hành chung" [ref=f8e140]
+              - cell "17:00 21/10/2026" [ref=f8e141]
+            - row [ref=f8e142]:
+              - cell [ref=f8e143]:
+                - link "iuiouiouo" [ref=f8e145] [cursor=pointer]:
+                  - /url: /jobs/tasks/bcd4b2ec-ed14-4f79-a7b9-74bf2d3ef107
+              - cell "Đã duyệt" [ref=f8e146]:
+                - generic "Đã duyệt" [ref=f8e148]
+              - cell "Trung bình" [ref=f8e150]
+              - cell "Hằng ngày" [ref=f8e151]
+              - cell "0%" [ref=f8e152]
+              - cell "Mina Park" [ref=f8e153]
+              - cell "Engineering Core" [ref=f8e154]
+              - cell "Vận hành chung" [ref=f8e155]
+              - cell "17:00 20/10/2026" [ref=f8e156]
+            - row [ref=f8e157]:
+              - cell [ref=f8e158]:
+                - link "nerhetht" [ref=f8e160] [cursor=pointer]:
+                  - /url: /jobs/tasks/9c72e215-dcf1-44d6-b8f9-a79750f8ffe7
+              - cell "Đã yêu cầu" [ref=f8e161]:
+                - generic "Đã yêu cầu" [ref=f8e163]
+              - cell "Trung bình" [ref=f8e165]
+              - cell "Nhiều ngày" [ref=f8e166]
+              - cell "0%" [ref=f8e167]
+              - cell "Mina Park" [ref=f8e168]
+              - cell "Engineering Core" [ref=f8e169]
+              - cell "Vận hành chung" [ref=f8e170]
+              - cell "06:59 31/10/2026" [ref=f8e171]
+            - row [ref=f8e172]:
+              - cell [ref=f8e173]:
+                - link "biuybiu" [ref=f8e175] [cursor=pointer]:
+                  - /url: /jobs/tasks/a7aeb0a5-32c7-4b69-b04f-12b676d4e90b
+              - cell "Bị từ chối" [ref=f8e176]:
+                - generic "Bị từ chối" [ref=f8e178]
+              - cell "Trung bình" [ref=f8e180]
+              - cell "Hằng ngày" [ref=f8e181]
+              - cell "0%" [ref=f8e182]
+              - cell "Mina Park" [ref=f8e183]
+              - cell "Engineering" [ref=f8e184]
+              - cell "Vận hành chung" [ref=f8e185]
+              - cell "17:00 20/10/2026" [ref=f8e186]
+            - row [ref=f8e187]:
+              - cell [ref=f8e188]:
+                - link "Confirm the 10:30 handover line" [ref=f8e190] [cursor=pointer]:
+                  - /url: /jobs/tasks/task-req-hourly
+              - cell "Đã yêu cầu" [ref=f8e191]:
+                - generic "Đã yêu cầu" [ref=f8e193]
+              - cell "Khẩn cấp" [ref=f8e195]
+              - cell "Theo giờ" [ref=f8e196]
+              - cell "0%" [ref=f8e197]
+              - cell "Mina Park" [ref=f8e198]
+              - cell "Engineering" [ref=f8e199]
+              - cell "MES Rollout" [ref=f8e200]
+              - cell "11:30 19/10/2026" [ref=f8e201]
+            - row [ref=f8e202]:
+              - cell [ref=f8e203]:
+                - link "Scheduled maintenance checklist" [ref=f8e205] [cursor=pointer]:
+                  - /url: /jobs/tasks/task-act-daily
+              - cell "Đang thực hiện" [ref=f8e206]:
+                - generic "Đang thực hiện" [ref=f8e208]
+              - cell "Cao" [ref=f8e210]
+              - cell "Hằng ngày" [ref=f8e211]
+              - cell "40%" [ref=f8e212]
+              - cell "Mina Park" [ref=f8e213]
+              - cell "Engineering" [ref=f8e214]
+              - cell "MES Rollout" [ref=f8e215]
+              - cell "17:00 19/10/2026" [ref=f8e216]
+            - row [ref=f8e217]:
+              - cell [ref=f8e218]:
+                - link "Quality report submitted" [ref=f8e220] [cursor=pointer]:
+                  - /url: /jobs/tasks/task-pen-daily
+              - cell "Đã duyệt" [ref=f8e221]:
+                - generic "Đã duyệt" [ref=f8e223]
+              - cell "Trung bình" [ref=f8e225]
+              - cell "Hằng ngày" [ref=f8e226]
+              - cell "100%" [ref=f8e227]
+              - cell "Mina Park" [ref=f8e228]
+              - cell "Engineering" [ref=f8e229]
+              - cell "MES Rollout" [ref=f8e230]
+              - cell "17:00 19/10/2026" [ref=f8e231]
+            - row [ref=f8e232]:
+              - cell [ref=f8e233]:
+                - link "Yesterday's approved calibration" [ref=f8e235] [cursor=pointer]:
+                  - /url: /jobs/tasks/task-app-hourly
+              - cell "Đã duyệt" [ref=f8e236]:
+                - generic "Đã duyệt" [ref=f8e238]
+              - cell "Trung bình" [ref=f8e240]
+              - cell "Theo giờ" [ref=f8e241]
+              - cell "100%" [ref=f8e242]
+              - cell "Mina Park" [ref=f8e243]
+              - cell "Engineering" [ref=f8e244]
+              - cell "MES Rollout" [ref=f8e245]
+              - cell "15:00 18/10/2026" [ref=f8e246]
+            - row [ref=f8e247]:
+              - cell [ref=f8e248]:
+                - link "Returned material request" [ref=f8e250] [cursor=pointer]:
+                  - /url: /jobs/tasks/task-rej-daily
+              - cell "Bị từ chối" [ref=f8e251]:
+                - generic "Bị từ chối" [ref=f8e253]
+              - cell "Cao" [ref=f8e255]
+              - cell "Hằng ngày" [ref=f8e256]
+              - cell "60%" [ref=f8e257]
+              - cell "Mina Park" [ref=f8e258]
+              - cell "Engineering" [ref=f8e259]
+              - cell "MES Rollout" [ref=f8e260]
+              - cell "17:00 18/10/2026" [ref=f8e261]
+            - row [ref=f8e262]:
+              - cell [ref=f8e263]:
+                - link "Cancelled multi-day rework" [ref=f8e265] [cursor=pointer]:
+                  - /url: /jobs/tasks/task-can-multiday
+              - cell "Đã hủy" [ref=f8e266]:
+                - generic "Đã hủy" [ref=f8e268]
+              - cell "Thấp" [ref=f8e270]
+              - cell "Nhiều ngày" [ref=f8e271]
+              - cell "30%" [ref=f8e272]
+              - cell "Mina Park" [ref=f8e273]
+              - cell "Engineering" [ref=f8e274]
+              - cell "MES Rollout" [ref=f8e275]
+              - cell "17:00 20/10/2026" [ref=f8e276]
+            - row [ref=f8e277]:
+              - cell [ref=f8e278]:
+                - link "Overdue urgent multi-day build" [ref=f8e280] [cursor=pointer]:
+                  - /url: /jobs/tasks/task-overdue-multiday
+              - cell "Quá hạn" [ref=f8e281]:
+                - generic "Quá hạn" [ref=f8e283]
+              - cell "Khẩn cấp" [ref=f8e285]
+              - cell "Nhiều ngày" [ref=f8e286]
+              - cell "50%" [ref=f8e287]
+              - cell "Mina Park" [ref=f8e288]
+              - cell "Engineering" [ref=f8e289]
+              - cell "MES Rollout" [ref=f8e290]
+              - cell "17:00 18/10/2026" [ref=f8e291]
+            - row [ref=f8e292]:
+              - cell [ref=f8e293]:
+                - link "Multi-day prototype assembly" [ref=f8e295] [cursor=pointer]:
+                  - /url: /jobs/tasks/task-act-multiday
+              - cell "Đã duyệt" [ref=f8e296]:
+                - generic "Đã duyệt" [ref=f8e298]
+              - cell "Trung bình" [ref=f8e300]
+              - cell "Nhiều ngày" [ref=f8e301]
+              - cell "25%" [ref=f8e302]
+              - cell "Mina Park" [ref=f8e303]
+              - cell "Engineering" [ref=f8e304]
+              - cell "MES Rollout" [ref=f8e305]
+              - cell "17:00 21/10/2026" [ref=f8e306]
+        - generic [ref=f8e308]:
+          - paragraph [ref=f8e309]: Hiển thị 1–12 trên tổng số 12
+          - navigation "pagination" [ref=f8e310]:
+            - list [ref=f8e311]:
+              - listitem [ref=f8e312]:
+                - button "Go to previous page" [disabled] [ref=f8e313]:
+                  - generic [ref=f8e314]: Trước đó
+              - listitem [ref=f8e315]:
+                - button "1" [ref=f8e316] [cursor=pointer]
+              - listitem [ref=f8e317]:
+                - button "Go to next page" [disabled] [ref=f8e318]:
+                  - generic [ref=f8e319]: Tiếp theo

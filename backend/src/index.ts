@@ -30,6 +30,12 @@ import {
 	uploadAttachments,
 } from "./files/attachments";
 import { executeGraphQL } from "./graphql";
+import {
+	initSentry,
+	sentryOnError,
+	sentryOnRequest,
+	sentrySpan,
+} from "./lib/sentry";
 import { type AttachmentStore, createS3Store } from "./storage/s3";
 
 export interface ServiceDependencies {
@@ -51,6 +57,8 @@ export interface ServiceDependencies {
 
 export function createService(deps: ServiceDependencies) {
 	const { db, auth, config, events } = deps;
+
+	initSentry();
 
 	const corsHeaders = {
 		"access-control-allow-origin": config.webOrigin,
@@ -88,6 +96,7 @@ export function createService(deps: ServiceDependencies) {
 				return new Response(null, { status: 204, headers: corsHeaders });
 			}
 		})
+		.onRequest(sentryOnRequest)
 		.get("/health", () => ({
 			status: "ok",
 			service: "mes-backend",
@@ -180,7 +189,9 @@ export function createService(deps: ServiceDependencies) {
 					taskId?: unknown;
 					files?: unknown;
 				};
-				const outcome = await uploadAttachments(fileDeps, request, form);
+				const outcome = await sentrySpan("files.upload", async () => {
+					return uploadAttachments(fileDeps, request, form);
+				});
 				set.status = outcome.status;
 				set.headers["content-type"] = "application/json";
 				return JSON.stringify(outcome.body);
@@ -206,12 +217,14 @@ export function createService(deps: ServiceDependencies) {
 			)) {
 				if (value !== undefined) pairs.push([name, String(value)]);
 			}
-			const outcome = await downloadAttachment(
-				fileDeps,
-				request,
-				decodeURIComponent(key),
-				new URLSearchParams(pairs),
-			);
+			const outcome = await sentrySpan("files.download", async () => {
+				return downloadAttachment(
+					fileDeps,
+					request,
+					decodeURIComponent(key),
+					new URLSearchParams(pairs),
+				);
+			});
 			set.status = outcome.status;
 			for (const [name, value] of Object.entries(outcome.headers)) {
 				set.headers[name] = value;
@@ -246,6 +259,7 @@ export function createService(deps: ServiceDependencies) {
 			return response;
 		})
 		.all("/api/auth/*", ({ request }) => auth.handler(request))
+		.onError(sentryOnError)
 		.onAfterHandle(({ set }) => {
 			if (set.status === undefined) set.status = 200;
 		});

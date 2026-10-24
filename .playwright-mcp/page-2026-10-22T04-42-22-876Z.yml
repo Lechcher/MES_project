@@ -1,0 +1,254 @@
+- generic [ref=f4e1]:
+  - button "Open Next.js Dev Tools" [ref=f4e13] [cursor=pointer]
+  - alert [ref=f4e17]
+  - generic [ref=f4e18]:
+    - navigation [ref=f4e19]:
+      - generic [ref=f4e20]:
+        - generic [ref=f4e21]:
+          - link "ERP-MES System" [ref=f4e22] [cursor=pointer]:
+            - /url: /
+          - generic [ref=f4e23]:
+            - link "Trang chủ" [ref=f4e24] [cursor=pointer]:
+              - /url: /
+            - link "Công việc" [ref=f4e25] [cursor=pointer]:
+              - /url: /jobs
+            - link "Kế hoạch" [ref=f4e26] [cursor=pointer]:
+              - /url: /planning
+            - link "Hiệu suất" [ref=f4e27] [cursor=pointer]:
+              - /url: /performance
+        - generic [ref=f4e28]:
+          - generic "Cập nhật trực tiếp đang bật — thay đổi từ máy chủ hiển thị mà không cần tải lại" [ref=f4e29]:
+            - generic [aria-hidden] [ref=f4e36]: Trực tiếp
+            - generic [ref=f4e37]: "Kênh trực tiếp: Trực tiếp. Cập nhật trực tiếp đang bật — thay đổi từ máy chủ hiển thị mà không cần tải lại"
+          - combobox "Language" [ref=f4e38]:
+            - generic [ref=f4e39]: Tiếng Việt
+            - img [aria-hidden]: ▼
+          - textbox [aria-hidden] [ref=f4e40]: vi
+          - button "Mina Park Nhân viên" [ref=f4e41]:
+            - generic [ref=f4e42]: Mina Park
+            - generic [ref=f4e43]: Nhân viên
+    - main [ref=f4e44]:
+      - generic [ref=f4e45]:
+        - generic [ref=f4e46]:
+          - generic [ref=f4e47]:
+            - paragraph [ref=f4e48]: Jobs & Projects
+            - heading "Ticket list" [level=1] [ref=f4e49]
+            - paragraph [ref=f4e50]: Role-scoped tickets (Employee). The viewer's data scope is applied by the API.
+          - generic [ref=f4e51]:
+            - button "Daily Quick-add" [ref=f4e52] [cursor=pointer]
+            - button "Export .xlsx" [ref=f4e54]
+            - button "Export .csv" [ref=f4e56]
+        - region "Day navigation" [ref=f4e57]:
+          - paragraph [ref=f4e58]: Day context
+          - generic [ref=f4e59]:
+            - button "[Yesterday]" [ref=f4e60]
+            - button "[Today]" [ref=f4e61]
+            - button "[Tomorrow]" [ref=f4e62]
+            - button "All days" [active] [pressed] [ref=f4e63]
+        - generic [ref=f4e64]:
+          - generic [ref=f4e65]:
+            - generic [ref=f4e66]: State
+            - combobox "State" [ref=f4e67]:
+              - generic [ref=f4e68]: All states
+              - img [aria-hidden]: ▼
+            - textbox [aria-hidden] [ref=f4e69]: ALL
+          - generic [ref=f4e70]:
+            - generic [ref=f4e71]: Priority
+            - combobox "Priority" [ref=f4e72]:
+              - generic [ref=f4e73]: All priorities
+              - img [aria-hidden]: ▼
+            - textbox [aria-hidden] [ref=f4e74]: ALL
+          - generic [ref=f4e75]:
+            - generic [ref=f4e76]: Task type
+            - combobox "Task type" [ref=f4e77]:
+              - generic [ref=f4e78]: All types
+              - img [aria-hidden]: ▼
+            - textbox [aria-hidden] [ref=f4e79]: ALL
+          - generic [ref=f4e80]:
+            - generic [ref=f4e81]: Search
+            - textbox "Search" [ref=f4e82]:
+              - /placeholder: Task code, title…
+          - generic [ref=f4e83]:
+            - button "Overdue" [ref=f4e84]
+            - button "Urgent hourly" [ref=f4e85]
+        - table [ref=f4e99]:
+          - rowgroup [ref=f4e100]:
+            - row [ref=f4e101]:
+              - columnheader "Title" [ref=f4e102]
+              - columnheader "State" [ref=f4e103]
+              - columnheader "Priority" [ref=f4e104]
+              - columnheader "Type" [ref=f4e105]
+              - columnheader "Progress" [ref=f4e106]
+              - columnheader "Assignee" [ref=f4e107]
+              - columnheader "Department" [ref=f4e108]
+              - columnheader "Project" [ref=f4e109]
+              - columnheader "Deadline" [ref=f4e110]
+          - rowgroup [ref=f4e111]:
+            - row [ref=f4e112]:
+              - cell [ref=f4e113]:
+                - link "uiboiuo" [ref=f4e115] [cursor=pointer]:
+                  - /url: /jobs/tasks/e79418af-4905-467a-b042-25b0ee12f630
+              - cell "Đã duyệt" [ref=f4e116]:
+                - generic "Đã duyệt" [ref=f4e118]
+              - cell "Medium" [ref=f4e120]
+              - cell "Daily" [ref=f4e121]
+              - cell "0%" [ref=f4e122]
+              - cell "Mina Park" [ref=f4e123]
+              - cell "Engineering Core" [ref=f4e124]
+              - cell "General Operations" [ref=f4e125]
+              - cell "2026-10-21 10:00" [ref=f4e126]
+            - row [ref=f4e127]:
+              - cell [ref=f4e128]:
+                - link "iuiouiouo" [ref=f4e130] [cursor=pointer]:
+                  - /url: /jobs/tasks/bcd4b2ec-ed14-4f79-a7b9-74bf2d3ef107
+              - cell "Đã duyệt" [ref=f4e131]:
+                - generic "Đã duyệt" [ref=f4e133]
+              - cell "Medium" [ref=f4e135]
+              - cell "Daily" [ref=f4e136]
+              - cell "0%" [ref=f4e137]
+              - cell "Mina Park" [ref=f4e138]
+              - cell "Engineering Core" [ref=f4e139]
+              - cell "General Operations" [ref=f4e140]
+              - cell "2026-10-20 10:00" [ref=f4e141]
+            - row [ref=f4e142]:
+              - cell [ref=f4e143]:
+                - link "nerhetht" [ref=f4e145] [cursor=pointer]:
+                  - /url: /jobs/tasks/9c72e215-dcf1-44d6-b8f9-a79750f8ffe7
+              - cell "Đã yêu cầu" [ref=f4e146]:
+                - generic "Đã yêu cầu" [ref=f4e148]
+              - cell "Medium" [ref=f4e150]
+              - cell "Multi-day" [ref=f4e151]
+              - cell "0%" [ref=f4e152]
+              - cell "Mina Park" [ref=f4e153]
+              - cell "Engineering Core" [ref=f4e154]
+              - cell "General Operations" [ref=f4e155]
+              - cell "2026-10-30 23:59" [ref=f4e156]
+            - row [ref=f4e157]:
+              - cell [ref=f4e158]:
+                - link "biuybiu" [ref=f4e160] [cursor=pointer]:
+                  - /url: /jobs/tasks/a7aeb0a5-32c7-4b69-b04f-12b676d4e90b
+              - cell "Bị từ chối" [ref=f4e161]:
+                - generic "Bị từ chối" [ref=f4e163]
+              - cell "Medium" [ref=f4e165]
+              - cell "Daily" [ref=f4e166]
+              - cell "0%" [ref=f4e167]
+              - cell "Mina Park" [ref=f4e168]
+              - cell "Engineering" [ref=f4e169]
+              - cell "General Operations" [ref=f4e170]
+              - cell "2026-10-20 10:00" [ref=f4e171]
+            - row [ref=f4e172]:
+              - cell [ref=f4e173]:
+                - link "Confirm the 10:30 handover line" [ref=f4e175] [cursor=pointer]:
+                  - /url: /jobs/tasks/task-req-hourly
+              - cell "Đã yêu cầu" [ref=f4e176]:
+                - generic "Đã yêu cầu" [ref=f4e178]
+              - cell "Urgent" [ref=f4e180]
+              - cell "Hourly" [ref=f4e181]
+              - cell "0%" [ref=f4e182]
+              - cell "Mina Park" [ref=f4e183]
+              - cell "Engineering" [ref=f4e184]
+              - cell "MES Rollout" [ref=f4e185]
+              - cell "2026-10-19 04:30" [ref=f4e186]
+            - row [ref=f4e187]:
+              - cell [ref=f4e188]:
+                - link "Scheduled maintenance checklist" [ref=f4e190] [cursor=pointer]:
+                  - /url: /jobs/tasks/task-act-daily
+              - cell "Đang thực hiện" [ref=f4e191]:
+                - generic "Đang thực hiện" [ref=f4e193]
+              - cell "High" [ref=f4e195]
+              - cell "Daily" [ref=f4e196]
+              - cell "40%" [ref=f4e197]
+              - cell "Mina Park" [ref=f4e198]
+              - cell "Engineering" [ref=f4e199]
+              - cell "MES Rollout" [ref=f4e200]
+              - cell "2026-10-19 10:00" [ref=f4e201]
+            - row [ref=f4e202]:
+              - cell [ref=f4e203]:
+                - link "Quality report submitted" [ref=f4e205] [cursor=pointer]:
+                  - /url: /jobs/tasks/task-pen-daily
+              - cell "Đã duyệt" [ref=f4e206]:
+                - generic "Đã duyệt" [ref=f4e208]
+              - cell "Medium" [ref=f4e210]
+              - cell "Daily" [ref=f4e211]
+              - cell "100%" [ref=f4e212]
+              - cell "Mina Park" [ref=f4e213]
+              - cell "Engineering" [ref=f4e214]
+              - cell "MES Rollout" [ref=f4e215]
+              - cell "2026-10-19 10:00" [ref=f4e216]
+            - row [ref=f4e217]:
+              - cell [ref=f4e218]:
+                - link "Yesterday's approved calibration" [ref=f4e220] [cursor=pointer]:
+                  - /url: /jobs/tasks/task-app-hourly
+              - cell "Đã duyệt" [ref=f4e221]:
+                - generic "Đã duyệt" [ref=f4e223]
+              - cell "Medium" [ref=f4e225]
+              - cell "Hourly" [ref=f4e226]
+              - cell "100%" [ref=f4e227]
+              - cell "Mina Park" [ref=f4e228]
+              - cell "Engineering" [ref=f4e229]
+              - cell "MES Rollout" [ref=f4e230]
+              - cell "2026-10-18 08:00" [ref=f4e231]
+            - row [ref=f4e232]:
+              - cell [ref=f4e233]:
+                - link "Returned material request" [ref=f4e235] [cursor=pointer]:
+                  - /url: /jobs/tasks/task-rej-daily
+              - cell "Bị từ chối" [ref=f4e236]:
+                - generic "Bị từ chối" [ref=f4e238]
+              - cell "High" [ref=f4e240]
+              - cell "Daily" [ref=f4e241]
+              - cell "60%" [ref=f4e242]
+              - cell "Mina Park" [ref=f4e243]
+              - cell "Engineering" [ref=f4e244]
+              - cell "MES Rollout" [ref=f4e245]
+              - cell "2026-10-18 10:00" [ref=f4e246]
+            - row [ref=f4e247]:
+              - cell [ref=f4e248]:
+                - link "Cancelled multi-day rework" [ref=f4e250] [cursor=pointer]:
+                  - /url: /jobs/tasks/task-can-multiday
+              - cell "Đã hủy" [ref=f4e251]:
+                - generic "Đã hủy" [ref=f4e253]
+              - cell "Low" [ref=f4e255]
+              - cell "Multi-day" [ref=f4e256]
+              - cell "30%" [ref=f4e257]
+              - cell "Mina Park" [ref=f4e258]
+              - cell "Engineering" [ref=f4e259]
+              - cell "MES Rollout" [ref=f4e260]
+              - cell "2026-10-20 10:00" [ref=f4e261]
+            - row [ref=f4e262]:
+              - cell [ref=f4e263]:
+                - link "Overdue urgent multi-day build" [ref=f4e265] [cursor=pointer]:
+                  - /url: /jobs/tasks/task-overdue-multiday
+              - cell "Quá hạn" [ref=f4e266]:
+                - generic "Quá hạn" [ref=f4e268]
+              - cell "Urgent" [ref=f4e270]
+              - cell "Multi-day" [ref=f4e271]
+              - cell "50%" [ref=f4e272]
+              - cell "Mina Park" [ref=f4e273]
+              - cell "Engineering" [ref=f4e274]
+              - cell "MES Rollout" [ref=f4e275]
+              - cell "2026-10-18 10:00" [ref=f4e276]
+            - row [ref=f4e277]:
+              - cell [ref=f4e278]:
+                - link "Multi-day prototype assembly" [ref=f4e280] [cursor=pointer]:
+                  - /url: /jobs/tasks/task-act-multiday
+              - cell "Đã duyệt" [ref=f4e281]:
+                - generic "Đã duyệt" [ref=f4e283]
+              - cell "Medium" [ref=f4e285]
+              - cell "Multi-day" [ref=f4e286]
+              - cell "25%" [ref=f4e287]
+              - cell "Mina Park" [ref=f4e288]
+              - cell "Engineering" [ref=f4e289]
+              - cell "MES Rollout" [ref=f4e290]
+              - cell "2026-10-21 10:00" [ref=f4e291]
+        - generic [ref=f4e293]:
+          - paragraph [ref=f4e294]: Showing 1–12 of 12
+          - navigation "pagination" [ref=f4e295]:
+            - list [ref=f4e296]:
+              - listitem [ref=f4e297]:
+                - button "Go to previous page" [disabled] [ref=f4e298]:
+                  - generic [ref=f4e299]: Previous
+              - listitem [ref=f4e300]:
+                - button "1" [ref=f4e301] [cursor=pointer]
+              - listitem [ref=f4e302]:
+                - button "Go to next page" [disabled] [ref=f4e303]:
+                  - generic [ref=f4e304]: Next

@@ -16,18 +16,28 @@
 | Frontend | Next.js 16 (App Router), React 19 |
 | Styling | Tailwind CSS v4 |
 | UI Components | shadcn + Base UI (`@base-ui/react`), lucide-react |
+| Drag & drop | `@neodrag/react` (schedule bars) |
 | Charts | Chart.js |
+| Localization | next-intl |
 | Backend | Bun + Elysia |
+| API Runtime | graphql (GraphQL.js) — schema execution for the versioned endpoint |
 | Authentication | better-auth |
 | ORM / Database | Drizzle ORM (SQLite via `bun:sqlite`) |
 | API Contract | GraphQL (see [`API_CONTACT_SPECIFICATION.md`](API_CONTACT_SPECIFICATION.md)) |
+| Report generation | exceljs (XLSX/CSV), pdf-lib (PDF) |
+| Email delivery | nodemailer (SMTP: hosted provider or local mail server) |
+| Error tracking & monitoring | Sentry (`@sentry/nextjs`, `@sentry/node`) |
+| End-to-end testing | Playwright (`@playwright/test`) |
 | Language | TypeScript |
 | Linting / Formatting | Biome |
 | Package Manager | Bun |
 
 ## Design
 
-The visual theme is a dark, data-dashboard interface (dark background, cyan data accent, monospaced KPI numbers). For color palette, component styling, typography, and layout, see [**`DESIGN.md`**](DESIGN.md).
+The visual theme is a light IBM Carbon-inspired interface (white canvas,
+IBM Blue #0f62fe accent, flat-square 0px corners, IBM Plex Sans typography,
+hairline borders, footer-only inversion). For color palette, component
+styling, typography, and layout, see [**`DESIGN.md`**](DESIGN.md).
 
 This project uses **shadcn** for UI components (configured in `frontend/components.json`, with primitives under `frontend/src/components/ui/`). **Prefer shadcn components over native TSX/HTML tags**: add components with the shadcn CLI instead of writing raw markup, and compose or extend the existing primitives rather than re-implementing them. Use a native tag only when no shadcn component (or a thin wrapper around one) fits, and keep any such tag styled with Tailwind.
 
@@ -65,7 +75,8 @@ For how the system is put together, read the system documents:
 ### Code Style
 
 - Biome formats and lints the codebase. Do not add Prettier or ESLint configs.
-- Run the formatter from the relevant package (for example `bunx biome check --write` at the root, or `npm run format` inside `frontend/`).
+- Run the formatter from the relevant package: `bunx biome check --write` at the root, or `bun run lint` / `bun run format` inside `frontend/` or `backend/`.
+- Biome is configured in exactly two files: the root `biome.json`, and `frontend/biome.json` as a `"root": false` extension of it. The backend has no config and inherits the root. See [`docs/DEVELOPMENT.md`](docs/DEVELOPMENT.md).
 - Import order is handled by Biome's `organizeImports`. Do not add separate import-sort plugins.
 - Use TypeScript throughout; keep types explicit at trust boundaries.
 
@@ -77,6 +88,20 @@ For how the system is put together, read the system documents:
 - Merging an `ai/*` branch requires an explicit human approval. No auto-merge, no self-approval.
 - AI commits include an AI co-author trailer, for example `Co-authored-by: AI Agent <agent@local>`.
 - [**`AGENTS_GIT.md`**](AGENTS_GIT.md) is the single source of truth for Git collaboration; follow it in full.
+
+### Testing
+
+| Layer | Tool | Command | Scope |
+|-------|------|---------|-------|
+| Backend unit | bun:test | `cd backend && bun test` | All domain, resolver, route tests |
+| Frontend unit | bun:test | `cd frontend && bun test src/` | Component, hook, utility tests |
+| Frontend e2e | Playwright | `cd frontend && bun run test:e2e` | Cross-browser UI flows |
+| Error tracking | Sentry | Dev servers + DSN env | Captured errors & issues |
+
+- Run unit tests before every commit; all tests must pass.
+- Playwright e2e tests require dev servers (frontend:3000, backend:3001) to be running.
+- Sentry errors are captured automatically when `SENTRY_DSN`/`NEXT_PUBLIC_SENTRY_DSN` are configured.
+- Check Sentry for new issues after triggering errors: `make-and-change` org → `mes_project` project.
 
 ### Domain Vocabulary
 

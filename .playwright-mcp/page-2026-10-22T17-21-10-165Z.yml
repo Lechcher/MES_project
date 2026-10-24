@@ -1,0 +1,159 @@
+- generic [ref=f1e1]:
+  - button "Open Next.js Dev Tools" [ref=f1e13] [cursor=pointer]
+  - alert [ref=f1e17]: Work calendar, leave, and attendance
+  - generic [ref=f1e18]:
+    - navigation [ref=f1e19]:
+      - generic [ref=f1e20]:
+        - generic [ref=f1e21]:
+          - link "ERP-MES System" [ref=f1e22] [cursor=pointer]:
+            - /url: /
+          - generic [ref=f1e23]:
+            - link "Home" [ref=f1e24] [cursor=pointer]:
+              - /url: /
+            - link "Jobs" [ref=f1e25] [cursor=pointer]:
+              - /url: /jobs
+            - link "Planning" [ref=f1e26] [cursor=pointer]:
+              - /url: /planning
+            - link "Performance" [ref=f1e27] [cursor=pointer]:
+              - /url: /performance
+            - link "Settings" [ref=f1e28] [cursor=pointer]:
+              - /url: /settings
+        - generic [ref=f1e29]:
+          - generic "Live updates on — backend changes appear without a reload" [ref=f1e30]:
+            - generic [aria-hidden] [ref=f1e37]: Live
+            - generic [ref=f1e38]: "Live channel: Live. Live updates on — backend changes appear without a reload"
+          - combobox "Language" [ref=f1e39]:
+            - generic [ref=f1e40]: English
+            - img [aria-hidden]: ▼
+          - textbox [aria-hidden] [ref=f1e41]: en
+          - button "Hana Suzuki HR Manager" [ref=f1e42]:
+            - generic [ref=f1e43]: Hana Suzuki
+            - generic [ref=f1e44]: HR Manager
+    - main [ref=f1e45]:
+      - generic [ref=f1e46]:
+        - generic [ref=f1e47]:
+          - generic [ref=f1e48]:
+            - paragraph [ref=f1e49]: Planning & Attendance
+            - heading "Work calendar, leave, and attendance" [level=1] [ref=f1e50]
+            - paragraph [ref=f1e51]: Role-scoped planning (HR Manager). The Approval Board is hidden for Employee.
+          - button "Create Leave Request" [ref=f1e53] [cursor=pointer]
+        - generic [ref=f1e54]:
+          - tablist [ref=f1e55]:
+            - tab "Schedule" [selected] [ref=f1e56]
+            - tab "Leave Requests" [ref=f1e57]
+            - tab "Approval Board" [ref=f1e58]
+            - tab "Attendance & Balances" [ref=f1e59]
+          - tabpanel "Schedule" [ref=f1e60]:
+            - generic [ref=f1e61]:
+              - region "Schedule" [ref=f1e62]:
+                - generic [ref=f1e63]:
+                  - generic [ref=f1e64]:
+                    - button "Previous" [ref=f1e65]
+                    - button "Today" [ref=f1e66]
+                    - button "Next" [ref=f1e67]
+                  - generic [ref=f1e68]:
+                    - button "Day" [ref=f1e69]
+                    - button "Week" [pressed] [ref=f1e70]
+                    - button "Month" [ref=f1e71]
+                    - button "Year" [ref=f1e72]
+                  - generic [ref=f1e73]:
+                    - generic [ref=f1e74]:
+                      - generic [ref=f1e75]: From
+                      - textbox "From" [ref=f1e76]:
+                        - /placeholder: DD/MM/YYYY
+                        - text: 29/12/2025
+                    - generic [ref=f1e77]:
+                      - generic [ref=f1e78]: To
+                      - textbox "To" [active] [ref=f1e79]:
+                        - /placeholder: DD/MM/YYYY
+                        - text: 04/01/2026
+                    - button "Apply" [ref=f1e80]
+                - generic [ref=f1e81]:
+                  - generic [ref=f1e82]:
+                    - generic [ref=f1e83]:
+                      - generic [ref=f1e84]: Department
+                      - combobox "Department" [ref=f1e85]:
+                        - generic [ref=f1e86]: All departments
+                        - img [aria-hidden]: ▼
+                      - textbox [aria-hidden] [ref=f1e87]
+                    - generic [ref=f1e88]:
+                      - generic [ref=f1e89]: State filter
+                      - combobox "State filter" [ref=f1e90]:
+                        - generic [ref=f1e91]: All states
+                        - img [aria-hidden]: ▼
+                      - textbox [aria-hidden] [ref=f1e92]: ALL
+                  - generic [ref=f1e93]:
+                    - button "Print attendance calendar (PDF)" [ref=f1e94]
+                    - button "Export" [ref=f1e95]
+                    - button "Import" [ref=f1e96]
+                    - button "New task" [ref=f1e97]
+              - paragraph [ref=f1e98]: Drag a task to move or reassign it; hold Alt (Option) while dropping to copy it. Click an empty cell to add a task.
+              - generic [ref=f1e101]:
+                - generic [ref=f1e102]:
+                  - generic [ref=f1e103]: Employee
+                  - generic [ref=f1e1874]: Mon 29
+                  - generic [ref=f1e1875]: Tue 30
+                  - generic [ref=f1e1876]: Wed 31
+                  - generic [ref=f1e941]: Thu 1
+                  - generic [ref=f1e1877]: Fri 2
+                  - generic [ref=f1e1878]: Sat 3
+                  - generic [ref=f1e1879]: Sun 4
+                - generic [ref=f1e111]:
+                  - generic [ref=f1e112]: Engineering
+                  - generic [ref=f1e113]:
+                    - generic [ref=f1e114]:
+                      - generic [ref=f1e115]: Diego Alvarez
+                      - generic [ref=f1e116]: DH-001
+                    - button "Diego Alvarez · 29/12/2025" [ref=f1e1881]
+                    - button "Diego Alvarez · 30/12/2025" [ref=f1e1883]
+                    - button "Diego Alvarez · 31/12/2025" [ref=f1e1885]
+                    - button "Diego Alvarez · 01/01/2026" [ref=f1e953]
+                    - button "Diego Alvarez · 02/01/2026" [ref=f1e1887]
+                    - button "Diego Alvarez · 03/01/2026" [ref=f1e1889]
+                    - button "Diego Alvarez · 04/01/2026" [ref=f1e1891]
+                  - generic [ref=f1e138]:
+                    - generic [ref=f1e139]:
+                      - generic [ref=f1e140]: Mina Park
+                      - generic [ref=f1e141]: EM-001
+                    - button "Mina Park · 29/12/2025" [ref=f1e1893]
+                    - button "Mina Park · 30/12/2025" [ref=f1e1895]
+                    - button "Mina Park · 31/12/2025" [ref=f1e1897]
+                    - button "Mina Park · 01/01/2026" [ref=f1e983]
+                    - button "Mina Park · 02/01/2026" [ref=f1e1899]
+                    - button "Mina Park · 03/01/2026" [ref=f1e1901]
+                    - button "Mina Park · 04/01/2026" [ref=f1e1903]
+                - generic [ref=f1e216]:
+                  - generic [ref=f1e217]: Headquarters
+                  - generic [ref=f1e218]:
+                    - generic [ref=f1e219]:
+                      - generic [ref=f1e220]: Hana Suzuki
+                      - generic [ref=f1e221]: HR-001
+                    - button "Hana Suzuki · 29/12/2025" [ref=f1e1905]
+                    - button "Hana Suzuki · 30/12/2025" [ref=f1e1907]
+                    - button "Hana Suzuki · 31/12/2025" [ref=f1e1909]
+                    - button "Hana Suzuki · 01/01/2026" [ref=f1e1081]
+                    - button "Hana Suzuki · 02/01/2026" [ref=f1e1911]
+                    - button "Hana Suzuki · 03/01/2026" [ref=f1e1913]
+                    - button "Hana Suzuki · 04/01/2026" [ref=f1e1915]
+                  - generic [ref=f1e271]:
+                    - generic [ref=f1e272]:
+                      - generic [ref=f1e273]: Alex Morgan
+                      - generic [ref=f1e274]: SA-001
+                    - button "Alex Morgan · 29/12/2025" [ref=f1e1917]
+                    - button "Alex Morgan · 30/12/2025" [ref=f1e1919]
+                    - button "Alex Morgan · 31/12/2025" [ref=f1e1921]
+                    - button "Alex Morgan · 01/01/2026" [ref=f1e1138]
+                    - button "Alex Morgan · 02/01/2026" [ref=f1e1923]
+                    - button "Alex Morgan · 03/01/2026" [ref=f1e1925]
+                    - button "Alex Morgan · 04/01/2026" [ref=f1e1927]
+                  - generic [ref=f1e289]:
+                    - generic [ref=f1e290]:
+                      - generic [ref=f1e291]: Priya Raman
+                      - generic [ref=f1e292]: TL-001
+                    - button "Priya Raman · 29/12/2025" [ref=f1e1929]
+                    - button "Priya Raman · 30/12/2025" [ref=f1e1931]
+                    - button "Priya Raman · 31/12/2025" [ref=f1e1933]
+                    - button "Priya Raman · 01/01/2026" [ref=f1e1171]
+                    - button "Priya Raman · 02/01/2026" [ref=f1e1935]
+                    - button "Priya Raman · 03/01/2026" [ref=f1e1937]
+                    - button "Priya Raman · 04/01/2026" [ref=f1e1939]

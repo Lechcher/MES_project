@@ -13,6 +13,7 @@ import {
 	parse,
 	validate,
 } from "graphql";
+import { sentrySpan } from "../lib/sentry";
 import { type Auth, createAuth, resolveSession } from "../auth";
 import type { AppConfig } from "../config";
 import type { DatabaseHandle } from "../db";
@@ -116,12 +117,14 @@ export async function executeGraphQL(
 	}
 
 	try {
-		const executed = await execute({
-			schema,
-			document,
-			contextValue: graphqlContextValue(ctx, options.auth),
-			variableValues: variables,
-			operationName,
+		const executed = await sentrySpan("graphql.execute", async () => {
+			return execute({
+				schema,
+				document,
+				contextValue: graphqlContextValue(ctx, options.auth),
+				variableValues: variables,
+				operationName,
+			});
 		});
 		const result = normalizeErrorCodes(executed);
 		// A successful mutation announces the areas it invalidated; queries,

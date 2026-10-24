@@ -1,0 +1,84 @@
+- generic [ref=f8e1]:
+  - generic [ref=f8e12] [cursor=pointer]:
+    - button "Open Next.js Dev Tools" [ref=f8e13]
+    - generic [ref=f8e104]:
+      - button "Open issues overlay" [ref=f8e105]:
+        - generic [ref=f8e106]:
+          - generic [aria-hidden] [ref=f8e107]: "0"
+          - generic [ref=f8e108]: "1"
+        - generic [ref=f8e109]: Issue
+      - button "Collapse issues badge" [ref=f8e110]
+  - alert [ref=f8e17]
+  - generic [ref=f8e18]:
+    - navigation [ref=f8e19]:
+      - generic [ref=f8e20]:
+        - generic [ref=f8e21]:
+          - link "ERP-MES System" [ref=f8e22] [cursor=pointer]:
+            - /url: /
+          - generic [ref=f8e23]:
+            - link "Trang chủ" [ref=f8e24] [cursor=pointer]:
+              - /url: /
+            - link "Công việc" [ref=f8e25] [cursor=pointer]:
+              - /url: /jobs
+            - link "Kế hoạch" [ref=f8e26] [cursor=pointer]:
+              - /url: /planning
+            - link "Hiệu suất" [ref=f8e27] [cursor=pointer]:
+              - /url: /performance
+        - generic [ref=f8e28]:
+          - generic "Cập nhật trực tiếp đang bật — thay đổi từ máy chủ hiển thị mà không cần tải lại" [ref=f8e91]:
+            - generic [aria-hidden] [ref=f8e32]: Trực tiếp
+            - generic [ref=f8e33]: "Kênh trực tiếp: Trực tiếp. Cập nhật trực tiếp đang bật — thay đổi từ máy chủ hiển thị mà không cần tải lại"
+          - combobox "Language" [ref=f8e34]:
+            - generic [ref=f8e35]: Tiếng Việt
+            - img [aria-hidden]: ▼
+          - textbox [aria-hidden] [ref=f8e36]: vi
+          - button "Mina Park Nhân viên" [ref=f8e37]:
+            - generic [ref=f8e38]: Mina Park
+            - generic [ref=f8e39]: Nhân viên
+    - main [ref=f8e40]:
+      - generic [ref=f8e41]:
+        - generic [ref=f8e42]:
+          - generic [ref=f8e43]:
+            - paragraph [ref=f8e44]: Công việc & Dự án
+            - heading "Danh sách phiếu việc" [level=1] [ref=f8e45]
+            - paragraph [ref=f8e46]: Phiếu việc theo vai trò (Nhân viên). Phạm vi dữ liệu của người xem do API áp dụng.
+          - generic [ref=f8e47]:
+            - button "Thêm nhanh hằng ngày" [ref=f8e48] [cursor=pointer]
+            - button "Xuất .xlsx" [ref=f8e50]
+            - button "Xuất .csv" [ref=f8e52]
+        - region "Bối cảnh ngày" [ref=f8e53]:
+          - paragraph [ref=f8e54]: Bối cảnh ngày
+          - generic [ref=f8e55]:
+            - button "[Hôm qua]" [ref=f8e56]
+            - button "[Hôm nay]" [ref=f8e57]
+            - button "[Ngày mai]" [ref=f8e58]
+            - button "Tất cả các ngày" [pressed] [ref=f8e59]
+        - generic [ref=f8e60]:
+          - generic [ref=f8e61]:
+            - generic [ref=f8e62]: Trạng thái
+            - combobox "Trạng thái" [active] [ref=f8e63]:
+              - generic [ref=f8e64]: Đang chờ
+              - img [aria-hidden]: ▼
+            - textbox [aria-hidden] [ref=f8e65]: PEN
+          - generic [ref=f8e66]:
+            - generic [ref=f8e67]: Độ ưu tiên
+            - combobox "Độ ưu tiên" [ref=f8e68]:
+              - generic [ref=f8e69]: Mọi mức ưu tiên
+              - img [aria-hidden]: ▼
+            - textbox [aria-hidden] [ref=f8e70]: ALL
+          - generic [ref=f8e71]:
+            - generic [ref=f8e72]: Loại công việc
+            - combobox "Loại công việc" [ref=f8e73]:
+              - generic [ref=f8e74]: Mọi loại
+              - img [aria-hidden]: ▼
+            - textbox [aria-hidden] [ref=f8e75]: ALL
+          - generic [ref=f8e76]:
+            - generic [ref=f8e77]: Tìm kiếm
+            - textbox "Tìm kiếm" [ref=f8e78]:
+              - /placeholder: Mã phiếu, tiêu đề…
+          - generic [ref=f8e79]:
+            - button "Quá hạn" [ref=f8e80]
+            - button "Khung giờ gấp" [ref=f8e81]
+        - generic [ref=f8e348]:
+          - paragraph [ref=f8e352]: Không có phiếu việc nào khớp bộ lọc đang chọn
+          - paragraph [ref=f8e353]: Hãy điều chỉnh bối cảnh ngày, bộ lọc hoặc tìm kiếm để mở rộng kết quả.

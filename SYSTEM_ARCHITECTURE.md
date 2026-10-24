@@ -56,6 +56,8 @@ The system is a core surrounded by apps. The core provides identity, authorizati
 │                        CORE BASE MODULE (System)                       │
 │  - User Directory, RBAC & Permission Matrix Engine                     │
 │  - Telegram Webhook Notification Engine                                │
+│  - Email Delivery Service (password reset)                             │
+│  - Live Change Channel (push refresh signals)                          │
 │  - Deterministic Performance Calculation Engine (KPIs)                 │
 │  - Global State Codes (REQ, ACT, PEN, APP, REJ, CAN, OVERDUE)          │
 │  - Global Leave Codes (AL, UAL, SL, USL, PL, ML, CL, EL, LWP, TOIL, VTO)│
@@ -71,6 +73,8 @@ The system is a core surrounded by apps. The core provides identity, authorizati
 
 - User Directory, RBAC & Permission Matrix Engine
 - Telegram Webhook Notification Engine
+- Email Delivery Service (password reset)
+- Live Change Channel
 - Deterministic Performance Calculation Engine (KPIs)
 - Global State Codes (`REQ`, `ACT`, `PEN`, `APP`, `REJ`, `CAN`, `OVERDUE`)
 - Global Leave Codes (`AL`, `UAL`, `SL`, `USL`, `PL`, `ML`, `CL`, `EL`, `LWP`, `TOIL`, `VTO`)
@@ -241,12 +245,21 @@ Produces the printable and exportable outputs used across the apps: standard PDF
 
 Owns the shared code vocabulary — ticket state codes (`REQ`, `ACT`, `PEN`, `APP`, `REJ`, `CAN`, `OVERDUE`) and leave codes (`AL`, `UAL`, `SL`, `USL`, `PL`, `ML`, `CL`, `EL`, `LWP`, `TOIL`, `VTO`) — so all apps classify states and leave identically.
 
+### 9.7 Email Delivery Service
+
+Sends the self-service password-reset message through a configured mail server. The server is chosen by configuration alone (hosted provider or local relay). The message links to the web application's reset route with the issued token. Every attempt is recorded as delivered or failed (with a reason) in the outbound notification log; a failed delivery is reported to the caller as a failure, while an unknown address returns the same neutral response so account existence is not disclosed. With no mail server configured, reset requests fail as "mail sender unavailable". The mail credential is never logged or returned.
+
+### 9.8 Live Change Channel
+
+Pushes change signals to signed-in viewers so open screens stay current without a manual reload. Every successful mutation publishes the **area** it touched (tickets, leave, performance, users/settings, audit); failed mutations publish nothing. Events carry no record data — the client refetches through the normal API, so authorization is unchanged. Each browser tab holds one connection, reconnects automatically, and refetches its open views on reconnect because missed events are not replayed. While disconnected the last-known data stays visible with a disconnected status, and manual refresh keeps working.
+
 ---
 
 ## 10. Cross-Cutting Concerns & Non-Functional Notes
 
 - **Auditability.** State-changing and administrative activity is written to a single append-only audit store — **user, action, resource, field changes, timestamp, and IP address** — so changes are traceable. The `Settings` app writes these events; the `AuditLog` app provides the technical inspection surface (system-wide and per-module) over the same store.
-- **Notification.** State changes and approval events are delivered through the Telegram webhook; notification configuration (bot, alert group chat ID, webhook URL endpoints) is centralized in Settings.
+- **Notification.** State changes and approval events are delivered through the Telegram webhook; notification configuration (bot, alert group chat ID, webhook URL endpoints) is centralized in Settings. Password-reset mail goes through the Email Delivery Service (§9.7); both channels record each attempt in one outbound notification log.
+- **Freshness.** Open screens refresh in place from Live Change Channel signals (§9.8); the channel never widens what a role may read.
 - **Report outputs.** Print outputs are standard PDF; spreadsheet exports are `.xlsx` and `.csv`. Print layouts include A4 (e.g. leave requests, KPI reports) and A4 Landscape (e.g. monthly attendance calendars). The multi-level audit export produces a workbook with one sheet per audit level.
 - **Timekeeping constraints.** Deadlines and transitions are rule-based: the daily planning/confirmation cutoff is **08:30**; urgent tasks use the hourly slots **10:30**, **14:00**, and **16:30**; daily tasks default to **17:00**/**18:00** the same day; multi-day tasks are tracked by accumulated progress with milestones at **25%**, **50%**, **75%**, and **100%**. A ticket becomes **OVERDUE** when it passes the relevant deadline.
 - **Attendance rules.** Approved leave displays the official leave badge for the day; unauthorized absence is tagged **UAL** or **USL** and deducts 100% of the daily wage plus an attendance KPI deduction.
@@ -256,7 +269,12 @@ Owns the shared code vocabulary — ticket state codes (`REQ`, `ACT`, `PEN`, `AP
 
 ## 11. Integration Points
 
-The system has a single external integration: the **Telegram webhook**. The Telegram Webhook Notification Engine (part of the core, §9.2) sends notifications to a configured bot's alert group. The integration is configured in the `Settings` app, where the **Telegram bot**, the **alert group Chat ID**, and the **webhook URL endpoints** are defined. No other external integration is part of the current architecture.
+The system has two external integrations:
+
+- **Telegram webhook.** The Telegram Webhook Notification Engine (part of the core, §9.2) sends notifications to a configured bot's alert group. The integration is configured in the `Settings` app, where the **Telegram bot**, the **alert group Chat ID**, and the **webhook URL endpoints** are defined.
+- **Mail server.** The Email Delivery Service (§9.7) sends password-reset mail to a mail server named by deployment configuration (not by the `Settings` app).
+
+No other external integration is part of the current architecture.
 
 ---
 
@@ -297,7 +315,7 @@ Each architecture section derives from the following section(s) of `SYSTEM_PROCE
 | 6.5 App 5 — Audit Log | App 5 (Audit Log) |
 | 7. Shared Domain Model | Ticket State Codes & Color Codes; Leave State Codes; App 1 state-transition flow |
 | 8. Authorization Architecture | RBAC & UI Rendering Mechanism; Detailed Access Control Matrix |
-| 9. Core Engines & Services | `CORE BASE MODULE` contents; App 3 quantitative scoring algorithm; App 1 auto-forking; per-app Print/Export Engine |
+| 9. Core Engines & Services | `CORE BASE MODULE` contents; App 3 quantitative scoring algorithm; App 1 auto-forking; per-app Print/Export Engine; Password Reset and Live Updates (§9.7–9.8) |
 | 10. Cross-Cutting Concerns | App 4 system audit logs; App 5 audit inspection; App 4 webhook settings; per-app Print/Export Engine; App 1 time/progress classification; App 2 leave workflow |
 | 11. Integration Points | App 4 Telegram Webhook Settings; `CORE BASE MODULE` notification engine |
 | 12. Extensibility & Future Modules | Future Module Expansion |

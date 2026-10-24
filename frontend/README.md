@@ -29,6 +29,45 @@ To learn more about Next.js, take a look at the following resources:
 
 You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
 
+## Testing
+
+This project uses [Playwright](https://playwright.dev/) for end-to-end
+browser testing and [Sentry](https://sentry.io/) for error tracking and
+performance monitoring.
+
+### End-to-End Tests
+
+```bash
+# Install Playwright browsers (one-time setup)
+bun run test:e2e:install
+
+# Run tests in headless mode
+bun run test:e2e
+
+# Run tests in headed browser
+bun run test:e2e:headed
+
+# Run tests in CI mode (JUnit reporter)
+bun run test:e2e:ci
+
+# Open interactive UI mode
+bun run test:e2e:ui
+```
+
+Tests live in `frontend/tests/` with page objects under `pages/` and
+fixtures under `fixtures/`. See `docs/testing.md` for details.
+
+### Sentry
+
+Sentry is configured for error tracking and performance monitoring.
+Environment variables are documented in `frontend/.env.example`.
+
+Required variables:
+- `NEXT_PUBLIC_SENTRY_DSN` — Client SDK DSN
+- `SENTRY_ORG`, `SENTRY_PROJECT`, `SENTRY_AUTH_TOKEN` — Source map upload
+
+See `docs/sentry.md` for setup and configuration details.
+
 ## Deploy on Vercel
 
 The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.

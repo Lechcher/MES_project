@@ -1,0 +1,310 @@
+- generic [ref=f1e1]:
+  - button "Open Next.js Dev Tools" [ref=f1e13] [cursor=pointer]
+  - alert [ref=f1e17]: Work calendar, leave, and attendance
+  - generic [aria-hidden] [ref=f1e18]:
+    - navigation [ref=f1e19]:
+      - generic [ref=f1e20]:
+        - generic [ref=f1e21]:
+          - link [ref=f1e2218] [cursor=pointer]:
+            - /url: /
+            - text: ERP-MES System
+          - generic [ref=f1e23]:
+            - link [ref=f1e2219] [cursor=pointer]:
+              - /url: /
+              - text: Home
+            - link [ref=f1e2220] [cursor=pointer]:
+              - /url: /jobs
+              - text: Jobs
+            - link [ref=f1e2221] [cursor=pointer]:
+              - /url: /planning
+              - text: Planning
+            - link [ref=f1e2222] [cursor=pointer]:
+              - /url: /performance
+              - text: Performance
+            - link [ref=f1e2223] [cursor=pointer]:
+              - /url: /settings
+              - text: Settings
+        - generic [ref=f1e29]:
+          - generic [ref=f1e2224]:
+            - generic [aria-hidden] [ref=f1e37]: Live
+            - generic [ref=f1e38]: "Live channel: Live. Live updates on — backend changes appear without a reload"
+          - combobox [ref=f1e2225]:
+            - generic [ref=f1e40]: English
+            - img [aria-hidden]: ▼
+          - textbox [aria-hidden] [ref=f1e41]: en
+          - button [ref=f1e2226]:
+            - generic [ref=f1e43]: Hana Suzuki
+            - generic [ref=f1e44]: HR Manager
+    - main [ref=f1e45]:
+      - generic [ref=f1e46]:
+        - generic [ref=f1e47]:
+          - generic [ref=f1e48]:
+            - paragraph [ref=f1e49]: Planning & Attendance
+            - heading [level=1] [ref=f1e2227]: Work calendar, leave, and attendance
+            - paragraph [ref=f1e51]: Role-scoped planning (HR Manager). The Approval Board is hidden for Employee.
+          - button [ref=f1e2228] [cursor=pointer]: Create Leave Request
+        - generic [ref=f1e54]:
+          - tablist [ref=f1e55]:
+            - tab [selected] [ref=f1e2229]: Schedule
+            - tab [ref=f1e2230]: Leave Requests
+            - tab [ref=f1e2231]: Approval Board
+            - tab [ref=f1e2232]: Attendance & Balances
+          - tabpanel [ref=f1e2233]:
+            - generic [ref=f1e61]:
+              - region [ref=f1e2234]:
+                - generic [ref=f1e63]:
+                  - generic [ref=f1e64]:
+                    - button [ref=f1e2235]
+                    - button [ref=f1e2236]: Today
+                    - button [ref=f1e2237]
+                  - generic [ref=f1e68]:
+                    - button [ref=f1e2238]: Day
+                    - button [pressed] [ref=f1e2239]: Week
+                    - button [ref=f1e2240]: Month
+                    - button [ref=f1e2241]: Year
+                  - generic [ref=f1e73]:
+                    - generic [ref=f1e74]:
+                      - generic [ref=f1e75]: From
+                      - textbox [ref=f1e2242]:
+                        - /placeholder: DD/MM/YYYY
+                        - text: 19/10/2026
+                    - generic [ref=f1e77]:
+                      - generic [ref=f1e78]: To
+                      - textbox [ref=f1e2243]:
+                        - /placeholder: DD/MM/YYYY
+                        - text: 25/10/2026
+                    - button [ref=f1e2244]: Apply
+                - generic [ref=f1e81]:
+                  - generic [ref=f1e82]:
+                    - generic [ref=f1e83]:
+                      - generic [ref=f1e84]: Department
+                      - combobox [ref=f1e2245]:
+                        - generic [ref=f1e86]: All departments
+                        - img [aria-hidden]: ▼
+                      - textbox [aria-hidden] [ref=f1e87]
+                    - generic [ref=f1e88]:
+                      - generic [ref=f1e89]: State filter
+                      - combobox [ref=f1e2246]:
+                        - generic [ref=f1e91]: All states
+                        - img [aria-hidden]: ▼
+                      - textbox [aria-hidden] [ref=f1e92]: ALL
+                  - generic [ref=f1e93]:
+                    - button [ref=f1e2247]: Print attendance calendar (PDF)
+                    - button [ref=f1e2248]: Export
+                    - button [ref=f1e2249]: Import
+                    - button [ref=f1e2250]: New task
+              - paragraph [ref=f1e98]: Drag a task to move or reassign it; hold Alt (Option) while dropping to copy it. Click an empty cell to add a task.
+              - generic [ref=f1e101]:
+                - generic [ref=f1e102]:
+                  - generic [ref=f1e103]: Employee
+                  - generic [ref=f1e1946]: Mon 19
+                  - generic [ref=f1e1947]: Tue 20
+                  - generic [ref=f1e1948]: Wed 21
+                  - generic [ref=f1e1949]: Thu 22
+                  - generic [ref=f1e1950]: Fri 23
+                  - generic [ref=f1e1951]: Sat 24
+                  - generic [ref=f1e1952]: Sun 25
+                - generic [ref=f1e111]:
+                  - generic [ref=f1e112]: Engineering
+                  - generic [ref=f1e113]:
+                    - generic [ref=f1e114]:
+                      - generic [ref=f1e115]: Diego Alvarez
+                      - generic [ref=f1e116]: DH-001
+                    - generic [ref=f1e1953]:
+                      - button [ref=f1e2251]
+                      - generic [ref=f1e1955]: Late
+                    - button [ref=f1e2252]
+                    - button [ref=f1e2253]
+                    - button [ref=f1e2254]
+                    - button [ref=f1e2255]
+                    - button [ref=f1e2256]
+                    - button [ref=f1e2257]
+                    - button [ref=f1e2258]:
+                      - generic [ref=f1e1971]: T-0009
+                      - button [ref=f1e2259]
+                  - generic [ref=f1e138]:
+                    - generic [ref=f1e139]:
+                      - generic [ref=f1e140]: Mina Park
+                      - generic [ref=f1e141]: EM-001
+                    - generic [ref=f1e1974]:
+                      - button [ref=f1e2260]
+                      - generic [ref=f1e1976]: Annual Leave
+                    - button [ref=f1e2262]
+                    - button [ref=f1e2263]
+                    - button [ref=f1e2264]
+                    - button [ref=f1e2265]
+                    - button [ref=f1e2266]
+                    - button [ref=f1e2267]
+                    - button [ref=f1e2268]:
+                      - generic [ref=f1e1996]: T-0006
+                      - generic [ref=f1e1997]: Cancelled multi-day rework
+                      - generic [ref=f1e1998]: Cancelled
+                      - button [ref=f1e2270]
+                    - button [ref=f1e2271]:
+                      - generic [ref=f1e2008]: T-0008
+                      - generic [ref=f1e2009]: Multi-day prototype assembly
+                      - generic [ref=f1e2010]: Approved
+                      - button [ref=f1e2273]
+                    - button [ref=f1e2274]:
+                      - generic [ref=f1e2018]: T-0002
+                      - button [ref=f1e2275]
+                    - button [ref=f1e2276]:
+                      - generic [ref=f1e2024]: T-0003
+                      - button [ref=f1e2277]
+                    - button [ref=f1e2278]:
+                      - generic [ref=f1e2030]: T-0001
+                      - generic [ref=f1e2031]: 10:30
+                      - button [ref=f1e2279]
+                    - button [ref=f1e2280]:
+                      - generic [ref=f1e2042]: T202610-0009
+                      - generic [ref=f1e2043]: nerhetht
+                      - generic [ref=f1e2044]: Requested
+                      - button [ref=f1e2282]
+                - generic [ref=f1e216]:
+                  - generic [ref=f1e217]: Headquarters
+                  - generic [ref=f1e218]:
+                    - generic [ref=f1e219]:
+                      - generic [ref=f1e220]: Hana Suzuki
+                      - generic [ref=f1e221]: HR-001
+                    - button [ref=f1e2283]
+                    - generic [ref=f1e2050]:
+                      - button [ref=f1e2284]
+                      - generic [ref=f1e2052]: Unexcused / Unpaid Sick Leave
+                    - button [ref=f1e2286]
+                    - button [ref=f1e2287]
+                    - button [ref=f1e2288]
+                    - button [ref=f1e2289]
+                    - button [ref=f1e2290]
+                    - button [ref=f1e2291]:
+                      - generic [ref=f1e2068]: T202610-0022
+                      - generic [ref=f1e2069]: ZZ-LIVE-CHECK-42
+                      - generic [ref=f1e2070]: Requested
+                      - button [ref=f1e2292]
+                    - button [ref=f1e2293]:
+                      - generic [ref=f1e2076]: T202610-0025
+                      - generic [ref=f1e2077]: ZZ-AUDIT-CHECK-99
+                      - generic [ref=f1e2078]: Requested
+                      - button [ref=f1e2294]
+                    - button [ref=f1e2295]:
+                      - generic [ref=f1e2084]: T202610-0028
+                      - generic [ref=f1e2085]: ZZ-AUDIT-COUNT-7
+                      - generic [ref=f1e2086]: Requested
+                      - button [ref=f1e2296]
+                    - button [ref=f1e2297]:
+                      - generic [ref=f1e2094]: T202610-0031
+                      - button [ref=f1e2299]
+                  - generic [ref=f1e271]:
+                    - generic [ref=f1e272]:
+                      - generic [ref=f1e273]: Alex Morgan
+                      - generic [ref=f1e274]: SA-001
+                    - button [ref=f1e2300]
+                    - button [ref=f1e2301]
+                    - button [ref=f1e2302]
+                    - button [ref=f1e2303]
+                    - button [ref=f1e2304]
+                    - button [ref=f1e2305]
+                    - button [ref=f1e2306]
+                  - generic [ref=f1e289]:
+                    - generic [ref=f1e290]:
+                      - generic [ref=f1e291]: Priya Raman
+                      - generic [ref=f1e292]: TL-001
+                    - generic [ref=f1e2111]:
+                      - button [ref=f1e2307]
+                      - generic [ref=f1e2113]: Early leave
+                    - button [ref=f1e2308]
+                    - button [ref=f1e2309]
+                    - button [ref=f1e2310]
+                    - button [ref=f1e2311]
+                    - button [ref=f1e2312]
+                    - button [ref=f1e2313]
+                    - button [ref=f1e2314]:
+                      - generic [ref=f1e2129]: T202610-0021
+                      - generic [ref=f1e2130]: ZZ-LIVE-CHECK-42
+                      - generic [ref=f1e2131]: Requested
+                      - button [ref=f1e2315]
+                    - button [ref=f1e2316]:
+                      - generic [ref=f1e2137]: T-0010
+                      - generic [ref=f1e2138]: 16:30
+                      - button [ref=f1e2317]
+                    - button [ref=f1e2318]:
+                      - generic [ref=f1e2145]: T202610-0024
+                      - generic [ref=f1e2146]: ZZ-AUDIT-CHECK-99
+                      - generic [ref=f1e2147]: Requested
+                      - button [ref=f1e2319]
+                    - button [ref=f1e2320]:
+                      - generic [ref=f1e2153]: T202610-0027
+                      - generic [ref=f1e2154]: ZZ-AUDIT-COUNT-7
+                      - generic [ref=f1e2155]: Requested
+                      - button [ref=f1e2321]
+                    - button [ref=f1e2322]:
+                      - generic [ref=f1e2163]: T202610-0030
+                      - button [ref=f1e2324]
+                - generic [ref=f1e2166]:
+                  - generic [ref=f1e2167]: No department
+                  - generic [ref=f1e2168]:
+                    - generic [ref=f1e2169]:
+                      - generic [ref=f1e2170]: Unassigned
+                      - generic [ref=f1e2171]: —
+                    - button [ref=f1e2325]
+                    - button [ref=f1e2326]
+                    - button [ref=f1e2327]
+                    - button [ref=f1e2328]
+                    - button [ref=f1e2329]
+                    - button [ref=f1e2330]
+                    - button [ref=f1e2331]
+                    - button [ref=f1e2332]:
+                      - generic [ref=f1e2189]: T202610-0020
+                      - generic [ref=f1e2190]: ZZ-LIVE-CHECK-42
+                      - generic [ref=f1e2191]: Requested
+                      - button [ref=f1e2333]
+                    - button [ref=f1e2334]:
+                      - generic [ref=f1e2197]: T202610-0023
+                      - generic [ref=f1e2198]: ZZ-AUDIT-CHECK-99
+                      - generic [ref=f1e2199]: Requested
+                      - button [ref=f1e2335]
+                    - button [ref=f1e2336]:
+                      - generic [ref=f1e2205]: T202610-0026
+                      - generic [ref=f1e2206]: ZZ-AUDIT-COUNT-7
+                      - generic [ref=f1e2207]: Requested
+                      - button [ref=f1e2337]
+                    - button [ref=f1e2338]:
+                      - generic [ref=f1e2215]: T202610-0029
+                      - button [ref=f1e2340]
+  - dialog [ref=f1e2344]:
+    - generic [ref=f1e2345]:
+      - heading "New task" [level=2] [ref=f1e2346]
+      - paragraph [ref=f1e2347]: Details · Time · Notes
+    - generic [ref=f1e2348]:
+      - tablist [ref=f1e2349]:
+        - tab "Details" [active] [selected] [ref=f1e2350]
+        - tab "Time" [ref=f1e2351]
+        - tab "Notes" [ref=f1e2352]
+      - tabpanel "Details" [ref=f1e2353]:
+        - generic [ref=f1e2354]:
+          - generic [ref=f1e2355]: Title
+          - textbox "Title" [ref=f1e2356]
+        - generic [ref=f1e2357]:
+          - generic [ref=f1e2358]:
+            - generic [ref=f1e2359]: Category
+            - combobox "Category" [ref=f1e2360]:
+              - generic [ref=f1e2361]: Daily
+              - img [aria-hidden]: ▼
+            - textbox [aria-hidden] [ref=f1e2362]: DAILY
+          - generic [ref=f1e2363]:
+            - generic [ref=f1e2364]: Assignee
+            - combobox "Assignee" [ref=f1e2365]:
+              - generic [ref=f1e2366]: Mina Park
+              - img [aria-hidden]: ▼
+            - textbox [aria-hidden] [ref=f1e2367]: b7d072ec-c2ce-4258-b771-9233ca16b76b
+        - generic [ref=f1e2368]:
+          - generic [ref=f1e2369]: Priority
+          - generic [ref=f1e2370]:
+            - 'button "1 star: Low" [ref=f1e2371]'
+            - 'button "2 stars: Medium" [pressed] [ref=f1e2374]'
+            - 'button "3 stars: High" [ref=f1e2377]'
+            - 'button "4 stars: Urgent" [ref=f1e2380]'
+            - generic [ref=f1e2383]: Medium
+    - generic [ref=f1e2385]:
+      - button "Cancel" [ref=f1e2386]
+      - button "Create task" [ref=f1e2387]
+    - button "Close" [ref=f1e2388]

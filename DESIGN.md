@@ -319,6 +319,8 @@ The system reaches for color rarely — IBM Blue marks links, primary CTAs, and 
 
 The same family carries display, body, and caption — there is no display + body pairing. Hierarchy is carried by **size + weight** rather than by family change. Plex Sans is also free / open-source under the SIL Open Font License — making it the easiest custom face on this list to substitute for in implementation.
 
+The app loads the **`latin` and `vietnamese` subsets** (`frontend/src/app/layout.tsx`): the Vietnamese subset carries the diacritics the Vietnamese locale needs (e.g. "Đăng nhập", "Tiếng Việt"), so they render in Plex Sans itself rather than falling back to a system face mid-word.
+
 ### Hierarchy
 
 | Token | Size | Weight | Line Height | Letter Spacing | Use |

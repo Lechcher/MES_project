@@ -1,0 +1,40 @@
+- generic [active] [ref=f3e1]:
+  - generic [ref=f3e51]:
+    - navigation [ref=f3e52]:
+      - generic [ref=f3e53]:
+        - link "ERP-MES System" [ref=f3e55] [cursor=pointer]:
+          - /url: /
+        - generic [ref=f3e56]:
+          - generic "Cập nhật trực tiếp đang bật — thay đổi từ máy chủ hiển thị mà không cần tải lại" [ref=f3e57]:
+            - generic [aria-hidden] [ref=f3e64]: Trực tiếp
+            - generic [ref=f3e65]: "Kênh trực tiếp: Trực tiếp. Cập nhật trực tiếp đang bật — thay đổi từ máy chủ hiển thị mà không cần tải lại"
+          - combobox "Language" [ref=f3e66]:
+            - generic [ref=f3e67]: Tiếng Việt
+            - img [aria-hidden]: ▼
+          - textbox [aria-hidden] [ref=f3e68]: vi
+          - button "Mina Park Nhân viên" [ref=f3e69]:
+            - generic [ref=f3e70]: Mina Park
+            - generic [ref=f3e71]: Nhân viên
+    - main [ref=f3e72]:
+      - generic [ref=f3e73]:
+        - paragraph [ref=f3e74]: Bảng điều khiển trang chủ
+        - heading "Xin chào, Mina Park" [level=1] [ref=f3e75]
+        - paragraph [ref=f3e76]: Nhân viên · Engineering
+        - generic [ref=f3e77]:
+          - link "Công việc & Dự án Vòng đời phiếu việc, tiến độ và nghiệm thu." [ref=f3e78] [cursor=pointer]:
+            - /url: /jobs
+            - generic [ref=f3e80]:
+              - generic [ref=f3e84]: Công việc & Dự án
+              - generic [ref=f3e85]: Vòng đời phiếu việc, tiến độ và nghiệm thu.
+          - link "Lập kế hoạch & Chấm công Lịch công việc dạng ma trận, chấm công và nghỉ phép." [ref=f3e86] [cursor=pointer]:
+            - /url: /planning
+            - generic [ref=f3e88]:
+              - generic [ref=f3e91]: Lập kế hoạch & Chấm công
+              - generic [ref=f3e92]: Lịch công việc dạng ma trận, chấm công và nghỉ phép.
+          - link "Hiệu suất & Đánh giá Bảng KPI cá nhân và các bảng đánh giá." [ref=f3e93] [cursor=pointer]:
+            - /url: /performance
+            - generic [ref=f3e95]:
+              - generic [ref=f3e98]: Hiệu suất & Đánh giá
+              - generic [ref=f3e99]: Bảng KPI cá nhân và các bảng đánh giá.
+  - button "Open Next.js Dev Tools" [ref=f3e29] [cursor=pointer]
+  - alert [ref=f3e33]: Xin chào, Mina Park

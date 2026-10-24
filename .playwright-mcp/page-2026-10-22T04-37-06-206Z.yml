@@ -1,0 +1,19 @@
+- generic [active] [ref=f3e1]:
+  - generic [ref=f3e3]:
+    - generic [ref=f3e5]:
+      - generic [ref=f3e6]: Đặt lại mật khẩu
+      - combobox "Language" [ref=f3e9]:
+        - generic [ref=f3e10]: Tiếng Việt
+        - img [aria-hidden]: ▼
+      - textbox [aria-hidden] [ref=f3e11]: vi
+    - generic [ref=f3e34]:
+      - paragraph [ref=f3e35]: Nhập email tài khoản của bạn và chúng tôi sẽ gửi liên kết để chọn mật khẩu mới.
+      - generic [ref=f3e36]:
+        - generic [ref=f3e37]: Email
+        - textbox "Email" [ref=f3e38]:
+          - /placeholder: you@company.com
+      - button "Gửi liên kết đặt lại" [ref=f3e39]
+      - button "Quay lại đăng nhập" [ref=f3e40]
+    - generic [ref=f3e22]: "Môi trường phát triển cục bộ: hãy đăng nhập bằng một tài khoản trong dữ liệu phát triển."
+  - button "Open Next.js Dev Tools" [ref=f3e29] [cursor=pointer]
+  - alert [ref=f3e33]

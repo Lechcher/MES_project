@@ -1,0 +1,20 @@
+Task code,Title,Project,Assignee,Department,Type,Priority,State,Progress %,Start,Due,Overdue,Created
+T202610-0009,Lifecycle 2,,Hana Suzuki (HR-001),Headquarters,DAILY,HIGH,REQ,0,2026-10-19,2026-10-23,No,2026-10-19 10:25
+T202610-0008,Lifecycle 2,,Priya Raman (TL-001),Headquarters,DAILY,HIGH,REQ,0,2026-10-19,2026-10-23,No,2026-10-19 10:25
+T202610-0007,Lifecycle 2,,Mina Park (EM-001),Headquarters,DAILY,HIGH,PEN,40,2026-10-19,2026-10-23,No,2026-10-19 10:25
+T202610-0006,Lifecycle smoke task,,Hana Suzuki (HR-001),Headquarters,DAILY,HIGH,REQ,0,2026-10-19,2026-10-23,No,2026-10-19 10:24
+T202610-0005,Lifecycle smoke task,,Priya Raman (TL-001),Headquarters,DAILY,HIGH,REQ,0,2026-10-19,2026-10-23,No,2026-10-19 10:24
+T202610-0004,Lifecycle smoke task,,Mina Park (EM-001),Headquarters,DAILY,HIGH,CAN,0,2026-10-19,2026-10-23,No,2026-10-19 10:24
+T202610-0003,Smoke test task,,Hana Suzuki (HR-001),Headquarters,DAILY,HIGH,REQ,0,2026-10-19,2026-10-22,No,2026-10-19 10:22
+T202610-0002,Smoke test task,,Priya Raman (TL-001),Headquarters,DAILY,HIGH,REQ,0,2026-10-19,2026-10-22,No,2026-10-19 10:22
+T202610-0001,Smoke test task,,Mina Park (EM-001),Headquarters,DAILY,HIGH,REQ,0,2026-10-19,2026-10-22,No,2026-10-19 10:22
+T-0001,Confirm the 10:30 handover line,MES Rollout,Mina Park (EM-001),Engineering,HOURLY,URGENT,REQ,0,2026-10-19,2026-10-19,No,2026-10-14 01:00
+T-0002,Scheduled maintenance checklist,MES Rollout,Mina Park (EM-001),Engineering,DAILY,HIGH,ACT,40,2026-10-19,2026-10-19,No,2026-10-14 01:00
+T-0003,Quality report submitted,MES Rollout,Mina Park (EM-001),Engineering,DAILY,MEDIUM,PEN,100,2026-10-19,2026-10-19,No,2026-10-14 01:00
+T-0004,Yesterday's approved calibration,MES Rollout,Mina Park (EM-001),Engineering,HOURLY,MEDIUM,APP,100,2026-10-18,2026-10-18,No,2026-10-14 01:00
+T-0005,Returned material request,MES Rollout,Mina Park (EM-001),Engineering,DAILY,HIGH,REJ,60,2026-10-18,2026-10-18,No,2026-10-14 01:00
+T-0006,Cancelled multi-day rework,MES Rollout,Mina Park (EM-001),Engineering,MULTI_DAY,LOW,CAN,30,2026-10-17,2026-10-20,No,2026-10-14 01:00
+T-0007,Overdue urgent multi-day build,MES Rollout,Mina Park (EM-001),Engineering,MULTI_DAY,URGENT,OVERDUE,50,2026-10-15,2026-10-18,Yes,2026-10-14 01:00
+T-0008,Multi-day prototype assembly,MES Rollout,Mina Park (EM-001),Engineering,MULTI_DAY,MEDIUM,ACT,25,2026-10-18,2026-10-21,No,2026-10-14 01:00
+T-0009,Department stand-up notes,MES Rollout,Diego Alvarez (DH-001),Engineering,DAILY,HIGH,ACT,10,2026-10-19,2026-10-19,No,2026-10-14 01:00
+T-0010,Roadmap review slot,MES Rollout,Priya Raman (TL-001),Engineering,HOURLY,LOW,REQ,0,2026-10-20,2026-10-20,No,2026-10-14 01:00

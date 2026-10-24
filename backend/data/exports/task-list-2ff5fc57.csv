@@ -1,0 +1,9 @@
+Task code,Title,Project,Assignee,Department,Type,Priority,State,Progress %,Start,Due,Overdue,Created
+T-0001,Confirm the 10:30 handover line,MES Rollout,Mina Park (EM-001),Engineering,HOURLY,URGENT,REQ,0,2026-10-17,2026-10-17,No,2026-10-12 01:00
+T-0002,Scheduled maintenance checklist,MES Rollout,Mina Park (EM-001),Engineering,DAILY,HIGH,ACT,40,2026-10-17,2026-10-17,No,2026-10-12 01:00
+T-0003,Quality report submitted,MES Rollout,Mina Park (EM-001),Engineering,DAILY,MEDIUM,PEN,100,2026-10-17,2026-10-17,No,2026-10-12 01:00
+T-0004,Yesterday's approved calibration,MES Rollout,Mina Park (EM-001),Engineering,HOURLY,MEDIUM,APP,100,2026-10-16,2026-10-16,No,2026-10-12 01:00
+T-0005,Returned material request,MES Rollout,Mina Park (EM-001),Engineering,DAILY,HIGH,REJ,60,2026-10-16,2026-10-16,No,2026-10-12 01:00
+T-0006,Cancelled multi-day rework,MES Rollout,Mina Park (EM-001),Engineering,MULTI_DAY,LOW,CAN,30,2026-10-15,2026-10-18,No,2026-10-12 01:00
+T-0007,Overdue urgent multi-day build,MES Rollout,Mina Park (EM-001),Engineering,MULTI_DAY,URGENT,OVERDUE,50,2026-10-13,2026-10-16,Yes,2026-10-12 01:00
+T-0008,Multi-day prototype assembly,MES Rollout,Mina Park (EM-001),Engineering,MULTI_DAY,MEDIUM,ACT,25,2026-10-16,2026-10-19,No,2026-10-12 01:00

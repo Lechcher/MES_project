@@ -1,0 +1,76 @@
+- generic [ref=f4e1]:
+  - button "Open Next.js Dev Tools" [ref=f4e13] [cursor=pointer]
+  - alert [ref=f4e17]
+  - generic [ref=f4e18]:
+    - navigation [ref=f4e19]:
+      - generic [ref=f4e20]:
+        - generic [ref=f4e21]:
+          - link "ERP-MES System" [ref=f4e22] [cursor=pointer]:
+            - /url: /
+          - generic [ref=f4e23]:
+            - link "Trang chủ" [ref=f4e24] [cursor=pointer]:
+              - /url: /
+            - link "Công việc" [ref=f4e25] [cursor=pointer]:
+              - /url: /jobs
+            - link "Kế hoạch" [ref=f4e26] [cursor=pointer]:
+              - /url: /planning
+            - link "Hiệu suất" [ref=f4e27] [cursor=pointer]:
+              - /url: /performance
+        - generic [ref=f4e28]:
+          - generic "Cập nhật trực tiếp đang bật — thay đổi từ máy chủ hiển thị mà không cần tải lại" [ref=f4e29]:
+            - generic [aria-hidden] [ref=f4e36]: Trực tiếp
+            - generic [ref=f4e37]: "Kênh trực tiếp: Trực tiếp. Cập nhật trực tiếp đang bật — thay đổi từ máy chủ hiển thị mà không cần tải lại"
+          - combobox "Language" [ref=f4e38]:
+            - generic [ref=f4e39]: Tiếng Việt
+            - img [aria-hidden]: ▼
+          - textbox [aria-hidden] [ref=f4e40]: vi
+          - button "Mina Park Nhân viên" [ref=f4e41]:
+            - generic [ref=f4e42]: Mina Park
+            - generic [ref=f4e43]: Nhân viên
+    - main [ref=f4e44]:
+      - generic [ref=f4e45]:
+        - generic [ref=f4e46]:
+          - generic [ref=f4e47]:
+            - paragraph [ref=f4e48]: Jobs & Projects
+            - heading "Ticket list" [level=1] [ref=f4e49]
+            - paragraph [ref=f4e50]: Role-scoped tickets (Employee). The viewer's data scope is applied by the API.
+          - generic [ref=f4e51]:
+            - button "Daily Quick-add" [ref=f4e52] [cursor=pointer]
+            - button "Export .xlsx" [ref=f4e54]
+            - button "Export .csv" [ref=f4e56]
+        - region "Day navigation" [ref=f4e57]:
+          - paragraph [ref=f4e58]: Day context
+          - generic [ref=f4e59]:
+            - button "[Yesterday]" [ref=f4e60]
+            - button "[Today]" [pressed] [ref=f4e61]
+            - button "[Tomorrow]" [ref=f4e62]
+            - button "All days" [ref=f4e63]
+        - generic [ref=f4e64]:
+          - generic [ref=f4e65]:
+            - generic [ref=f4e66]: State
+            - combobox "State" [ref=f4e67]:
+              - generic [ref=f4e68]: All states
+              - img [aria-hidden]: ▼
+            - textbox [aria-hidden] [ref=f4e69]: ALL
+          - generic [ref=f4e70]:
+            - generic [ref=f4e71]: Priority
+            - combobox "Priority" [ref=f4e72]:
+              - generic [ref=f4e73]: All priorities
+              - img [aria-hidden]: ▼
+            - textbox [aria-hidden] [ref=f4e74]: ALL
+          - generic [ref=f4e75]:
+            - generic [ref=f4e76]: Task type
+            - combobox "Task type" [ref=f4e77]:
+              - generic [ref=f4e78]: All types
+              - img [aria-hidden]: ▼
+            - textbox [aria-hidden] [ref=f4e79]: ALL
+          - generic [ref=f4e80]:
+            - generic [ref=f4e81]: Search
+            - textbox "Search" [ref=f4e82]:
+              - /placeholder: Task code, title…
+          - generic [ref=f4e83]:
+            - button "Overdue" [ref=f4e84]
+            - button "Urgent hourly" [ref=f4e85]
+        - generic [ref=f4e86]:
+          - paragraph [ref=f4e90]: No tickets match the active filters
+          - paragraph [ref=f4e91]: Adjust the day context, filters, or search to widen the result set.
