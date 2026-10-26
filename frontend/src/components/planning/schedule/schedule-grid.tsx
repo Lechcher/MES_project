@@ -19,8 +19,8 @@ import {
   addDays,
   addHours,
   addMonths,
-  isMidnight,
-  placeBar,
+  assignLanes,
+  lastCoveredDay,
   startOfMonth,
   toIsoDate,
 } from "./schedule-range";
@@ -100,6 +100,17 @@ export function ScheduleGrid({
     }
   }
 
+  // Every row packs its bars into lanes and grows to fit them, so a drop of
+  // `n` lanes is resolved through the running lane count of each row.
+  const lanePlan = rows.map((row) => {
+    const lanes = assignLanes(row.tasks, cols, range.scale);
+    return {
+      lanes,
+      laneCount: Math.max(1, ...lanes.map((l) => l.lane + 1), 1),
+    };
+  });
+  const laneCounts = lanePlan.map((plan) => plan.laneCount);
+
   return (
     <div className="border border-border">
       <div ref={bodyRef} className="overflow-x-auto">
@@ -150,22 +161,35 @@ export function ScheduleGrid({
               ) : null}
               {group.rows.map((row) => {
                 const globalRowIndex = rows.indexOf(row);
+                const plan = lanePlan[globalRowIndex];
+                const lanes = plan?.lanes ?? [];
+                const laneCount = plan?.laneCount ?? 1;
+                const rowHeight = laneCount * ROW_HEIGHT;
                 return (
                   <div
                     key={row.user.id}
                     className="grid border-b border-border last:border-b-0"
                     style={{
                       gridTemplateColumns: gridTemplate,
-                      height: ROW_HEIGHT,
+                      height: rowHeight,
+                      gridTemplateRows: `repeat(${laneCount}, ${ROW_HEIGHT}px)`,
                     }}
                   >
-                    <div className="sticky left-0 z-[5] flex items-center gap-2 overflow-hidden border-r border-border bg-background px-3">
+                    <div
+                      className="sticky left-0 z-[5] flex items-center gap-2 overflow-hidden border-r border-border bg-background px-3"
+                      style={{ gridRow: "1 / -1" }}
+                    >
                       <span className="truncate text-sm">
                         {row.user.fullName}
                       </span>
                       <span className="shrink-0 text-xs text-muted-foreground">
                         {row.user.userCode}
                       </span>
+                      {laneCount > 1 ? (
+                        <span className="shrink-0 text-xs text-muted-foreground">
+                          {t("laneCount", { count: laneCount })}
+                        </span>
+                      ) : null}
                     </div>
 
                     {cols.map((col, index) => {
@@ -184,7 +208,7 @@ export function ScheduleGrid({
                             isWeekend && "bg-muted/40",
                           )}
                           style={{
-                            gridRow: "1",
+                            gridRow: "1 / -1",
                             gridColumn: index + 2,
                             backgroundColor: markHex
                               ? `${markHex}14`
@@ -243,41 +267,33 @@ export function ScheduleGrid({
                       );
                     })}
 
-                    {row.tasks.map((task) => {
-                      const placement = placeBar(task, cols, range.scale);
-                      if (!placement) return null;
+                    {lanes.map(({ task, placement, lane }) => {
                       const startAt = task.startDate
                         ? new Date(task.startDate)
                         : null;
-                      const endAt = task.endDate
-                        ? new Date(task.endDate)
-                        : null;
-                      const exclusiveEnd =
-                        endAt && lastColEnd
-                          ? isYearScale
-                            ? addMonths(startOfMonth(endAt), 1)
-                            : isMidnight(endAt)
-                              ? addDays(endAt, 1)
-                              : endAt
-                          : null;
+                      // The last day the ticket covers, read the same way the
+                      // placement does, so the indicator agrees with the bar.
+                      const covered = lastCoveredDay(task);
                       return (
                         <TicketBar
                           key={task.id}
                           task={task}
                           placement={placement}
+                          lane={lane}
                           colWidth={colWidth}
                           rowHeight={ROW_HEIGHT}
                           rowIndex={globalRowIndex}
                           rows={rows}
+                          laneCounts={laneCounts}
                           canWrite={canWriteTask(task)}
                           boundsElement={bodyRef.current}
                           continuesBefore={Boolean(
                             startAt && cols[0] && startAt < cols[0],
                           )}
                           continuesAfter={Boolean(
-                            exclusiveEnd &&
+                            covered &&
                               lastColEnd &&
-                              exclusiveEnd > lastColEnd,
+                              covered.getTime() >= lastColEnd.getTime(),
                           )}
                           onOpen={onOpenTask}
                           onMove={onMoveTask}

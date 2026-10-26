@@ -29,16 +29,20 @@ import { useMesFormat } from "@/lib/mes/i18n/format";
 import { useDomainLabels } from "@/lib/mes/i18n/labels";
 import { TICKET_STATE_BY_CODE } from "@/lib/mes/queries/registries";
 import type { ScheduledTask, TaskType, UserRef } from "@/lib/mes/queries/types";
+import { addDays, isMidnight, rowForLaneOffset } from "./schedule-range";
 
 /**
  * One ticket bar on the schedule.
  *
- * Category is the left stripe + icon, the fill is the ticket-state color, so
- * state and category read independently (design D6). Writers can drag the
- * bar: the drop snaps to the grid, moves or reassigns the ticket, and
- * Alt (Option) drops a copy instead. The bar's transform is reset after the
- * drop — its new position comes from the merged query state — and the
- * overflow menu offers the same actions to keyboard users.
+ * The bar sits on a light surface; its 1 px border carries the ticket-state
+ * color and its left stripe carries the category, so state and category read
+ * independently (design D1/D2 of `improve-schedule-bars-editor-and-rows`).
+ * Rows hold several lanes, so the bar knows its own lane and the lane counts
+ * of every row to resolve a drop. Writers can drag the bar: the drop snaps to
+ * the grid, moves or reassigns the ticket, and Alt (Option) drops a copy
+ * instead. The bar's transform is reset after the drop — its new position
+ * comes from the merged query state — and the overflow menu offers the same
+ * actions to keyboard users.
  */
 
 const CATEGORY: Record<TaskType, { icon: LucideIcon; stripe: string }> = {
@@ -67,6 +71,8 @@ export function TicketBar({
   rowHeight,
   rowIndex,
   rows,
+  laneCounts,
+  lane,
   canWrite,
   boundsElement,
   continuesBefore,
@@ -82,6 +88,10 @@ export function TicketBar({
   rowHeight: number;
   rowIndex: number;
   rows: { user: UserRef }[];
+  /** Lanes per row, in render order — the drag's row target. */
+  laneCounts: number[];
+  /** 0-based sub-row this bar occupies inside its row. */
+  lane: number;
   canWrite: boolean;
   boundsElement: HTMLElement | null;
   continuesBefore: boolean;
@@ -103,7 +113,11 @@ export function TicketBar({
   const stars = PRIORITY_STARS[task.priority] ?? 2;
 
   const drag = useDraggable({
-    grid: [colWidth, rowHeight],
+    // Columns snap to the scale's width. The vertical axis is left free
+    // (`0` step) because a row is as tall as its lane count, not a fixed 52px:
+    // the drop is counted in lanes below, so a taller row is not harder to
+    // drop out of than a short one.
+    grid: [colWidth, 0],
     bounds: (node) =>
       boundsElement?.getBoundingClientRect() ?? node.getBoundingClientRect(),
     disabled: !canWrite,
@@ -112,10 +126,21 @@ export function TicketBar({
       // sits, so a failed save rolls the bar back to its slot.
       if (event.node instanceof HTMLElement) event.node.style.transform = "";
       const delta = Math.round(event.offset.x / colWidth);
+      // `rowHeight` is one lane's height: rows grow in whole lanes, so the
+      // vertical drop is counted in lanes rather than in the row's pixels.
       const rowDelta = Math.round(event.offset.y / rowHeight);
       movedRef.current = delta !== 0 || rowDelta !== 0;
       if (delta === 0 && rowDelta === 0) return;
-      const target = rows[rowIndex + rowDelta];
+      // Rows grow with their lane count, so the vertical offset is counted in
+      // lanes and resolved through the row that owns the target lane.
+      const firstLane = laneCounts
+        .slice(0, rowIndex)
+        .reduce((sum, count) => sum + Math.max(1, count), 0);
+      const targetRow = rowForLaneOffset(
+        laneCounts,
+        firstLane + lane + rowDelta,
+      );
+      const target = rows[targetRow];
       if (!target) return;
       onMove(task, {
         user: target.user,
@@ -128,6 +153,32 @@ export function TicketBar({
   const handle = canWrite ? drag.ref : undefined;
   // neodrag's `cancel` is a factory: calling it yields the no-drag ref.
   const cancelRef = canWrite ? drag.cancel() : undefined;
+
+  // The bar's headline: its scheduled range in its category's unit. An hourly
+  // bar reads its hours, a daily bar its date, and a multi-day bar its dates.
+  const rangeLabel = (() => {
+    if (!task.startDate) return null;
+    if (task.taskType === "HOURLY") {
+      return task.endDate
+        ? `${fmt.time(task.startDate)}–${fmt.time(task.endDate)}`
+        : fmt.time(task.startDate);
+    }
+    if (task.taskType === "MULTI_DAY") {
+      const endAt = task.endDate ? new Date(task.endDate) : null;
+      // A midnight end is an inclusive end day, so the last day it shows is
+      // the one before it.
+      const endShown =
+        endAt && !Number.isNaN(endAt.getTime()) && isMidnight(endAt)
+          ? addDays(endAt, -1)
+          : endAt;
+      return endShown && !Number.isNaN(endShown.getTime())
+        ? `${fmt.date(task.startDate)}–${fmt.date(
+            endShown ? endShown.toISOString() : null,
+          )}`
+        : fmt.date(task.startDate);
+    }
+    return fmt.date(task.startDate);
+  })();
 
   const tooltip = [
     `${task.taskCode} · ${task.title}`,
@@ -152,6 +203,10 @@ export function TicketBar({
       tabIndex={0}
       aria-label={tooltip}
       title={tooltip}
+      // The category and state read from the DOM so the schedule's e2e checks
+      // can assert a bar's encoding without reading its colors.
+      data-task-type={task.taskType}
+      data-ticket-state={task.state}
       onClick={() => {
         if (movedRef.current) {
           movedRef.current = false;
@@ -166,15 +221,18 @@ export function TicketBar({
         }
       }}
       className={cn(
-        "group relative z-10 m-[3px] flex cursor-pointer items-center gap-1 overflow-hidden border-l-4 px-1.5 text-left text-xs whitespace-nowrap select-none",
+        "group relative z-10 m-[3px] flex cursor-pointer items-center gap-1 overflow-hidden border border-l-4 px-1.5 text-left text-xs whitespace-nowrap select-none",
         category.stripe,
         canWrite ? "cursor-grab active:cursor-grabbing" : "cursor-pointer",
       )}
       style={{
         gridColumn: `${placement.start + 2} / span ${placement.span}`,
-        gridRow: "1",
-        backgroundColor: state.hex,
-        color: state.code === "ACT" ? "#161616" : "#ffffff",
+        // Lanes are grid rows one ROW_HEIGHT tall, so the bar's lane decides
+        // which of them it occupies.
+        gridRow: `${lane + 1} / span 1`,
+        backgroundColor: "#f4f4f4",
+        borderColor: state.hex,
+        color: "#161616",
       }}
     >
       <CategoryIcon className="size-3.5 shrink-0" aria-hidden />
@@ -193,6 +251,19 @@ export function TicketBar({
       ) : null}
 
       <span className="truncate font-mono">{task.taskCode}</span>
+      {rangeLabel ? (
+        <span
+          className={cn(
+            "font-mono opacity-80",
+            // Hours have to stay legible; a date range may give way.
+            task.taskType === "HOURLY"
+              ? "shrink-0"
+              : "min-w-0 truncate font-medium",
+          )}
+        >
+          {rangeLabel}
+        </span>
+      ) : null}
       {wide ? (
         <>
           <span className="truncate font-medium">{task.title}</span>
@@ -204,15 +275,16 @@ export function TicketBar({
 
       {task.taskType === "HOURLY" ? (
         <span className="ml-auto flex shrink-0 items-center gap-1">
-          {wide && task.isUrgentHourly ? (
-            <span className="flex items-center gap-0.5 bg-black/20 px-1 py-px">
+          {task.isUrgentHourly ? (
+            wide ? (
+              <span className="flex items-center gap-0.5 bg-foreground/10 px-1 py-px">
+                <Star className="size-2.5 fill-current" aria-hidden />
+                {t("bar.urgent")}
+              </span>
+            ) : (
               <Star className="size-2.5 fill-current" aria-hidden />
-              {t("bar.urgent")}
-            </span>
-          ) : task.isUrgentHourly ? (
-            <Star className="size-2.5 fill-current" aria-hidden />
+            )
           ) : null}
-          <span className="font-mono">{fmt.time(task.startDate)}</span>
         </span>
       ) : null}
 
@@ -238,7 +310,7 @@ export function TicketBar({
           <DropdownMenuTrigger
             className={cn(
               buttonVariants({ variant: "ghost", size: "icon-xs" }),
-              "text-current hover:bg-black/15 hover:text-current",
+              "text-current hover:bg-gray/15 hover:text-current",
             )}
             aria-label={t("bar.menu", { code: task.taskCode })}
             onClick={(event) => event.stopPropagation()}

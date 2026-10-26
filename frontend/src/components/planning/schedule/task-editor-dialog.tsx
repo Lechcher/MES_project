@@ -26,7 +26,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
 import { useErrorText } from "@/lib/mes/i18n/error-text";
 import { useDomainLabels } from "@/lib/mes/i18n/labels";
@@ -39,6 +38,15 @@ import type {
   UpdateTaskInput,
   UserRef,
 } from "@/lib/mes/queries/types";
+import {
+  addOneHour,
+  deriveTimesForCategory,
+  isTaskIntervalValid,
+  seedTimesForTask,
+  taskPayloadFrom,
+  toDateInput,
+  toDateTimeInput,
+} from "./task-dates";
 
 const PRIORITIES: Priority[] = ["LOW", "MEDIUM", "HIGH", "URGENT"];
 const STARS_BY_PRIORITY: Record<Priority, number> = {
@@ -47,15 +55,6 @@ const STARS_BY_PRIORITY: Record<Priority, number> = {
   HIGH: 3,
   URGENT: 4,
 };
-
-/** Local `datetime-local` value (`YYYY-MM-DDTHH:MM`) from an ISO string. */
-function toDateTimeInput(value: string | null): string {
-  if (!value) return "";
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return "";
-  const pad = (n: number) => String(n).padStart(2, "0");
-  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`;
-}
 
 export interface TaskCreateInput {
   title: string;
@@ -69,12 +68,26 @@ export interface TaskCreateInput {
   isUrgentHourly: boolean;
 }
 
+/** The local `datetime-local` strings the editor's controls drive. */
+interface Interval {
+  startText: string;
+  endText: string;
+}
+
+const EMPTY_INTERVAL: Interval = { startText: "", endText: "" };
+
 /**
- * The schedule's task editor: Details / Time / Notes tabs, the priority as
- * one to four stars, the assignee from the visible rows, and — on an
- * existing ticket — the state tag with exactly the transitions the viewer
- * may perform. Writers also get duplicate and a confirmed delete; everyone
- * else reads the ticket and keeps their own lifecycle actions.
+ * The schedule's task editor: one page holding title, category, priority,
+ * assignee, time and notes, the priority as one to four stars, the assignee
+ * from the visible rows, and — on an existing ticket — the state tag with
+ * exactly the transitions the viewer may perform. Writers also get duplicate
+ * and a confirmed delete; everyone else reads the ticket and keeps their own
+ * lifecycle actions.
+ *
+ * Time is one `datetime-local` pair for every category; the category decides
+ * what the controls offer — a single day for `DAILY`, a start and an end day
+ * for `MULTI_DAY`, and a start and an end hour on that day for `HOURLY` — so
+ * `DAILY` and `HOURLY` never own an end day.
  */
 export function TaskEditorDialog({
   open,
@@ -114,8 +127,7 @@ export function TaskEditorDialog({
   const [taskType, setTaskType] = useState<TaskType>("DAILY");
   const [priority, setPriority] = useState<Priority>("MEDIUM");
   const [assignedToId, setAssignedToId] = useState("");
-  const [startText, setStartText] = useState("");
-  const [endText, setEndText] = useState("");
+  const [interval, setInterval] = useState<Interval>(EMPTY_INTERVAL);
   const [description, setDescription] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -134,34 +146,67 @@ export function TaskEditorDialog({
       setTaskType(task.taskType);
       setPriority(task.priority);
       setAssignedToId(task.assignedTo?.id ?? "");
-      setStartText(toDateTimeInput(task.startDate));
-      setEndText(toDateTimeInput(task.endDate));
+      setInterval(seedTimesForTask(task, null));
       setDescription(task.description ?? "");
     } else {
       setTitle("");
       setTaskType("DAILY");
       setPriority("MEDIUM");
       setAssignedToId(prefill?.assigneeId ?? "");
-      setStartText(
-        prefill?.start ? toDateTimeInput(prefill.start.toISOString()) : "",
+      // A click on an empty cell opens the editor on that cell's time.
+      setInterval(
+        seedTimesForTask(
+          {
+            taskType: "DAILY",
+            startDate: null,
+            endDate: null,
+          },
+          prefill ?? null,
+        ),
       );
-      setEndText("");
       setDescription("");
     }
   }, [open, task?.id, prefill]);
 
   const assignedTo = assignees.find((user) => user.id === assignedToId) ?? null;
 
-  const allocatedHours = (() => {
-    if (!startText || !endText) return null;
-    const start = new Date(startText);
-    const end = new Date(endText);
-    if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime())) {
-      return null;
-    }
-    const hours = (end.getTime() - start.getTime()) / 3_600_000;
-    return hours >= 0 ? Math.round(hours * 10) / 10 : null;
-  })();
+  const { startText, endText } = interval;
+  const startDate = startText ? new Date(startText) : null;
+  const intervalValid = isTaskIntervalValid(taskType, startText, endText);
+  // The same rule set the Jobs create form writes through, so the two surfaces
+  // cannot drift: one helper turns the editor's fields into saved dates.
+  const dates = taskPayloadFrom({
+    taskType,
+    day: startText.slice(0, 10),
+    startHour: startText.slice(11, 16),
+    endHour: endText.slice(11, 16),
+    endDay: endText.slice(0, 10),
+  });
+
+  const setType = (value: TaskType) => {
+    setTaskType(value);
+    setInterval((current) =>
+      deriveTimesForCategory(value, current.startText, current.endText),
+    );
+  };
+
+  /** Move the interval by whole days, keeping the time of day. */
+  const shiftDays = (field: "start" | "end", days: number) =>
+    setInterval((current) => {
+      const value = field === "start" ? current.startText : current.endText;
+      const date = value ? new Date(value) : null;
+      if (!date) return current;
+      date.setDate(date.getDate() + days);
+      return field === "start"
+        ? {
+            startText: toDateTimeInput(date.toISOString()),
+            endText: current.endText,
+          }
+        : {
+            startText: current.startText,
+            endText: toDateTimeInput(date.toISOString()),
+          };
+    });
 
   const close = () => onOpenChange(false);
 
@@ -183,9 +228,7 @@ export function TaskEditorDialog({
       setError(t("titleRequired"));
       return;
     }
-    const start = startText ? new Date(startText) : null;
-    const end = endText ? new Date(endText) : null;
-    if (start && end && Number.isNaN(end.getTime()) === false && end < start) {
+    if (dates === null) {
       setError(t("endBeforeStart"));
       return;
     }
@@ -199,8 +242,8 @@ export function TaskEditorDialog({
           priority,
           assignedToId: assignedToId || null,
           departmentId: assignedTo?.department?.id ?? null,
-          startDate: start ? start.toISOString() : null,
-          endDate: end ? end.toISOString() : null,
+          startDate: dates.startDate,
+          endDate: dates.endDate,
           isUrgentHourly: taskType === "HOURLY",
         });
         close();
@@ -216,17 +259,27 @@ export function TaskEditorDialog({
         priority,
         assignedToId: assignedToId || null,
         departmentId: assignedTo?.department?.id ?? task.department?.id ?? null,
-        startDate: start ? start.toISOString() : null,
-        endDate: end ? end.toISOString() : null,
+        startDate: dates.startDate,
+        endDate: dates.endDate,
         isUrgentHourly: taskType === "HOURLY",
       });
       close();
     });
   };
 
+  const allocatedHours =
+    dates && taskType === "HOURLY"
+      ? Math.round(
+          ((new Date(dates.endDate).getTime() -
+            new Date(dates.startDate).getTime()) /
+            3_600_000) *
+            10,
+        ) / 10
+      : null;
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-xl">
+      <DialogContent className="sm:max-w-4xl">
         <DialogHeader>
           <DialogTitle>
             {isCreate
@@ -234,7 +287,8 @@ export function TaskEditorDialog({
               : t("editTitle", { code: task?.taskCode ?? "" })}
           </DialogTitle>
           <DialogDescription className="sr-only">
-            {t("tabDetails")} · {t("tabTime")} · {t("tabNotes")}
+            {t("title")} · {t("category")} · {t("priority")} · {t("assignee")} ·{" "}
+            {t("start")} · {t("end")} · {t("notes")}
           </DialogDescription>
         </DialogHeader>
 
@@ -257,160 +311,323 @@ export function TaskEditorDialog({
           </div>
         ) : null}
 
-        <Tabs defaultValue="details">
-          <TabsList>
-            <TabsTrigger value="details">{t("tabDetails")}</TabsTrigger>
-            <TabsTrigger value="time">{t("tabTime")}</TabsTrigger>
-            <TabsTrigger value="notes">{t("tabNotes")}</TabsTrigger>
-          </TabsList>
+        {/* One page, all fields: the dialog body scrolls instead of tabbing,
+            and horizontally when it is wider than the screen. */}
+        <div className="grid max-h-[65vh] gap-4 overflow-x-auto overflow-y-auto">
+          <div className="grid gap-1">
+            <Label htmlFor="task-title">{t("title")}</Label>
+            <Input
+              id="task-title"
+              value={title}
+              onChange={(event) => setTitle(event.target.value)}
+              disabled={!canWrite}
+            />
+          </div>
 
-          <TabsContent value="details" className="mt-3 grid gap-3">
+          <div className="grid gap-4 sm:grid-cols-2">
             <div className="grid gap-1">
-              <Label htmlFor="task-title">{t("title")}</Label>
-              <Input
-                id="task-title"
-                value={title}
-                onChange={(event) => setTitle(event.target.value)}
+              <Label htmlFor="task-category">{t("category")}</Label>
+              <Select
+                value={taskType}
+                onValueChange={(value) => setType(value as TaskType)}
                 disabled={!canWrite}
-              />
-            </div>
-
-            <div className="grid gap-4 sm:grid-cols-2">
-              <div className="grid gap-1">
-                <Label htmlFor="task-category">{t("category")}</Label>
-                <Select
-                  value={taskType}
-                  onValueChange={(value) => setTaskType(value as TaskType)}
-                  disabled={!canWrite}
-                  items={Object.fromEntries(
-                    (Object.keys(TASK_TYPE_LABELS) as TaskType[]).map(
-                      (type) => [type, labels.taskType(type)],
-                    ),
-                  )}
-                >
-                  <SelectTrigger
-                    id="task-category"
-                    className="w-full"
-                    size="sm"
-                  >
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {(Object.keys(TASK_TYPE_LABELS) as TaskType[]).map(
-                      (type) => (
-                        <SelectItem key={type} value={type}>
-                          {labels.taskType(type)}
-                        </SelectItem>
-                      ),
-                    )}
-                  </SelectContent>
-                </Select>
-              </div>
-
-              <div className="grid gap-1">
-                <Label htmlFor="task-assignee">{t("assignee")}</Label>
-                <Select
-                  value={assignedToId}
-                  onValueChange={(value) => setAssignedToId(value ?? "")}
-                  disabled={!canWrite}
-                  items={{
-                    "": t("unassigned"),
-                    ...Object.fromEntries(
-                      assignees.map((user) => [user.id, user.fullName]),
-                    ),
-                  }}
-                >
-                  <SelectTrigger
-                    id="task-assignee"
-                    className="w-full"
-                    size="sm"
-                  >
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="">{t("unassigned")}</SelectItem>
-                    {assignees.map((user) => (
-                      <SelectItem key={user.id} value={user.id}>
-                        {user.fullName} ({user.userCode})
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
+                items={Object.fromEntries(
+                  (Object.keys(TASK_TYPE_LABELS) as TaskType[]).map((type) => [
+                    type,
+                    labels.taskType(type),
+                  ]),
+                )}
+              >
+                <SelectTrigger id="task-category" className="w-full" size="sm">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {(Object.keys(TASK_TYPE_LABELS) as TaskType[]).map((type) => (
+                    <SelectItem key={type} value={type}>
+                      {labels.taskType(type)}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
 
             <div className="grid gap-1">
-              <Label>{t("priority")}</Label>
-              <div className="flex items-center gap-1">
-                {PRIORITIES.map((candidate) => {
-                  const filled =
-                    STARS_BY_PRIORITY[candidate] <= STARS_BY_PRIORITY[priority];
-                  return (
-                    <button
-                      key={candidate}
-                      type="button"
-                      disabled={!canWrite}
-                      aria-label={t("priorityStars", {
-                        count: STARS_BY_PRIORITY[candidate],
-                        label: labels.priority(candidate),
-                      })}
-                      aria-pressed={priority === candidate}
-                      onClick={() => setPriority(candidate)}
+              <Label htmlFor="task-assignee">{t("assignee")}</Label>
+              <Select
+                value={assignedToId}
+                onValueChange={(value) => setAssignedToId(value ?? "")}
+                disabled={!canWrite}
+                items={{
+                  "": t("unassigned"),
+                  ...Object.fromEntries(
+                    assignees.map((user) => [user.id, user.fullName]),
+                  ),
+                }}
+              >
+                <SelectTrigger id="task-assignee" className="w-full" size="sm">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="">{t("unassigned")}</SelectItem>
+                  {assignees.map((user) => (
+                    <SelectItem key={user.id} value={user.id}>
+                      {user.fullName} ({user.userCode})
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+
+          <div className="grid gap-1">
+            <Label>{t("priority")}</Label>
+            <div className="flex items-center gap-1">
+              {PRIORITIES.map((candidate) => {
+                const filled =
+                  STARS_BY_PRIORITY[candidate] <= STARS_BY_PRIORITY[priority];
+                return (
+                  <button
+                    key={candidate}
+                    type="button"
+                    disabled={!canWrite}
+                    aria-label={t("priorityStars", {
+                      count: STARS_BY_PRIORITY[candidate],
+                      label: labels.priority(candidate),
+                    })}
+                    aria-pressed={priority === candidate}
+                    onClick={() => setPriority(candidate)}
+                    className={cn(
+                      "rounded-sm p-0.5 disabled:cursor-not-allowed disabled:opacity-50",
+                      priority === candidate && "outline outline-ring",
+                    )}
+                  >
+                    <Star
                       className={cn(
-                        "rounded-sm p-0.5 disabled:cursor-not-allowed disabled:opacity-50",
-                        priority === candidate && "outline outline-ring",
+                        "size-5",
+                        filled
+                          ? "fill-[#f1c21b] text-[#f1c21b]"
+                          : "text-muted-foreground",
                       )}
-                    >
-                      <Star
-                        className={cn(
-                          "size-5",
-                          filled
-                            ? "fill-[#f1c21b] text-[#f1c21b]"
-                            : "text-muted-foreground",
-                        )}
-                        aria-hidden
-                      />
-                    </button>
-                  );
-                })}
-                <span className="ml-1 text-xs text-muted-foreground">
-                  {labels.priority(priority)}
-                </span>
-              </div>
+                      aria-hidden
+                    />
+                  </button>
+                );
+              })}
+              <span className="ml-1 text-xs text-muted-foreground">
+                {labels.priority(priority)}
+              </span>
             </div>
-          </TabsContent>
+          </div>
 
-          <TabsContent value="time" className="mt-3 grid gap-3">
-            <div className="grid gap-4 sm:grid-cols-2">
-              <div className="grid gap-1">
-                <Label htmlFor="task-start">{t("start")}</Label>
-                <Input
-                  id="task-start"
-                  type="datetime-local"
-                  value={startText}
-                  onChange={(event) => setStartText(event.target.value)}
-                  disabled={!canWrite}
-                />
+          <fieldset
+            className="grid gap-3 border border-border p-3"
+            disabled={!canWrite}
+          >
+            <legend className="px-1 text-xs font-semibold tracking-wide text-muted-foreground uppercase">
+              {t("time")}
+            </legend>
+
+            {taskType === "DAILY" ? (
+              <div className="grid gap-4 sm:grid-cols-2">
+                <div className="grid gap-1">
+                  <Label htmlFor="task-day">{t("startDay")}</Label>
+                  <div className="flex items-center gap-1">
+                    <Input
+                      id="task-day"
+                      type="date"
+                      value={startText ? startText.slice(0, 10) : ""}
+                      onChange={(event) => {
+                        const day = event.target.value;
+                        if (!day) {
+                          setInterval(EMPTY_INTERVAL);
+                          return;
+                        }
+                        setInterval({
+                          startText: `${day}T00:00`,
+                          endText: `${day}T23:59`,
+                        });
+                      }}
+                      className="w-full"
+                    />
+                    <DayShift
+                      label={t("previousDay")}
+                      onClick={() => shiftDays("start", -1)}
+                    />
+                  </div>
+                </div>
+                <div className="grid gap-1">
+                  <span className="text-xs text-muted-foreground">
+                    {t("endDayOnlyForMultiDay")}
+                  </span>
+                  <p className="text-sm font-medium">
+                    {startDate
+                      ? t("endsAtEndOfDay", { day: toDateInput(startDate) })
+                      : t("selectDay")}
+                  </p>
+                </div>
               </div>
-              <div className="grid gap-1">
-                <Label htmlFor="task-end">{t("end")}</Label>
-                <Input
-                  id="task-end"
-                  type="datetime-local"
-                  value={endText}
-                  onChange={(event) => setEndText(event.target.value)}
-                  disabled={!canWrite}
-                />
+            ) : null}
+
+            {taskType === "MULTI_DAY" ? (
+              <div className="grid gap-4 sm:grid-cols-2">
+                <div className="grid gap-1">
+                  <Label htmlFor="task-start-day">{t("startDay")}</Label>
+                  <div className="flex items-center gap-1">
+                    <Input
+                      id="task-start-day"
+                      type="date"
+                      value={startText ? startText.slice(0, 10) : ""}
+                      onChange={(event) => {
+                        const day = event.target.value;
+                        if (!day) {
+                          setInterval({ ...interval, startText: "" });
+                          return;
+                        }
+                        const endDay = endText ? endText.slice(0, 10) : day;
+                        setInterval({
+                          startText: `${day}T00:00`,
+                          endText:
+                            endDay >= day ? `${endDay}T23:59` : `${day}T23:59`,
+                        });
+                      }}
+                      className="w-full"
+                    />
+                    <DayShift
+                      label={t("previousDay")}
+                      onClick={() => shiftDays("start", -1)}
+                    />
+                  </div>
+                </div>
+                <div className="grid gap-1">
+                  <Label htmlFor="task-end-day">{t("endDay")}</Label>
+                  <div className="flex items-center gap-1">
+                    <Input
+                      id="task-end-day"
+                      type="date"
+                      value={endText ? endText.slice(0, 10) : ""}
+                      min={startText ? startText.slice(0, 10) : undefined}
+                      onChange={(event) => {
+                        const day = event.target.value;
+                        if (!day) {
+                          setInterval({ ...interval, endText: "" });
+                          return;
+                        }
+                        const startDay = startText
+                          ? startText.slice(0, 10)
+                          : day;
+                        if (day < startDay) {
+                          setError(t("endBeforeStart"));
+                          return;
+                        }
+                        setError(null);
+                        setInterval({
+                          startText: `${startDay}T00:00`,
+                          endText: `${day}T23:59`,
+                        });
+                      }}
+                      className="w-full"
+                    />
+                    <DayShift
+                      label={t("nextDay")}
+                      onClick={() => shiftDays("end", 1)}
+                    />
+                  </div>
+                </div>
               </div>
-            </div>
+            ) : null}
+
+            {taskType === "HOURLY" ? (
+              <div className="grid gap-4 sm:grid-cols-3">
+                <div className="grid gap-1">
+                  <Label htmlFor="task-hour-day">{t("day")}</Label>
+                  <div className="flex items-center gap-1">
+                    <Input
+                      id="task-hour-day"
+                      type="date"
+                      value={startText ? startText.slice(0, 10) : ""}
+                      onChange={(event) => {
+                        const day = event.target.value;
+                        if (!day) {
+                          setInterval(EMPTY_INTERVAL);
+                          return;
+                        }
+                        const time = startText
+                          ? startText.slice(11, 16)
+                          : "08:00";
+                        setInterval({
+                          startText: `${day}T${time}`,
+                          endText: `${day}T${time}`,
+                        });
+                      }}
+                      className="w-full"
+                    />
+                    <DayShift
+                      label={t("previousDay")}
+                      onClick={() => shiftDays("start", -1)}
+                    />
+                  </div>
+                </div>
+                <div className="grid gap-1">
+                  <Label htmlFor="task-start-hour">{t("startHour")}</Label>
+                  <Input
+                    id="task-start-hour"
+                    type="time"
+                    value={startText ? startText.slice(11, 16) : ""}
+                    onChange={(event) => {
+                      const time = event.target.value;
+                      if (!time || !startText) return;
+                      const day = startText.slice(0, 10);
+                      setInterval({
+                        startText: `${day}T${time}`,
+                        // Keep the end hour when it is still later, otherwise
+                        // fall back to the next hour.
+                        endText:
+                          endText && endText.slice(11, 16) > time
+                            ? `${day}T${endText.slice(11, 16)}`
+                            : `${day}T${addOneHour(time)}`,
+                      });
+                    }}
+                    className="w-full"
+                  />
+                </div>
+                <div className="grid gap-1">
+                  <Label htmlFor="task-end-hour">{t("endHour")}</Label>
+                  <Input
+                    id="task-end-hour"
+                    type="time"
+                    value={endText ? endText.slice(11, 16) : ""}
+                    onChange={(event) => {
+                      const time = event.target.value;
+                      if (!time || !startText) return;
+                      const day = startText.slice(0, 10);
+                      setInterval({ startText, endText: `${day}T${time}` });
+                    }}
+                    className="w-full"
+                  />
+                </div>
+              </div>
+            ) : null}
+
             <p className="text-xs text-muted-foreground">
-              {allocatedHours !== null
-                ? t("allocatedHours", { hours: allocatedHours })
-                : t("notesPlaceholder")}
+              {taskType === "HOURLY"
+                ? allocatedHours !== null && allocatedHours > 0
+                  ? t("allocatedHours", { hours: allocatedHours })
+                  : t("selectHours")
+                : taskType === "MULTI_DAY" &&
+                    startText &&
+                    endText &&
+                    intervalValid
+                  ? t("daySpan", {
+                      days:
+                        countDays(endText.slice(0, 10)) -
+                        countDays(startText.slice(0, 10)) +
+                        1,
+                    })
+                  : t("selectRange")}
             </p>
-          </TabsContent>
+          </fieldset>
 
-          <TabsContent value="notes" className="mt-3 grid gap-1">
+          <div className="grid gap-1">
             <Label htmlFor="task-notes">{t("notes")}</Label>
             <Textarea
               id="task-notes"
@@ -420,8 +637,8 @@ export function TaskEditorDialog({
               onChange={(event) => setDescription(event.target.value)}
               disabled={!canWrite}
             />
-          </TabsContent>
-        </Tabs>
+          </div>
+        </div>
 
         {task && !isCreate ? (
           <TaskActions
@@ -513,4 +730,42 @@ export function TaskEditorDialog({
       </DialogContent>
     </Dialog>
   );
+}
+
+/** A small nudge button beside a day input, for stepping a date. */
+function DayShift({ label, onClick }: { label: string; onClick: () => void }) {
+  return (
+    <Button
+      type="button"
+      variant="outline"
+      size="sm"
+      className="shrink-0 px-2"
+      aria-label={label}
+      title={label}
+      onClick={onClick}
+    >
+      {label}
+    </Button>
+  );
+}
+
+/** A local `datetime-local` string, or `null` when it does not parse. */
+function parseLocal(value: string): Date | null {
+  if (!value) return null;
+  const match = /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})$/.exec(value);
+  if (!match) return null;
+  const date = new Date(
+    Number(match[1]),
+    Number(match[2]) - 1,
+    Number(match[3]),
+    Number(match[4]),
+    Number(match[5]),
+  );
+  return Number.isNaN(date.getTime()) ? null : date;
+}
+
+/** Whole days from the epoch, so a day count is DST-proof. */
+function countDays(day: string): number {
+  const date = parseLocal(`${day}T00:00`);
+  return date ? Math.round(date.getTime() / 86_400_000) : 0;
 }

@@ -3,6 +3,10 @@
 import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { useEffect, useMemo, useState } from "react";
+import {
+  addOneHour,
+  taskPayloadFrom,
+} from "@/components/planning/schedule/task-dates";
 import { AppPageHeader } from "@/components/shared/app-page-header";
 import { InlineAlert, LoadingState } from "@/components/shared/query-states";
 import { Button } from "@/components/ui/button";
@@ -41,17 +45,15 @@ import { useMutation, useRoleCode, useViewer } from "@/lib/mes/session";
 const HOURLY_SLOTS = ["10:30", "14:00", "16:30"] as const;
 const DAILY_SLOTS = ["17:00", "18:00"] as const;
 
-function todayAt(time: string): string {
-  const [hour, minute] = time.split(":").map(Number);
-  const date = new Date();
-  date.setHours(hour, minute, 0, 0);
-  return date.toISOString();
+/** The deadline an hourly slot closes at: one hour after it starts. */
+function hourlyEndSlot(slot: string): string {
+  return addOneHour(slot);
 }
 
-function isoDay(date: string, endOfDay = false): string {
-  return new Date(
-    `${date}T${endOfDay ? "23:59:59.999" : "00:00:00.000"}Z`,
-  ).toISOString();
+/** Local `YYYY-MM-DD` for today. */
+function today(): string {
+  const now = new Date();
+  return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
 }
 
 /** Create Ticket form — task types, deadline slots, project, and Auto-forking. */
@@ -93,7 +95,7 @@ export function CreateTicketView() {
   const [projectId, setProjectId] = useState("GENERAL_OPERATIONS");
   const [departmentId, setDepartmentId] = useState("");
   const [assignedToId, setAssignedToId] = useState("");
-  const [hourlySlot, setHourlySlot] = useState<string>(HOURLY_SLOTS[1]);
+  const [hourlySlot, setHourlySlot] = useState<string>(HOURLY_SLOTS[0]);
   const [dailySlot, setDailySlot] = useState<string>(DAILY_SLOTS[0]);
   const [isUrgentHourly, setIsUrgentHourly] = useState(true);
   const [startDate, setStartDate] = useState("");
@@ -134,12 +136,27 @@ export function CreateTicketView() {
   }, [users, departmentId]);
 
   const deadlinePreview = useMemo(() => {
-    if (taskType === "HOURLY") return fmt.dateTime(todayAt(hourlySlot));
-    if (taskType === "DAILY") return fmt.dateTime(todayAt(dailySlot));
-    if (startDate && endDate) {
-      return `${fmt.dateTime(isoDay(startDate))} → ${fmt.dateTime(isoDay(endDate, true))}`;
+    // The same rule set the schedule reads back, so the preview shows the
+    // dates the ticket will really be saved with.
+    const payload =
+      taskType === "HOURLY"
+        ? taskPayloadFrom({
+            taskType,
+            day: today(),
+            startHour: hourlySlot,
+            endHour: hourlyEndSlot(hourlySlot),
+          })
+        : taskType === "DAILY"
+          ? taskPayloadFrom({ taskType, day: today(), deadline: dailySlot })
+          : startDate && endDate
+            ? taskPayloadFrom({ taskType, day: startDate, endDay: endDate })
+            : null;
+    if (!payload) return t("selectStartEnd");
+    if (taskType === "HOURLY") {
+      return `${fmt.time(payload.startDate)}–${fmt.time(payload.endDate)}`;
     }
-    return t("selectStartEnd");
+    if (taskType === "DAILY") return fmt.dateTime(payload.endDate);
+    return `${fmt.date(payload.startDate)} → ${fmt.date(payload.endDate)}`;
     // `fmt` and `t` are included so a language switch recomputes the preview.
   }, [taskType, hourlySlot, dailySlot, startDate, endDate, fmt, t]);
 
@@ -158,22 +175,31 @@ export function CreateTicketView() {
     event.preventDefault();
     setFeedback(null);
 
-    let start: string | undefined;
-    let end: string | undefined;
-    if (taskType === "HOURLY") {
-      end = todayAt(hourlySlot);
-    } else if (taskType === "DAILY") {
-      end = todayAt(dailySlot);
-    } else {
-      if (!startDate || !endDate) {
-        setFeedback({
-          tone: "error",
-          message: t("needRange"),
-        });
-        return;
-      }
-      start = isoDay(startDate);
-      end = isoDay(endDate, true);
+    // One rule set decides the dates for every category: `DAILY` is one day,
+    // `HOURLY` an hour pair inside one day, and `MULTI_DAY` the only category
+    // that spans days. A range that does not fit its category is refused.
+    const dates =
+      taskType === "HOURLY"
+        ? taskPayloadFrom({
+            taskType,
+            day: today(),
+            startHour: hourlySlot,
+            endHour: hourlyEndSlot(hourlySlot),
+          })
+        : taskType === "DAILY"
+          ? taskPayloadFrom({ taskType, day: today(), deadline: dailySlot })
+          : startDate && endDate
+            ? taskPayloadFrom({ taskType, day: startDate, endDay: endDate })
+            : null;
+    if (!dates) {
+      // A multi-day range with a blank end is "missing"; an end that is not
+      // after its start, or an hourly pair that cannot fit one day, is invalid.
+      const missingRange = taskType === "MULTI_DAY" && (!startDate || !endDate);
+      setFeedback({
+        tone: "error",
+        message: missingRange ? t("needRange") : t("invalidRange"),
+      });
+      return;
     }
 
     try {
@@ -186,8 +212,8 @@ export function CreateTicketView() {
           priority,
           assignedToId: assignedToId || undefined,
           departmentId: departmentId || undefined,
-          startDate: start,
-          endDate: end,
+          startDate: dates.startDate,
+          endDate: dates.endDate,
           isUrgentHourly: taskType === "HOURLY" ? isUrgentHourly : false,
         },
       });
@@ -429,7 +455,7 @@ export function CreateTicketView() {
                       variant={hourlySlot === slot ? "default" : "outline"}
                       onClick={() => setHourlySlot(slot)}
                     >
-                      {slot}
+                      {slot}–{hourlyEndSlot(slot)}
                     </Button>
                   ))}
                 </div>
