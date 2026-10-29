@@ -315,6 +315,41 @@ export const MODULE_LABELS: Record<string, string> = {
 };
 
 /**
+ * The KPI point rule codes, in documented display order.
+ *
+ * Mirrors `KPI_RULES` in `backend/src/domain/kpi.ts`; a new rule must fail the
+ * coverage test until it has a label and a message in every locale.
+ */
+export const KPI_RULE_CODES: readonly string[] = [
+  "KPI_ON_TIME_TICKET",
+  "KPI_ON_TIME_URGENT",
+  "KPI_FIRST_TIME_APPROVAL",
+  "KPI_PERFECT_ATTENDANCE",
+  "KPI_OVERDUE_TICKET",
+  "KPI_RETURNED_TICKET",
+  "KPI_EXTENSION_REQUEST",
+  "KPI_UNAPPROVED_LEAVE",
+];
+
+/**
+ * Canonical English event names for the KPI point rules.
+ *
+ * The documented rule table qualifies each event with its triggering state
+ * (`APP`, `REJ`, `UAL`/`USL`) — those qualifiers are code tokens, so they are
+ * dropped here: the display-labels rule forbids a combined `Name (CODE)` form.
+ */
+export const KPI_RULE_LABELS: Record<string, string> = {
+  KPI_ON_TIME_TICKET: "On-time ticket",
+  KPI_ON_TIME_URGENT: "On-time urgent ticket",
+  KPI_FIRST_TIME_APPROVAL: "Approved immediately without edits",
+  KPI_PERFECT_ATTENDANCE: "Month of excellent attendance",
+  KPI_OVERDUE_TICKET: "Overdue ticket",
+  KPI_RETURNED_TICKET: "Instance returned",
+  KPI_EXTENSION_REQUEST: "Extension request",
+  KPI_UNAPPROVED_LEAVE: "Late, early, or unapproved leave",
+};
+
+/**
  * The label for a code in one of the tables above.
  *
  * Unknown values pass through unchanged — audit-stream prose and other
@@ -350,6 +385,10 @@ export function roleCodeLabel(code: RoleCode): string {
 
 export function moduleLabel(code: string): string {
   return labelFor(code, MODULE_LABELS);
+}
+
+export function kpiRuleLabel(code: string): string {
+  return labelFor(code, KPI_RULE_LABELS);
 }
 
 export function ticketStateName(code: TicketStateCode): string {

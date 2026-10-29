@@ -739,11 +739,37 @@ export const typeDefs = /* GraphQL */ `
     updatedAt: DateTime!
   }
 
-  type PersonalKpiDashboard {
+  type KpiMonth {
+    periodYear: Int!
+    periodMonth: Int!
+  }
+
+  type KpiMonthlyTotal {
     periodYear: Int!
     periodMonth: Int!
     totalKpiScore: Int!
-    summary: KpiMonthlySummary
+  }
+
+  type KpiPeriodSummary {
+    totalTasksAssigned: Int!
+    completedOnTime: Int!
+    completedUrgentOnTime: Int!
+    approvedFirstTime: Int!
+    overdueTasks: Int!
+    rejectedTasks: Int!
+    extensionRequestsCount: Int!
+    attendanceRate: Decimal!
+    perfectAttendanceBonus: Int!
+    unapprovedLeaveCount: Int!
+    lateEarlyCount: Int!
+    totalKpiScore: Int!
+  }
+
+  type PersonalKpiDashboard {
+    months: [KpiMonth!]!
+    totalKpiScore: Int!
+    monthlyTotals: [KpiMonthlyTotal!]!
+    summary: KpiPeriodSummary
     leaveBalances: [LeaveBalance!]!
     recentEvents: [KpiScoreEvent!]!
   }
@@ -807,14 +833,17 @@ export const typeDefs = /* GraphQL */ `
     pageInfo: OffsetPageInfo!
   }
 
-  input KpiPeriodInput {
+  input KpiMonthInput {
     periodYear: Int!
     periodMonth: Int!
   }
 
+  input KpiPeriodSelectionInput {
+    months: [KpiMonthInput!]!
+  }
+
   input KpiAuditFilter {
-    periodYear: Int!
-    periodMonth: Int
+    months: [KpiMonthInput!]!
     departmentId: ID
   }
 
@@ -1026,9 +1055,9 @@ export const typeDefs = /* GraphQL */ `
     overtimeRecords(offset: Int = 0, limit: Int = 20): OvertimeRecordConnection!
 
     # Performance & Audit
-    personalKpiDashboard(input: KpiPeriodInput!): PersonalKpiDashboard!
+    personalKpiDashboard(input: KpiPeriodSelectionInput!): PersonalKpiDashboard!
     kpiScoreEvents(
-      input: KpiPeriodInput!
+      input: KpiPeriodSelectionInput!
       offset: Int = 0
       limit: Int = 20
     ): KpiScoreEventConnection!
@@ -1140,7 +1169,7 @@ export const typeDefs = /* GraphQL */ `
       filter: AttendanceFilter
       format: ExportFormat = XLSX
     ): ExportResult!
-    printKpiReport(input: KpiPeriodInput!): ExportResult!
+    printKpiReport(input: KpiPeriodSelectionInput!): ExportResult!
     exportAuditWorkbook(filter: KpiAuditFilter!): ExportResult!
     exportSchedule(input: ScheduleInput!, format: ExportFormat = XLSX): ExportResult!
     taskImportTemplate(format: ExportFormat = XLSX): ExportResult!

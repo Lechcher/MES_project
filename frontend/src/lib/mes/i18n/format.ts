@@ -35,6 +35,14 @@ const MONTH_YEAR_OPTIONS: DateTimeFormatOptions = {
   year: "numeric",
 };
 
+const MONTH_SHORT_OPTIONS: DateTimeFormatOptions = {
+  month: "short",
+};
+
+const YEAR_OPTIONS: DateTimeFormatOptions = {
+  year: "numeric",
+};
+
 function toDate(value?: string | null): Date | null {
   if (!value) return null;
   const date = new Date(value);
@@ -78,6 +86,62 @@ export interface MesFormat {
   decimal(value?: number | null): string;
   /** Byte sizes such as `1.5 MB` / `1,5 MB`. */
   bytes(value?: number | null): string;
+  /** `October 2026`; `tháng 10 2026`. */
+  periodMonth(periodYear: number, periodMonth: number): string;
+  /** `Jul – Sep 2026`; the quarter's months in the locale's month names. */
+  periodQuarter(periodYear: number, quarter: number): string;
+  /** `2026`. */
+  periodYear(periodYear: number): string;
+  /** The selected periods' labels, joined into one label. */
+  periodSummary(labels: readonly string[]): string;
+}
+
+/** The formatter next-intl hands the screens. */
+export type MesFormatter = ReturnType<typeof useFormatter>;
+
+/**
+ * The labels a period selection needs, built from a locale's formatter.
+ *
+ * The month names come from the locale, so a selected month reads `October
+ * 2026` in English and `tháng 10 2026` in Vietnamese rather than a raw
+ * `2026-10`.
+ */
+export function periodLabeler(
+  format: MesFormatter,
+): Pick<
+  MesFormat,
+  "periodMonth" | "periodQuarter" | "periodYear" | "periodSummary"
+> {
+  const yearOf = (periodYear: number): string =>
+    format.dateTime(new Date(Date.UTC(periodYear, 0, 1)), YEAR_OPTIONS);
+
+  return {
+    periodMonth: (periodYear: number, periodMonth: number) =>
+      format.dateTime(
+        new Date(
+          Date.UTC(periodYear, Math.min(12, Math.max(1, periodMonth)) - 1, 1),
+        ),
+        MONTH_YEAR_OPTIONS,
+      ),
+    periodQuarter: (periodYear: number, quarter: number) => {
+      const bounded = Math.min(4, Math.max(1, Math.trunc(quarter)));
+      const firstMonth = (bounded - 1) * 3 + 1;
+      const from = format.dateTime(
+        new Date(Date.UTC(periodYear, firstMonth - 1, 1)),
+        MONTH_SHORT_OPTIONS,
+      );
+      const to = format.dateTime(
+        new Date(Date.UTC(periodYear, firstMonth + 1, 1)),
+        MONTH_SHORT_OPTIONS,
+      );
+      return `${from} – ${to} ${yearOf(periodYear)}`;
+    },
+    periodYear: (periodYear: number) => yearOf(periodYear),
+    periodSummary: (labels: readonly string[]) => {
+      if (labels.length === 0) return "—";
+      return format.list([...labels], { type: "conjunction", style: "long" });
+    },
+  };
 }
 
 /**
@@ -134,6 +198,7 @@ export function useMesFormat(): MesFormat {
         value === null || value === undefined || Number.isNaN(value)
           ? "—"
           : formatBytes(value, separator),
+      ...periodLabeler(format),
     };
   }, [format]);
 }

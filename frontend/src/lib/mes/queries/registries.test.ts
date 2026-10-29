@@ -15,6 +15,8 @@ import {
   APPROVAL_STATUS_LABELS,
   DEPARTMENT_TYPE_LABELS,
   EXPORT_FORMAT_LABELS,
+  KPI_RULE_CODES,
+  KPI_RULE_LABELS,
   LEAVE_CODE_BY_CODE,
   labelFor,
   MODULE_LABELS,
@@ -177,6 +179,13 @@ const COVERAGE: {
     strict: false,
     catalogueGroup: "exportFormats",
   },
+  {
+    name: "kpi rules",
+    values: KPI_RULE_CODES,
+    labelOf: (code) => labelFor(code, KPI_RULE_LABELS),
+    strict: true,
+    catalogueGroup: "kpiRules",
+  },
 ];
 
 describe("label coverage", () => {
@@ -203,6 +212,7 @@ describe("label coverage", () => {
       EXPORT_FORMAT_LABELS,
       ROLE_CODE_LABELS,
       MODULE_LABELS,
+      KPI_RULE_LABELS,
     ]) {
       for (const [code, label] of Object.entries(table)) {
         expect(label, `${code} maps to an empty label`).not.toBe("");

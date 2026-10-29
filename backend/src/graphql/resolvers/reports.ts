@@ -15,6 +15,7 @@ import {
 	exportAttendance,
 	exportAuditWorkbook,
 	exportTasks,
+	type KpiPeriodArgs,
 	printAttendanceCalendar,
 	printKpiReport,
 	printLeaveRequest,
@@ -97,7 +98,7 @@ export const reportsMutation: Record<string, Resolver> = {
 		const { ctx } = contextValue;
 		authorize(ctx, "printKpiReport");
 		const row = await printKpiReport(ctx, {
-			input: args.input as { periodYear: number; periodMonth: number },
+			input: args.input as KpiPeriodArgs["input"],
 		});
 		return toExportResult(row);
 	},

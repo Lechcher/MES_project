@@ -7,7 +7,12 @@
  */
 
 import { describe, expect, test } from "bun:test";
-import { buildSchema, GraphQLEnumType } from "graphql";
+import {
+	buildSchema,
+	GraphQLEnumType,
+	type GraphQLField,
+	validateSchema,
+} from "graphql";
 import { typeDefs } from "./schema";
 
 const schema = buildSchema(typeDefs);
@@ -219,6 +224,66 @@ describe("enum codes are verbatim", () => {
 			"AWAITING_EXTENSION_APPROVAL",
 			"AWAITING_PROGRESS_VERIFICATION",
 		]);
+	});
+});
+
+describe("Performance period inputs", () => {
+	function inputFields(name: string): string[] {
+		const type = schema.getType(name);
+		return type && "getFields" in type ? Object.keys(type.getFields()) : [];
+	}
+
+	test("the schema itself is valid", () => {
+		expect(validateSchema(schema).map((error) => error.message)).toEqual([]);
+	});
+
+	test("the period is a list of months", () => {
+		expect(inputFields("KpiMonthInput").sort()).toEqual([
+			"periodMonth",
+			"periodYear",
+		]);
+		expect(inputFields("KpiPeriodSelectionInput").sort()).toEqual(["months"]);
+		expect(inputFields("KpiAuditFilter").sort()).toEqual([
+			"departmentId",
+			"months",
+		]);
+	});
+
+	test("the single-month input is gone", () => {
+		expect(schema.getType("KpiPeriodInput")).toBeUndefined();
+	});
+
+	test("the personal dashboard reports the selected period", () => {
+		const type = schema.getType("PersonalKpiDashboard");
+		const fields =
+			type && "getFields" in type ? Object.keys(type.getFields()) : [];
+		expect(fields.sort()).toEqual([
+			"leaveBalances",
+			"monthlyTotals",
+			"months",
+			"recentEvents",
+			"summary",
+			"totalKpiScore",
+		]);
+	});
+
+	test("the Performance operations take the selection", () => {
+		const queries = schema.getQueryType()?.getFields() ?? {};
+		const mutations = schema.getMutationType()?.getFields() ?? {};
+		const inputType = (
+			field: GraphQLField<unknown, unknown> | undefined,
+		): string =>
+			field?.args.find((arg) => arg.name === "input")?.type.toString() ?? "";
+
+		expect(inputType(queries.personalKpiDashboard)).toContain(
+			"KpiPeriodSelectionInput!",
+		);
+		expect(inputType(queries.kpiScoreEvents)).toContain(
+			"KpiPeriodSelectionInput!",
+		);
+		expect(inputType(mutations.printKpiReport)).toContain(
+			"KpiPeriodSelectionInput!",
+		);
 	});
 });
 

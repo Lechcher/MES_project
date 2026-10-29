@@ -94,6 +94,8 @@ function call(
 
 interface SummaryOverrides {
 	userId: string;
+	periodYear?: number;
+	periodMonth?: number;
 	totalKpiScore: number;
 	attendanceRate: number;
 	totalTasksAssigned: number;
@@ -107,6 +109,9 @@ interface SummaryOverrides {
 	unapprovedLeaveCount?: number;
 	lateEarlyCount?: number;
 }
+
+/** The months a fixture's summaries are recorded in. */
+const MARCH_2026 = [{ periodYear: 2026, periodMonth: 3 }];
 
 async function seedSummary(ctx: ViewerContext, overrides: SummaryOverrides) {
 	await upsertMonthlySummary(ctx, {
@@ -187,13 +192,59 @@ async function seedFixtures(db: DatabaseHandle): Promise<ViewerContext> {
 	return hr;
 }
 
+async function seedMultiMonthFixtures(
+	db: DatabaseHandle,
+): Promise<ViewerContext> {
+	await db
+		.insert(departments)
+		.values([{ id: "prod", code: "PROD", name: "Production" }]);
+	await db.insert(user).values([
+		{
+			id: "u1",
+			name: "User u1",
+			email: "u1@mes.local",
+			userCode: "U-u1",
+			departmentId: "prod",
+		},
+	]);
+
+	const hr = context(db, viewer("hr", ["HR_MANAGER"]));
+	await seedSummary(hr, {
+		userId: "u1",
+		periodMonth: 3,
+		totalKpiScore: 200,
+		attendanceRate: 96,
+		totalTasksAssigned: 10,
+		completedOnTime: 8,
+		perfectAttendanceBonus: 50,
+	});
+	await seedSummary(hr, {
+		userId: "u1",
+		periodMonth: 4,
+		totalKpiScore: 150,
+		attendanceRate: 92,
+		totalTasksAssigned: 8,
+		completedOnTime: 6,
+		perfectAttendanceBonus: 50,
+	});
+	await seedSummary(hr, {
+		userId: "u1",
+		periodMonth: 5,
+		totalKpiScore: 100,
+		attendanceRate: 88,
+		totalTasksAssigned: 6,
+		completedOnTime: 4,
+	});
+	return hr;
+}
+
 describe("level 1 — company-wide per employee", () => {
 	test("returns the documented columns ordered by score", async () => {
 		const db = freshDatabase("level1");
 		const hr = await seedFixtures(db);
 
 		const result = await call("kpiAuditLevel1Company", hr, {
-			filter: { periodYear: 2026 },
+			filter: { months: MARCH_2026 },
 			offset: 0,
 			limit: 20,
 		});
@@ -234,7 +285,7 @@ describe("level 1 — company-wide per employee", () => {
 		const hr = await seedFixtures(db);
 
 		const byDepartment = await call("kpiAuditLevel1Company", hr, {
-			filter: { periodYear: 2026, departmentId: "qc" },
+			filter: { months: MARCH_2026, departmentId: "qc" },
 			offset: 0,
 			limit: 20,
 		});
@@ -242,7 +293,7 @@ describe("level 1 — company-wide per employee", () => {
 		expect(byDepartment.nodes[0].totalKpiScore).toBe(120);
 
 		const byMonth = await call("kpiAuditLevel1Company", hr, {
-			filter: { periodYear: 2026, periodMonth: 4 },
+			filter: { months: [{ periodYear: 2026, periodMonth: 4 }] },
 			offset: 0,
 			limit: 20,
 		});
@@ -257,7 +308,7 @@ describe("level 2 — aggregated by department", () => {
 		const hr = await seedFixtures(db);
 
 		const result = await call("kpiAuditLevel2Department", hr, {
-			filter: { periodYear: 2026 },
+			filter: { months: MARCH_2026 },
 		});
 
 		expect(result.nodes).toHaveLength(2);
@@ -289,7 +340,7 @@ describe("level 2 — aggregated by department", () => {
 		const hr = await seedFixtures(db);
 
 		const result = await call("kpiAuditLevel2Department", hr, {
-			filter: { periodYear: 2026, departmentId: "qc" },
+			filter: { months: MARCH_2026, departmentId: "qc" },
 		});
 
 		expect(result.nodes).toHaveLength(1);
@@ -307,7 +358,7 @@ describe("level 3 — per employee within a department", () => {
 		const hr = await seedFixtures(db);
 
 		const byScore = await call("kpiAuditLevel3Employee", hr, {
-			filter: { periodYear: 2026 },
+			filter: { months: MARCH_2026 },
 			orderBy: "TOTAL_KPI_SCORE_DESC",
 			offset: 0,
 			limit: 20,
@@ -336,7 +387,7 @@ describe("level 3 — per employee within a department", () => {
 		expect((u1.user as Record<string, unknown>).fullName).toBe("User u1");
 
 		const byAttendance = await call("kpiAuditLevel3Employee", hr, {
-			filter: { periodYear: 2026 },
+			filter: { months: MARCH_2026 },
 			orderBy: "ATTENDANCE_RATE_DESC",
 			offset: 0,
 			limit: 20,
@@ -351,7 +402,7 @@ describe("level 3 — per employee within a department", () => {
 		const hr = await seedFixtures(db);
 
 		const result = await call("kpiAuditLevel3Employee", hr, {
-			filter: { periodYear: 2026, departmentId: "qc" },
+			filter: { months: MARCH_2026, departmentId: "qc" },
 			orderBy: "TOTAL_KPI_SCORE_DESC",
 			offset: 0,
 			limit: 20,
@@ -364,6 +415,147 @@ describe("level 3 — per employee within a department", () => {
 	});
 });
 
+describe("period selection", () => {
+	test("an audit filter names every month it selects", async () => {
+		const db = freshDatabase("multi-month-audit");
+		const hr = await seedMultiMonthFixtures(db);
+
+		const threeMonths = await call("kpiAuditLevel1Company", hr, {
+			filter: {
+				months: [
+					{ periodYear: 2026, periodMonth: 3 },
+					{ periodYear: 2026, periodMonth: 4 },
+					{ periodYear: 2026, periodMonth: 5 },
+				],
+			},
+			offset: 0,
+			limit: 20,
+		});
+		expect(threeMonths.pageInfo.totalCount).toBe(3);
+		expect(threeMonths.nodes.map((node) => node.periodMonth)).toEqual([
+			3, 4, 5,
+		]);
+
+		const oneMonth = await call("kpiAuditLevel1Company", hr, {
+			filter: { months: [{ periodYear: 2026, periodMonth: 4 }] },
+			offset: 0,
+			limit: 20,
+		});
+		expect(oneMonth.pageInfo.totalCount).toBe(1);
+		expect(oneMonth.nodes[0].periodMonth).toBe(4);
+		expect(oneMonth.nodes[0].totalKpiScore).toBe(150);
+	});
+
+	test("an empty month list is rejected", async () => {
+		const db = freshDatabase("empty-audit-selection");
+		const hr = await seedFixtures(db);
+
+		await expect(
+			call("kpiAuditLevel1Company", hr, { filter: { months: [] } }),
+		).rejects.toThrow("At least one month must be selected.");
+	});
+});
+
+describe("personal dashboard over a selected period", () => {
+	function callDashboard(
+		ctx: ViewerContext,
+		months: { periodYear: number; periodMonth: number }[],
+	) {
+		return performanceQuery.personalKpiDashboard(
+			null,
+			{ input: { months } },
+			{ ctx, auth: undefined as unknown as Auth },
+			null,
+		) as Promise<{
+			months: { periodYear: number; periodMonth: number }[];
+			totalKpiScore: number;
+			monthlyTotals: {
+				periodYear: number;
+				periodMonth: number;
+				totalKpiScore: number;
+			}[];
+			summary: {
+				totalTasksAssigned: number;
+				completedOnTime: number;
+				attendanceRate: number;
+				perfectAttendanceBonus: number;
+				totalKpiScore: number;
+			} | null;
+			recentEvents: unknown[];
+		}>;
+	}
+
+	test("reports the selected month", async () => {
+		const db = freshDatabase("dashboard-one-month");
+		await seedMultiMonthFixtures(db);
+		const employee = context(db, viewer("u1", ["EMPLOYEE"], "prod"));
+
+		const dashboard = await callDashboard(employee, [
+			{ periodYear: 2026, periodMonth: 3 },
+		]);
+
+		expect(dashboard.months).toEqual([{ periodYear: 2026, periodMonth: 3 }]);
+		expect(dashboard.totalKpiScore).toBe(200);
+		expect(dashboard.monthlyTotals).toEqual([
+			{ periodYear: 2026, periodMonth: 3, totalKpiScore: 200 },
+		]);
+		expect(dashboard.summary?.totalTasksAssigned).toBe(10);
+		expect(dashboard.summary?.attendanceRate).toBe(96);
+	});
+
+	test("aggregates the selected months", async () => {
+		const db = freshDatabase("dashboard-many-months");
+		await seedMultiMonthFixtures(db);
+		const employee = context(db, viewer("u1", ["EMPLOYEE"], "prod"));
+
+		const dashboard = await callDashboard(employee, [
+			{ periodYear: 2026, periodMonth: 3 },
+			{ periodYear: 2026, periodMonth: 4 },
+			{ periodYear: 2026, periodMonth: 5 },
+		]);
+
+		expect(dashboard.totalKpiScore).toBe(450);
+		expect(dashboard.monthlyTotals.map((month) => month.totalKpiScore)).toEqual(
+			[200, 150, 100],
+		);
+		expect(dashboard.summary?.totalTasksAssigned).toBe(24);
+		expect(dashboard.summary?.completedOnTime).toBe(18);
+		expect(dashboard.summary?.perfectAttendanceBonus).toBe(100);
+		expect(dashboard.summary?.totalKpiScore).toBe(450);
+		// The mean of the three reporting months, not their sum.
+		expect(dashboard.summary?.attendanceRate).toBe(92);
+	});
+
+	test("a selected month with no summary contributes nothing", async () => {
+		const db = freshDatabase("dashboard-empty-month");
+		await seedMultiMonthFixtures(db);
+		const employee = context(db, viewer("u1", ["EMPLOYEE"], "prod"));
+
+		const dashboard = await callDashboard(employee, [
+			{ periodYear: 2026, periodMonth: 3 },
+			{ periodYear: 2026, periodMonth: 6 },
+		]);
+
+		expect(dashboard.totalKpiScore).toBe(200);
+		expect(dashboard.monthlyTotals).toEqual([
+			{ periodYear: 2026, periodMonth: 3, totalKpiScore: 200 },
+			{ periodYear: 2026, periodMonth: 6, totalKpiScore: 0 },
+		]);
+		expect(dashboard.summary?.totalTasksAssigned).toBe(10);
+		expect(dashboard.summary?.attendanceRate).toBe(96);
+	});
+
+	test("an empty selection is rejected", async () => {
+		const db = freshDatabase("dashboard-empty-selection");
+		await seedMultiMonthFixtures(db);
+		const employee = context(db, viewer("u1", ["EMPLOYEE"], "prod"));
+
+		await expect(callDashboard(employee, [])).rejects.toThrow(
+			"At least one month must be selected.",
+		);
+	});
+});
+
 describe("department head scope", () => {
 	test("sees only their own department in level 3", async () => {
 		const db = freshDatabase("dept-head");
@@ -371,7 +563,7 @@ describe("department head scope", () => {
 		const dh = context(db, viewer("dh", ["DEPT_HEAD"], "prod"));
 
 		const result = await call("kpiAuditLevel3Employee", dh, {
-			filter: { periodYear: 2026 },
+			filter: { months: MARCH_2026 },
 			orderBy: "TOTAL_KPI_SCORE_DESC",
 			offset: 0,
 			limit: 20,
@@ -390,7 +582,7 @@ describe("department head scope", () => {
 		const dh = context(db, viewer("dh", ["DEPT_HEAD"], "prod"));
 
 		const result = await call("kpiAuditLevel3Employee", dh, {
-			filter: { periodYear: 2026, departmentId: "qc" },
+			filter: { months: MARCH_2026, departmentId: "qc" },
 			orderBy: "TOTAL_KPI_SCORE_DESC",
 			offset: 0,
 			limit: 20,
@@ -406,12 +598,12 @@ describe("department head scope", () => {
 
 		await expect(
 			call("kpiAuditLevel1Company", dh, {
-				filter: { periodYear: 2026 },
+				filter: { months: MARCH_2026 },
 			}),
 		).rejects.toThrow();
 		await expect(
 			call("kpiAuditLevel2Department", dh, {
-				filter: { periodYear: 2026 },
+				filter: { months: MARCH_2026 },
 			}),
 		).rejects.toThrow();
 	});
@@ -438,14 +630,14 @@ describe("score event scope", () => {
 
 		const employee = context(db, viewer("u1", ["EMPLOYEE"], "prod"));
 		const own = await call("kpiScoreEvents", employee, {
-			input: { periodYear: 2026, periodMonth: 3 },
+			input: { months: MARCH_2026 },
 			offset: 0,
 			limit: 20,
 		});
 		expect(own.pageInfo.totalCount).toBe(1);
 
 		const companyWide = await call("kpiScoreEvents", hr, {
-			input: { periodYear: 2026, periodMonth: 3 },
+			input: { months: MARCH_2026 },
 			offset: 0,
 			limit: 20,
 		});

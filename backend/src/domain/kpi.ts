@@ -14,7 +14,19 @@
  * Rule codes are domain vocabulary and must never be renamed or translated.
  */
 
-import { and, asc, count, desc, eq, gte, lt, sql } from "drizzle-orm";
+import {
+	and,
+	asc,
+	count,
+	desc,
+	eq,
+	gte,
+	lt,
+	or,
+	type SQL,
+	sql,
+} from "drizzle-orm";
+import type { SQLiteColumn } from "drizzle-orm/sqlite-core";
 import { BALANCE_TRACKED_LEAVE_CODES, type KpiRuleCode } from "../db/enums";
 import type {
 	KpiMonthlySummaryRow,
@@ -200,6 +212,66 @@ function validatePeriod(periodYear: number, periodMonth?: number | null): void {
 			);
 		}
 	}
+}
+
+/** One month a Performance read covers. */
+export interface KpiMonth {
+	periodYear: number;
+	periodMonth: number;
+}
+
+/** The key a month is addressed by inside a selection. */
+function monthKey(periodYear: number, periodMonth: number): string {
+	return `${periodYear}-${periodMonth}`;
+}
+
+/**
+ * Validate a month selection and drop duplicate months.
+ *
+ * A selection must name at least one month, and every month must name a real
+ * calendar month. Duplicates are dropped rather than rejected, so a client that
+ * lists the same month twice still reads one month's data.
+ */
+export function validateMonthSelection(months: KpiMonth[]): KpiMonth[] {
+	if (!Array.isArray(months) || months.length === 0) {
+		throw new DomainError(
+			"VALIDATION_FAILED",
+			"At least one month must be selected.",
+		);
+	}
+
+	const seen = new Set<string>();
+	const unique: KpiMonth[] = [];
+	for (const month of months) {
+		validatePeriod(month.periodYear, month.periodMonth);
+		const key = monthKey(month.periodYear, month.periodMonth);
+		if (seen.has(key)) continue;
+		seen.add(key);
+		unique.push({
+			periodYear: month.periodYear,
+			periodMonth: month.periodMonth,
+		});
+	}
+	return unique;
+}
+
+/**
+ * A condition matching any of the selected months.
+ *
+ * The report engine builds the same condition so a printed or exported
+ * artifact covers exactly the months the screen selected.
+ */
+export function selectedMonthsCondition(
+	yearColumn: SQLiteColumn,
+	monthColumn: SQLiteColumn,
+	months: KpiMonth[],
+): SQL {
+	const conditions = months.map((month) =>
+		and(eq(yearColumn, month.periodYear), eq(monthColumn, month.periodMonth)),
+	);
+	// A validated selection always names at least one month, so the fallback is
+	// unreachable; it keeps the condition a plain `SQL` for the caller.
+	return or(...conditions) ?? sql`1 = 0`;
 }
 
 /**
@@ -622,31 +694,99 @@ export interface LeaveBalanceValue {
 }
 
 export interface PersonalDashboard {
-	periodYear: number;
-	periodMonth: number;
+	/** The months the dashboard covers, in the order they were selected. */
+	months: KpiMonth[];
 	totalKpiScore: number;
-	summary: KpiMonthlySummaryRow | null;
+	/** One entry per selected month, whether or not it reported a summary. */
+	monthlyTotals: KpiMonthlyTotalValue[];
+	/** The aggregate of the months that reported a summary. */
+	summary: KpiPeriodSummaryValue | null;
 	leaveBalances: LeaveBalanceValue[];
 	recentEvents: KpiScoreEventRow[];
 }
 
-async function sumEventPoints(
+/** One selected month's total KPI score. */
+export interface KpiMonthlyTotalValue {
+	periodYear: number;
+	periodMonth: number;
+	totalKpiScore: number;
+}
+
+/**
+ * The aggregate of the selected months' summaries.
+ *
+ * The counters sum across the months that reported a summary, and the
+ * attendance rate is the mean of those months' rates — a month with no summary
+ * contributes nothing rather than pulling the average toward zero.
+ */
+export interface KpiPeriodSummaryValue {
+	totalTasksAssigned: number;
+	completedOnTime: number;
+	completedUrgentOnTime: number;
+	approvedFirstTime: number;
+	overdueTasks: number;
+	rejectedTasks: number;
+	extensionRequestsCount: number;
+	attendanceRate: number;
+	perfectAttendanceBonus: number;
+	unapprovedLeaveCount: number;
+	lateEarlyCount: number;
+	totalKpiScore: number;
+}
+
+/** The event points recorded for the selected months, keyed by month. */
+async function sumEventPointsByMonth(
 	ctx: ViewerContext,
 	userId: string,
-	periodYear: number,
-	periodMonth: number,
-): Promise<number> {
-	const [row] = await ctx.db
-		.select({ total: sql<number>`coalesce(sum(${kpiScoreEvents.points}), 0)` })
+	months: KpiMonth[],
+): Promise<Map<string, number>> {
+	const rows = await ctx.db
+		.select({
+			periodYear: kpiScoreEvents.periodYear,
+			periodMonth: kpiScoreEvents.periodMonth,
+			total: sql<number>`coalesce(sum(${kpiScoreEvents.points}), 0)`,
+		})
 		.from(kpiScoreEvents)
 		.where(
 			and(
 				eq(kpiScoreEvents.userId, userId),
-				eq(kpiScoreEvents.periodYear, periodYear),
-				eq(kpiScoreEvents.periodMonth, periodMonth),
+				selectedMonthsCondition(
+					kpiScoreEvents.periodYear,
+					kpiScoreEvents.periodMonth,
+					months,
+				),
 			),
-		);
-	return row?.total ?? 0;
+		)
+		.groupBy(kpiScoreEvents.periodYear, kpiScoreEvents.periodMonth);
+
+	return new Map(
+		rows.map((row) => [monthKey(row.periodYear, row.periodMonth), row.total]),
+	);
+}
+
+/** The aggregate of the months that reported a summary, or `null`. */
+function aggregateSummaries(
+	rows: readonly KpiMonthlySummaryRow[],
+): KpiPeriodSummaryValue | null {
+	if (rows.length === 0) return null;
+
+	const sum = (pick: (row: KpiMonthlySummaryRow) => number): number =>
+		rows.reduce((total, row) => total + pick(row), 0);
+
+	return {
+		totalTasksAssigned: sum((row) => row.totalTasksAssigned),
+		completedOnTime: sum((row) => row.completedOnTime),
+		completedUrgentOnTime: sum((row) => row.completedUrgentOnTime),
+		approvedFirstTime: sum((row) => row.approvedFirstTime),
+		overdueTasks: sum((row) => row.overdueTasks),
+		rejectedTasks: sum((row) => row.rejectedTasks),
+		extensionRequestsCount: sum((row) => row.extensionRequestsCount),
+		attendanceRate: round2(sum((row) => row.attendanceRate) / rows.length),
+		perfectAttendanceBonus: sum((row) => row.perfectAttendanceBonus),
+		unapprovedLeaveCount: sum((row) => row.unapprovedLeaveCount),
+		lateEarlyCount: sum((row) => row.lateEarlyCount),
+		totalKpiScore: sum((row) => row.totalKpiScore),
+	};
 }
 
 async function loadLeaveBalances(
@@ -675,25 +815,41 @@ async function loadLeaveBalances(
 }
 
 /**
- * The caller's own KPI dashboard: their total, the derived summary (when one has
- * been recorded), their tracked leave balances (`AL`, `TOIL`), and the month's
- * most recent score events, newest first.
+ * The caller's own KPI dashboard over the selected months: their total for
+ * each month, the aggregate of the months that reported a summary, their
+ * tracked leave balances (`AL`, `TOIL`), and the selected months' most recent
+ * score events, newest first.
+ *
+ * A month with no recorded summary falls back to the points its score events
+ * recorded, so a month that has activity but no computed summary still
+ * contributes to the total.
  */
 export async function getPersonalDashboard(
 	ctx: ViewerContext,
-	input: { periodYear: number; periodMonth: number },
+	months: KpiMonth[],
 ): Promise<PersonalDashboard> {
 	const viewer = currentViewer(ctx);
-	validatePeriod(input.periodYear, input.periodMonth);
+	const selection = validateMonthSelection(months);
 
-	const summary = await getMonthlySummary(
-		ctx,
-		viewer.id,
-		input.periodYear,
-		input.periodMonth,
-	);
+	const summaries = await ctx.db
+		.select()
+		.from(kpiMonthlySummaries)
+		.where(
+			and(
+				eq(kpiMonthlySummaries.userId, viewer.id),
+				selectedMonthsCondition(
+					kpiMonthlySummaries.periodYear,
+					kpiMonthlySummaries.periodMonth,
+					selection,
+				),
+			),
+		)
+		.orderBy(
+			asc(kpiMonthlySummaries.periodYear),
+			asc(kpiMonthlySummaries.periodMonth),
+		);
 
-	const [leaveBalances, events] = await Promise.all([
+	const [leaveBalances, events, eventPoints] = await Promise.all([
 		loadLeaveBalances(ctx, viewer.id),
 		ctx.db
 			.select()
@@ -701,26 +857,40 @@ export async function getPersonalDashboard(
 			.where(
 				and(
 					eq(kpiScoreEvents.userId, viewer.id),
-					eq(kpiScoreEvents.periodYear, input.periodYear),
-					eq(kpiScoreEvents.periodMonth, input.periodMonth),
+					selectedMonthsCondition(
+						kpiScoreEvents.periodYear,
+						kpiScoreEvents.periodMonth,
+						selection,
+					),
 				),
 			)
 			.orderBy(desc(kpiScoreEvents.occurredAt))
 			.limit(RECENT_KPI_EVENTS_LIMIT),
+		sumEventPointsByMonth(ctx, viewer.id, selection),
 	]);
 
+	const summaryByMonth = new Map(
+		summaries.map((row) => [monthKey(row.periodYear, row.periodMonth), row]),
+	);
+
+	const monthlyTotals = selection.map((month) => {
+		const key = monthKey(month.periodYear, month.periodMonth);
+		return {
+			periodYear: month.periodYear,
+			periodMonth: month.periodMonth,
+			totalKpiScore:
+				summaryByMonth.get(key)?.totalKpiScore ?? eventPoints.get(key) ?? 0,
+		};
+	});
+
 	return {
-		periodYear: input.periodYear,
-		periodMonth: input.periodMonth,
-		totalKpiScore:
-			summary?.totalKpiScore ??
-			(await sumEventPoints(
-				ctx,
-				viewer.id,
-				input.periodYear,
-				input.periodMonth,
-			)),
-		summary,
+		months: selection,
+		totalKpiScore: monthlyTotals.reduce(
+			(total, month) => total + month.totalKpiScore,
+			0,
+		),
+		monthlyTotals,
+		summary: aggregateSummaries(summaries),
 		leaveBalances,
 		recentEvents: events,
 	};
@@ -730,28 +900,26 @@ export async function getPersonalDashboard(
 /* Score event list                                                    */
 /* ------------------------------------------------------------------ */
 
-export interface KpiPeriodInput {
-	periodYear: number;
-	periodMonth: number;
-}
-
 /**
- * List score events for a period, restricted to the caller's scope: own events
- * for employees, department events for a head, and everything else for the
- * company-wide and technical roles.
+ * List score events for the selected months, restricted to the caller's scope:
+ * own events for employees, department events for a head, and everything else
+ * for the company-wide and technical roles.
  */
 export async function getKpiScoreEvents(
 	ctx: ViewerContext,
-	period: KpiPeriodInput,
+	months: KpiMonth[],
 	offset = 0,
 	limit = 20,
 ): Promise<{ rows: KpiScoreEventRow[]; totalCount: number }> {
-	validatePeriod(period.periodYear, period.periodMonth);
+	const selection = validateMonthSelection(months);
 	const scope = resolveKpiScope(ctx);
 
 	const conditions = [
-		eq(kpiScoreEvents.periodYear, period.periodYear),
-		eq(kpiScoreEvents.periodMonth, period.periodMonth),
+		selectedMonthsCondition(
+			kpiScoreEvents.periodYear,
+			kpiScoreEvents.periodMonth,
+			selection,
+		),
 	];
 	if (scope.kind === "PERSONAL") {
 		conditions.push(eq(kpiScoreEvents.userId, scope.userId));
@@ -784,8 +952,8 @@ export async function getKpiScoreEvents(
 /* ------------------------------------------------------------------ */
 
 export interface KpiAuditFilter {
-	periodYear: number;
-	periodMonth?: number | null;
+	/** The months the read covers. */
+	months: KpiMonth[];
 	departmentId?: string | null;
 }
 
@@ -827,15 +995,14 @@ export interface KpiAuditLevel3Row {
 	totalKpiScore: number;
 }
 
-function summaryConditions(
-	filter: KpiAuditFilter,
-	departmentId: string | null,
-) {
-	validatePeriod(filter.periodYear, filter.periodMonth);
-	const conditions = [eq(kpiMonthlySummaries.periodYear, filter.periodYear)];
-	if (filter.periodMonth !== undefined && filter.periodMonth !== null) {
-		conditions.push(eq(kpiMonthlySummaries.periodMonth, filter.periodMonth));
-	}
+function summaryConditions(months: KpiMonth[], departmentId: string | null) {
+	const conditions = [
+		selectedMonthsCondition(
+			kpiMonthlySummaries.periodYear,
+			kpiMonthlySummaries.periodMonth,
+			months,
+		),
+	];
 	if (departmentId !== null) {
 		conditions.push(eq(user.departmentId, departmentId));
 	}
@@ -854,7 +1021,8 @@ export async function getAuditLevel1(
 ): Promise<{ rows: KpiAuditLevel1Row[]; totalCount: number }> {
 	const forced = auditDepartmentScope(ctx);
 	const departmentId = forced ?? filter.departmentId ?? null;
-	const where = summaryConditions(filter, departmentId);
+	const months = validateMonthSelection(filter.months);
+	const where = summaryConditions(months, departmentId);
 
 	const rows = await ctx.db
 		.select({ summary: kpiMonthlySummaries })
@@ -902,7 +1070,8 @@ export async function getAuditLevel2(
 ): Promise<{ rows: KpiAuditLevel2Row[]; totalCount: number }> {
 	const forced = auditDepartmentScope(ctx);
 	const departmentId = forced ?? filter.departmentId ?? null;
-	const where = summaryConditions(filter, departmentId);
+	const months = validateMonthSelection(filter.months);
+	const where = summaryConditions(months, departmentId);
 
 	const rows = await ctx.db
 		.select({
@@ -952,7 +1121,8 @@ export async function getAuditLevel3(
 ): Promise<{ rows: KpiAuditLevel3Row[]; totalCount: number }> {
 	const forced = auditDepartmentScope(ctx);
 	const departmentId = forced ?? filter.departmentId ?? null;
-	const where = summaryConditions(filter, departmentId);
+	const months = validateMonthSelection(filter.months);
+	const where = summaryConditions(months, departmentId);
 
 	const order = (() => {
 		switch (orderBy) {

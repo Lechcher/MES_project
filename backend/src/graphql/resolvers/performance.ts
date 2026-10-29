@@ -13,7 +13,9 @@ import {
 	getAuditLevel3,
 	getKpiScoreEvents,
 	getPersonalDashboard,
+	type KpiMonth,
 	listKpiPointRules,
+	validateMonthSelection,
 } from "../../domain/kpi";
 import { authorize } from "../access";
 import type { ViewerContext } from "../context";
@@ -22,7 +24,6 @@ import {
 	loadUser,
 	pagination,
 	toDepartment,
-	toKpiMonthlySummary,
 	toKpiPointRule,
 	toKpiScoreEvent,
 	toUser,
@@ -34,6 +35,32 @@ type Resolver = (
 	contextValue: { ctx: ViewerContext; auth: Auth },
 	info: unknown,
 ) => unknown;
+
+/**
+ * The months a Performance operation selects.
+ *
+ * The schema requires a non-empty list, so a missing or empty list is a
+ * validation failure rather than an empty read.
+ */
+function selectedMonths(input: unknown): KpiMonth[] {
+	const months = (input as { months?: KpiMonth[] } | undefined)?.months ?? [];
+	return validateMonthSelection(months);
+}
+
+/** The months and the department narrowing an audit filter carries. */
+function auditFilter(filter: unknown): {
+	months: KpiMonth[];
+	departmentId: string | null;
+} {
+	const source = (filter ?? {}) as {
+		months?: KpiMonth[];
+		departmentId?: string | null;
+	};
+	return {
+		months: validateMonthSelection(source.months ?? []),
+		departmentId: source.departmentId ?? null,
+	};
+}
 
 async function auditUser(userId: string, ctx: ViewerContext) {
 	const row = await loadUser(ctx, userId);
@@ -54,22 +81,17 @@ const queryResolvers: Record<string, Resolver> = {
 		const viewer = ctx.viewer;
 		if (!viewer) return null;
 
-		const input = args?.input ?? {};
-		const dashboard = await getPersonalDashboard(ctx, {
-			periodYear: input.periodYear,
-			periodMonth: input.periodMonth,
-		});
+		const months = selectedMonths(args?.input);
+		const dashboard = await getPersonalDashboard(ctx, months);
 
 		const viewerRow = await loadUser(ctx, viewer.id);
 		const viewerShape = viewerRow ? toUser(viewerRow) : null;
 
 		return {
-			periodYear: dashboard.periodYear,
-			periodMonth: dashboard.periodMonth,
+			months: dashboard.months,
 			totalKpiScore: dashboard.totalKpiScore,
-			summary: dashboard.summary
-				? toKpiMonthlySummary(dashboard.summary)
-				: null,
+			monthlyTotals: dashboard.monthlyTotals,
+			summary: dashboard.summary,
 			leaveBalances: dashboard.leaveBalances.map((balance) => ({
 				user: viewerShape,
 				leaveCode: balance.leaveCode,
@@ -86,7 +108,7 @@ const queryResolvers: Record<string, Resolver> = {
 		const limit = args?.limit ?? 20;
 		const { rows, totalCount } = await getKpiScoreEvents(
 			ctx,
-			args?.input ?? {},
+			selectedMonths(args?.input),
 			offset,
 			limit,
 		);
@@ -108,7 +130,7 @@ const queryResolvers: Record<string, Resolver> = {
 		const limit = args?.limit ?? 20;
 		const { rows, totalCount } = await getAuditLevel1(
 			ctx,
-			args?.filter ?? {},
+			auditFilter(args?.filter),
 			offset,
 			limit,
 		);
@@ -137,7 +159,7 @@ const queryResolvers: Record<string, Resolver> = {
 
 	kpiAuditLevel2Department: async (_parent, args, { ctx }) => {
 		authorize(ctx, "kpiAuditLevel2Department");
-		const { rows } = await getAuditLevel2(ctx, args?.filter ?? {});
+		const { rows } = await getAuditLevel2(ctx, auditFilter(args?.filter));
 
 		const nodes = await Promise.all(
 			rows.map(async (row) => ({
@@ -163,7 +185,7 @@ const queryResolvers: Record<string, Resolver> = {
 		const limit = args?.limit ?? 20;
 		const { rows, totalCount } = await getAuditLevel3(
 			ctx,
-			args?.filter ?? {},
+			auditFilter(args?.filter),
 			args?.orderBy ?? null,
 			offset,
 			limit,

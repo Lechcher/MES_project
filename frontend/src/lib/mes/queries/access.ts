@@ -44,13 +44,6 @@ const CANCELLER_ROLES: RoleCode[] = APPROVER_ROLES;
 /** Roles that may create a ticket. */
 const CREATOR_ROLES: RoleCode[] = APPROVER_ROLES;
 
-/** Roles that may see Audit Tables 1 and 2 and the company ranking chart. */
-const COMPANY_AUDIT_ROLES: RoleCode[] = [
-  "SUPER_ADMIN",
-  "TECH_LEAD",
-  "HR_MANAGER",
-];
-
 function has(roles: RoleCode[], role: RoleCode | null): boolean {
   return role !== null && roles.includes(role);
 }
@@ -115,12 +108,82 @@ export function seesCompanyCalendar(role: RoleCode | null): boolean {
 
 /* ─────────────────────────── Performance ────────────────────────── */
 
-export function canSeeCompanyAudit(role: RoleCode | null): boolean {
-  return has(COMPANY_AUDIT_ROLES, role);
+/** The audit row grains a role may select on the audit surface. */
+export type AuditScopeCode =
+  | "company"
+  | "department"
+  | "employees-in-department";
+
+/** The authorized source for company-wide employee rows. */
+export type AuditCompanySource =
+  /** `kpiAuditLevel1Company` — the company-wide per-employee roll-up. */
+  | "level1"
+  /** `kpiAuditLevel3Employee` — the same rows, department-scoped server-side. */
+  | "level3"
+  /** `personalKpiDashboard` — the viewer's own summary only. */
+  | "personal";
+
+/** The authorized source for department-wide rows, or `null` when there is none. */
+export type AuditDepartmentSource = "level2" | null;
+
+/** The authorized source for the per-department employee grain. */
+export type AuditEmployeeListSource =
+  /** `kpiAuditLevel3Employee` — the same rows the server scopes for a `DEPT_HEAD`. */
+  | "level3"
+  /** No authorized per-department employee read. */
+  | null;
+
+export interface AuditScope {
+  /** The scopes the role may select; empty for a personal-scoped viewer. */
+  readonly scopes: readonly AuditScopeCode[];
+  readonly companySource: AuditCompanySource;
+  readonly departmentSource: AuditDepartmentSource;
+  /** The authorized read for the per-department employee grain. */
+  readonly employeeListSource: AuditEmployeeListSource;
+  /**
+   * Whether the viewer picks the department themselves. A `DEPT_HEAD`'s
+   * department is forced by the server, so the selector is disabled for them.
+   */
+  readonly canChooseDepartment: boolean;
 }
 
-export function canSeeDepartmentAudit(role: RoleCode | null): boolean {
-  return has([...COMPANY_AUDIT_ROLES, "DEPT_HEAD"], role);
+/**
+ * Which audit rows a role may read.
+ *
+ * Every role reaches the audit surface; the API contract still decides which
+ * rows come back. `SUPER_ADMIN`/`TECH_LEAD`/`HR_MANAGER` read both grains and
+ * any department, a `DEPT_HEAD` reads their own department's employees
+ * (Level 3, scoped server-side) and cannot read the department roll-up, and an
+ * `EMPLOYEE` reads only their own summary. A scope with no authorized source
+ * has no selector.
+ */
+export function auditScopeFor(role: RoleCode | null): AuditScope {
+  const scope = dataScopeFor(role);
+  if (scope === "PERSONAL") {
+    return {
+      scopes: [],
+      companySource: "personal",
+      departmentSource: null,
+      employeeListSource: null,
+      canChooseDepartment: false,
+    };
+  }
+  if (scope === "DEPARTMENT_ONLY") {
+    return {
+      scopes: ["company", "employees-in-department"],
+      companySource: "level3",
+      departmentSource: null,
+      employeeListSource: "level3",
+      canChooseDepartment: false,
+    };
+  }
+  return {
+    scopes: ["company", "department", "employees-in-department"],
+    companySource: "level1",
+    departmentSource: "level2",
+    employeeListSource: "level3",
+    canChooseDepartment: true,
+  };
 }
 
 /* ──────────────────────────── Settings ──────────────────────────── */

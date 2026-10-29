@@ -14,6 +14,29 @@ export const USER_BRIEF = /* GraphQL */ `
   }
 `;
 
+/**
+ * The brief user fields plus the person's roles.
+ *
+ * The audit rows name the role of the person they list, so they select the
+ * roles alongside the brief fields.
+ */
+export const USER_BRIEF_WITH_ROLES = /* GraphQL */ `
+  id
+  userCode
+  fullName
+  email
+  department {
+    id
+    code
+    name
+  }
+  roles {
+    id
+    code
+    name
+  }
+`;
+
 export const USER_REF = /* GraphQL */ `
   id
   userCode

@@ -11,6 +11,7 @@
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { existsSync, readFileSync, rmSync, statSync } from "node:fs";
 import { join } from "node:path";
+import { inflateSync } from "node:zlib";
 import { eq } from "drizzle-orm";
 import ExcelJS from "exceljs";
 import { type AppConfig, loadConfig } from "../config";
@@ -78,6 +79,14 @@ const TASK_PEER = "task-peer-1";
 const TASK_BETA = "task-beta-1";
 const LEAVE_EMP = "leave-emp-1";
 const LEAVE_PEER = "leave-peer-1";
+
+/** The months the seeded summaries cover. */
+const OCTOBER_2026 = [{ periodYear: 2026, periodMonth: 10 }];
+const THREE_MONTHS_2026 = [
+	{ periodYear: 2026, periodMonth: 8 },
+	{ periodYear: 2026, periodMonth: 9 },
+	{ periodYear: 2026, periodMonth: 10 },
+];
 
 let db: DatabaseHandle;
 let config: AppConfig;
@@ -343,6 +352,7 @@ async function seed(): Promise<void> {
 			points: 10,
 			periodYear: 2026,
 			periodMonth: 10,
+			occurredAt: new Date("2026-10-05T08:00:00.000Z"),
 		},
 		{
 			id: "kpi-event-2",
@@ -351,6 +361,27 @@ async function seed(): Promise<void> {
 			points: 50,
 			periodYear: 2026,
 			periodMonth: 10,
+			occurredAt: new Date("2026-10-20T08:00:00.000Z"),
+		},
+		{
+			id: "kpi-event-3",
+			userId: USER_EMP,
+			taskId: TASK_OWN,
+			ruleCode: "KPI_ON_TIME_TICKET",
+			points: 20,
+			periodYear: 2026,
+			periodMonth: 8,
+			occurredAt: new Date("2026-08-05T08:00:00.000Z"),
+		},
+		{
+			id: "kpi-event-4",
+			userId: USER_EMP,
+			taskId: TASK_OWN,
+			ruleCode: "KPI_ON_TIME_TICKET",
+			points: 30,
+			periodYear: 2026,
+			periodMonth: 9,
+			occurredAt: new Date("2026-09-05T08:00:00.000Z"),
 		},
 	]);
 
@@ -388,6 +419,52 @@ async function seed(): Promise<void> {
 			overdueTasks: 1,
 			attendanceRate: 80,
 			totalKpiScore: -15,
+		},
+	]);
+
+	// Two more months of the employee's performance, plus one month of a peer
+	// and of an employee in another department, so a multi-month export has
+	// several rows to cover and a department head has rows to be excluded.
+	await db.insert(kpiMonthlySummaries).values([
+		{
+			id: "kpi-summary-employee-aug",
+			userId: USER_EMP,
+			periodYear: 2026,
+			periodMonth: 8,
+			totalTasksAssigned: 1,
+			completedOnTime: 1,
+			attendanceRate: 90,
+			totalKpiScore: 20,
+		},
+		{
+			id: "kpi-summary-employee-sep",
+			userId: USER_EMP,
+			periodYear: 2026,
+			periodMonth: 9,
+			totalTasksAssigned: 2,
+			completedOnTime: 1,
+			attendanceRate: 94,
+			totalKpiScore: 30,
+		},
+		{
+			id: "kpi-summary-peer-aug",
+			userId: USER_PEER,
+			periodYear: 2026,
+			periodMonth: 8,
+			totalTasksAssigned: 1,
+			completedOnTime: 1,
+			attendanceRate: 88,
+			totalKpiScore: 5,
+		},
+		{
+			id: "kpi-summary-beta-aug",
+			userId: USER_BETA,
+			periodYear: 2026,
+			periodMonth: 8,
+			totalTasksAssigned: 1,
+			overdueTasks: 1,
+			attendanceRate: 70,
+			totalKpiScore: -10,
 		},
 	]);
 }
@@ -478,6 +555,48 @@ function serializeSheet(sheet: ExcelJS.Worksheet | undefined): string {
 	return lines.join("\n");
 }
 
+/**
+ * The text a PDF draws.
+ *
+ * The report is a real PDF, so its content streams are compressed and its
+ * strings are hex-encoded; the test inflates the streams and decodes the
+ * strings to read what the report says.
+ */
+function pdfText(path: string): string {
+	const buffer = readFileSync(path);
+	const chunks: string[] = [];
+	let cursor = 0;
+	while (cursor < buffer.length) {
+		const start = buffer.indexOf("stream", cursor);
+		if (start === -1) break;
+		let dataStart = start + "stream".length;
+		if (buffer[dataStart] === 0x0d) dataStart += 1;
+		if (buffer[dataStart] === 0x0a) dataStart += 1;
+		const end = buffer.indexOf("endstream", dataStart);
+		if (end === -1) break;
+		cursor = end + "endstream".length;
+		try {
+			chunks.push(
+				inflateSync(new Uint8Array(buffer.subarray(dataStart, end))).toString(
+					"latin1",
+				),
+			);
+		} catch {
+			// Not a compressed stream.
+		}
+	}
+
+	// Only the page content streams draw text.
+	const content = chunks.filter((chunk) => chunk.includes("Tj")).join("\n");
+	const texts: string[] = [];
+	for (const match of content.matchAll(/<([0-9a-fA-F\s]+)>/g)) {
+		texts.push(
+			Buffer.from(match[1].replace(/\s+/g, ""), "hex").toString("latin1"),
+		);
+	}
+	return texts.join("\n");
+}
+
 describe("report exports", () => {
 	test("generates a real, recorded artifact for every operation", async () => {
 		const employee = makeContext(
@@ -525,7 +644,7 @@ describe("report exports", () => {
 		);
 		await assertArtifact(
 			await printKpiReport(employee, {
-				input: { periodYear: 2026, periodMonth: 10 },
+				input: { months: OCTOBER_2026 },
 			}),
 			"PDF",
 			"pdf",
@@ -533,7 +652,7 @@ describe("report exports", () => {
 		);
 		await assertArtifact(
 			await exportAuditWorkbook(head, {
-				filter: { periodYear: 2026, periodMonth: 10 },
+				filter: { months: OCTOBER_2026 },
 			}),
 			"XLSX",
 			"xlsx",
@@ -637,7 +756,7 @@ describe("report exports", () => {
 	test("limits a DEPT_HEAD audit workbook to their department", async () => {
 		const head = makeContext(makeViewer(USER_HEAD, DEPT_ALPHA, ["DEPT_HEAD"]));
 		const row = await exportAuditWorkbook(head, {
-			filter: { periodYear: 2026, periodMonth: 10 },
+			filter: { months: OCTOBER_2026 },
 		});
 
 		const workbook = new ExcelJS.Workbook();
@@ -658,7 +777,7 @@ describe("report exports", () => {
 	test("gives a company-wide role every audit level", async () => {
 		const hr = makeContext(makeViewer(USER_HEAD, DEPT_ALPHA, ["HR_MANAGER"]));
 		const row = await exportAuditWorkbook(hr, {
-			filter: { periodYear: 2026, periodMonth: 10 },
+			filter: { months: OCTOBER_2026 },
 		});
 
 		const workbook = new ExcelJS.Workbook();
@@ -680,7 +799,7 @@ describe("report exports", () => {
 			makeViewer(USER_EMP, DEPT_ALPHA, ["EMPLOYEE"]),
 		);
 		await expect(
-			exportAuditWorkbook(employee, { filter: { periodYear: 2026 } }),
+			exportAuditWorkbook(employee, { filter: { months: OCTOBER_2026 } }),
 		).rejects.toThrow(/permission/);
 	});
 
@@ -700,6 +819,104 @@ describe("report exports", () => {
 		await expect(
 			printLeaveRequest(employee, { leaveRequestId: LEAVE_PEER }),
 		).rejects.toThrow(/not found/i);
+	});
+});
+
+describe("performance reports over a selected period", () => {
+	test("names every selected month in the printed report", async () => {
+		const employee = makeContext(
+			makeViewer(USER_EMP, DEPT_ALPHA, ["EMPLOYEE"]),
+		);
+		const row = await printKpiReport(employee, {
+			input: { months: THREE_MONTHS_2026 },
+		});
+
+		const text = pdfText(row.storagePath);
+		expect(text).toContain("Period 2026-08, 2026-09, 2026-10");
+		// The counters are the period aggregate: 1 + 2 + 2 tasks assigned, and
+		// 20 + 30 + 60 points.
+		expect(text).toMatch(/^5$/m);
+		expect(text).toMatch(/^110$/m);
+		// The attendance rate is the mean of the three reporting months.
+		expect(text).toMatch(/^94\.67%$/m);
+		// Every selected month's events are listed.
+		expect(text).toContain("2026-08-05 08:00");
+		expect(text).toContain("2026-09-05 08:00");
+		expect(text).toContain("2026-10-05 08:00");
+		expect(text).toContain("2026-10-20 08:00");
+	});
+
+	test("keeps the single-month printed report as it was", async () => {
+		const employee = makeContext(
+			makeViewer(USER_EMP, DEPT_ALPHA, ["EMPLOYEE"]),
+		);
+		const row = await printKpiReport(employee, {
+			input: { months: OCTOBER_2026 },
+		});
+
+		const text = pdfText(row.storagePath);
+		expect(text).toContain("KPI EVALUATION REPORT");
+		expect(text).toContain("Period 2026-10");
+		expect(text).toContain("Tasks assigned");
+		expect(text).toMatch(/^60$/m);
+		expect(text).toContain("2026-10-05 08:00");
+		expect(text).toContain("2026-10-20 08:00");
+		expect(text).not.toContain("2026-09-05 08:00");
+		expect(text).not.toContain("2026-08-05 08:00");
+	});
+
+	test("includes every selected month in the audit workbook", async () => {
+		const hr = makeContext(makeViewer(USER_HEAD, DEPT_ALPHA, ["HR_MANAGER"]));
+		const row = await exportAuditWorkbook(hr, {
+			filter: { months: THREE_MONTHS_2026 },
+		});
+
+		const workbook = new ExcelJS.Workbook();
+		await workbook.xlsx.readFile(row.storagePath);
+
+		const level1 = serializeSheet(workbook.getWorksheet("Level 1 - Company"));
+		expect(level1).toContain("2026-08");
+		expect(level1).toContain("2026-09");
+		expect(level1).toContain("2026-10");
+		expect(level1).toContain("EMP001");
+
+		// The ranking sums the selected months: 20 + 30 + 60.
+		const ranking = serializeSheet(
+			workbook.getWorksheet("Performance Ranking"),
+		);
+		expect(ranking).toContain("1 EMP001 Erin Employee Alpha Department 110");
+	});
+
+	test("keeps a DEPT_HEAD's multi-month export inside their department", async () => {
+		const head = makeContext(makeViewer(USER_HEAD, DEPT_ALPHA, ["DEPT_HEAD"]));
+		const row = await exportAuditWorkbook(head, {
+			filter: { months: THREE_MONTHS_2026 },
+		});
+
+		const workbook = new ExcelJS.Workbook();
+		await workbook.xlsx.readFile(row.storagePath);
+		const level3 = serializeSheet(workbook.getWorksheet("Level 3 - Employee"));
+
+		expect(level3).toContain("Erin Employee");
+		expect(level3).toContain("Peer Employee");
+		expect(level3).not.toContain("Beta Employee");
+		// Every selected month is covered.
+		expect(level3).toMatch(/^2026 8 /m);
+		expect(level3).toMatch(/^2026 9 /m);
+		expect(level3).toMatch(/^2026 10 /m);
+	});
+
+	test("rejects an empty month selection", async () => {
+		const employee = makeContext(
+			makeViewer(USER_EMP, DEPT_ALPHA, ["EMPLOYEE"]),
+		);
+		const head = makeContext(makeViewer(USER_HEAD, DEPT_ALPHA, ["DEPT_HEAD"]));
+		await expect(
+			printKpiReport(employee, { input: { months: [] } }),
+		).rejects.toThrow("At least one month must be selected.");
+		await expect(
+			exportAuditWorkbook(head, { filter: { months: [] } }),
+		).rejects.toThrow("At least one month must be selected.");
 	});
 });
 

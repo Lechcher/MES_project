@@ -24,7 +24,9 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import type { AuditPeriod } from "@/lib/mes/audit-period";
 import { useMesFormat } from "@/lib/mes/i18n/format";
+import { useDomainLabels } from "@/lib/mes/i18n/labels";
 import {
   KPI_POINT_RULES_QUERY,
   PERSONAL_KPI_DASHBOARD_QUERY,
@@ -36,6 +38,8 @@ import type {
 } from "@/lib/mes/queries/types";
 import { useApiQuery } from "@/lib/mes/queries/use-api";
 import { type ChartSegment, DonutChart } from "./donut-chart";
+import { scoreSegments } from "./score-composition";
+import { ScoreTrendChart } from "./score-trend-chart";
 
 const RULE_COLORS = [
   "#0f62fe",
@@ -49,19 +53,33 @@ const RULE_COLORS = [
 ];
 
 /**
- * Personal KPI Dashboard — available to every role: month selector, score card,
- * donut chart, the viewer's own AL/TOIL balances, and recent score events.
+ * Personal KPI Dashboard — available to every role: the selected period's
+ * aggregate score card, the viewer's own AL/TOIL balances, the score-by-month
+ * trend over the selected months, the score composition donut, recent score
+ * events, and the period summary.
+ *
+ * The period is the app's shared selection, so the dashboard always describes
+ * the same months as the audit surface, the print action, and the export
+ * action.
  */
 export function PersonalDashboard({
-  periodYear,
-  periodMonth,
+  months,
+  periodLabel,
 }: {
-  periodYear: number;
-  periodMonth: number;
+  /** The months the shared selection covers, oldest first. */
+  months: AuditPeriod[];
+  /** The selected periods, pre-formatted in the active locale. */
+  periodLabel: string;
 }) {
   const fmt = useMesFormat();
   const t = useTranslations("performance.personal");
-  const input = { periodYear, periodMonth };
+  const labels = useDomainLabels();
+  const input = {
+    months: months.map((month) => ({
+      periodYear: month.periodYear,
+      periodMonth: month.periodMonth,
+    })),
+  };
   const dashboard = useApiQuery<{
     personalKpiDashboard: PersonalKpiDashboard;
   }>(PERSONAL_KPI_DASHBOARD_QUERY, { input }, { liveArea: "performance" });
@@ -73,21 +91,10 @@ export function PersonalDashboard({
 
   const dash = dashboard.data?.personalKpiDashboard;
 
-  const segments = useMemo<ChartSegment[]>(() => {
-    const events = dash?.recentEvents ?? [];
-    const totals = new Map<string, number>();
-    for (const event of events) {
-      totals.set(
-        event.ruleCode,
-        (totals.get(event.ruleCode) ?? 0) + event.points,
-      );
-    }
-    return [...totals.entries()].map(([ruleCode, points], index) => ({
-      label: `${ruleCode} (${points > 0 ? "+" : ""}${points})`,
-      value: points,
-      color: RULE_COLORS[index % RULE_COLORS.length],
-    }));
-  }, [dash]);
+  const segments = useMemo<ChartSegment[]>(
+    () => scoreSegments(dash?.recentEvents ?? [], labels.kpiRule, RULE_COLORS),
+    [dash, labels],
+  );
 
   const alBalance =
     dash?.leaveBalances.find((balance) => balance.leaveCode === "AL")
@@ -112,7 +119,7 @@ export function PersonalDashboard({
               <CardHeader>
                 <CardTitle>{t("scoreCard")}</CardTitle>
                 <CardDescription>
-                  {`${dash.periodYear}-${String(dash.periodMonth).padStart(2, "0")}`}
+                  {t("scoreCardDesc", { period: periodLabel })}
                 </CardDescription>
               </CardHeader>
               <CardContent>
@@ -145,16 +152,43 @@ export function PersonalDashboard({
             </Card>
           </div>
 
+          <section>
+            <SectionHeader
+              title={t("trendTitle")}
+              description={t("trendDesc", { period: periodLabel })}
+            />
+            {months.length === 0 ? (
+              <EmptyState
+                title={t("trendEmptyTitle")}
+                description={t("trendEmptyDesc")}
+              />
+            ) : (
+              <div className="h-64 w-full border border-border p-2">
+                <ScoreTrendChart
+                  className="h-full w-full"
+                  months={months}
+                  totals={dash.monthlyTotals}
+                  seriesLabel={t("trendSeriesLabel")}
+                  monthLabel={(periodYear, periodMonth) =>
+                    fmt.monthYear(
+                      new Date(Date.UTC(periodYear, periodMonth - 1, 1)),
+                    )
+                  }
+                />
+              </div>
+            )}
+          </section>
+
           <section className="grid gap-6 lg:grid-cols-2">
             <div>
               <SectionHeader
                 title={t("compositionTitle")}
-                description={t("compositionDesc")}
+                description={t("compositionDesc", { period: periodLabel })}
               />
               {segments.length === 0 ? (
                 <EmptyState
                   title={t("noEventsTitle")}
-                  description={t("noEventsDesc")}
+                  description={t("noEventsDesc", { period: periodLabel })}
                 />
               ) : (
                 <div className="h-64 w-full border border-border p-2">
@@ -165,11 +199,11 @@ export function PersonalDashboard({
             <div>
               <SectionHeader
                 title={t("recentTitle")}
-                description={t("recentDesc")}
+                description={t("recentDesc", { period: periodLabel })}
                 action={
                   <ExportButton
                     mutation={PRINT_KPI_REPORT_MUTATION}
-                    resultKey="printKpiEeport"
+                    resultKey="printKpiReport"
                     label={t("printPersonal")}
                     variables={{ input }}
                   />
@@ -190,7 +224,7 @@ export function PersonalDashboard({
                         {fmt.dateTime(event.occurredAt)}
                       </TableCell>
                       <TableCell className="text-xs">
-                        {event.ruleCode}
+                        {labels.kpiRule(event.ruleCode)}
                       </TableCell>
                       <TableCell className="font-mono text-xs">
                         {event.points > 0 ? "+" : ""}
@@ -217,7 +251,7 @@ export function PersonalDashboard({
             <section>
               <SectionHeader
                 title={t("summaryTitle")}
-                description={t("summaryDesc")}
+                description={t("summaryDesc", { period: periodLabel })}
               />
               <Table>
                 <TableHeader>
@@ -281,7 +315,9 @@ export function PersonalDashboard({
             <TableBody>
               {rules.data.kpiPointRules.map((rule) => (
                 <TableRow key={rule.code}>
-                  <TableCell className="text-xs">{rule.event}</TableCell>
+                  <TableCell className="text-xs">
+                    {labels.kpiRule(rule.code)}
+                  </TableCell>
                   <TableCell className="font-mono text-xs">
                     {rule.points > 0 ? "+" : ""}
                     {rule.points}

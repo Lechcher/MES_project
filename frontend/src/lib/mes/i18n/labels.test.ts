@@ -73,4 +73,35 @@ describe("domain labels bridge fallback", () => {
     expect(labelFor("UNKNOWN_CODE", PRIORITY_LABELS)).toBe("UNKNOWN_CODE");
     expect(labelFor("non-enum-string", {})).toBe("non-enum-string");
   });
+
+  test("an unknown KPI rule falls back to the registry event name", () => {
+    // A rule code added without a catalogue message must not blank the cell.
+    expect(
+      resolveDomainLabel(
+        emptyCatalogue,
+        "kpiRules",
+        "KPI_ON_TIME_TICKET",
+        "On-time ticket",
+      ),
+    ).toBe("On-time ticket");
+    expect(
+      resolveDomainLabel(emptyCatalogue, "kpiRules", "KPI_MADE_UP", undefined),
+    ).toBe("KPI_MADE_UP");
+  });
+
+  test("a catalogue message wins for a KPI rule", () => {
+    const kpiCatalogue: DomainTranslatorFn = Object.assign(
+      (key: string) =>
+        key === "kpiRules.KPI_ON_TIME_TICKET" ? "Phiếu đúng hạn" : key,
+      { has: (key: string) => key === "kpiRules.KPI_ON_TIME_TICKET" },
+    );
+    expect(
+      resolveDomainLabel(
+        kpiCatalogue,
+        "kpiRules",
+        "KPI_ON_TIME_TICKET",
+        "On-time ticket",
+      ),
+    ).toBe("Phiếu đúng hạn");
+  });
 });

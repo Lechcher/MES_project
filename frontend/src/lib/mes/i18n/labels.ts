@@ -17,6 +17,7 @@ import {
   COMPLETION_SCOPE_LABELS,
   DEPARTMENT_TYPE_LABELS,
   EXPORT_FORMAT_LABELS,
+  KPI_RULE_LABELS,
   LEAVE_CODE_BY_CODE,
   MODULE_LABELS,
   PRIORITY_LABELS,
@@ -161,6 +162,13 @@ export function useDomainLabels() {
     },
     module(code: string): string {
       return resolveDomainLabel(tFn, "modules", code, MODULE_LABELS[code]);
+    },
+    /**
+     * KPI point rule names. The code stays the query/ledger contract; only the
+     * rendering is localized.
+     */
+    kpiRule(code: string): string {
+      return resolveDomainLabel(tFn, "kpiRules", code, KPI_RULE_LABELS[code]);
     },
     exportFormat(code: ExportFormat | string): string {
       return resolveDomainLabel(

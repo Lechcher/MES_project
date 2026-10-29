@@ -445,11 +445,61 @@ export interface KpiMonthlySummary {
   totalKpiScore: number;
 }
 
-export interface PersonalKpiDashboard {
+/** One month a Performance read covers. */
+export interface KpiMonth {
+  periodYear: number;
+  periodMonth: number;
+}
+
+/** The month list a Performance operation selects. */
+export type KpiMonthInput = KpiMonth;
+
+/** The input the personal dashboard, the score events, and the print take. */
+export interface KpiPeriodSelectionInput {
+  months: KpiMonthInput[];
+}
+
+/** The input the three audit levels and the workbook export take. */
+export interface KpiAuditFilter {
+  months: KpiMonthInput[];
+  departmentId?: string | null;
+}
+
+/** One selected month's total KPI score. */
+export interface KpiMonthlyTotal {
   periodYear: number;
   periodMonth: number;
   totalKpiScore: number;
-  summary: KpiMonthlySummary | null;
+}
+
+/**
+ * The aggregate of the selected months' summaries.
+ *
+ * The counters sum across the months that reported a summary; the attendance
+ * rate is their mean.
+ */
+export interface KpiPeriodSummary {
+  totalTasksAssigned: number;
+  completedOnTime: number;
+  completedUrgentOnTime: number;
+  approvedFirstTime: number;
+  overdueTasks: number;
+  rejectedTasks: number;
+  extensionRequestsCount: number;
+  attendanceRate: Decimal;
+  perfectAttendanceBonus: number;
+  unapprovedLeaveCount: number;
+  lateEarlyCount: number;
+  totalKpiScore: number;
+}
+
+export interface PersonalKpiDashboard {
+  /** The months the dashboard covers, oldest first. */
+  months: KpiMonth[];
+  totalKpiScore: number;
+  /** One entry per selected month, whether or not it reported a summary. */
+  monthlyTotals: KpiMonthlyTotal[];
+  summary: KpiPeriodSummary | null;
   leaveBalances: LeaveBalance[];
   recentEvents: KpiScoreEvent[];
 }

@@ -8,8 +8,9 @@
  * requested file was not generated.
  *
  * The engine queries the MES tables directly with Drizzle and applies the same
- * data scope as the corresponding read operation, so it does not depend on
- * other domain modules.
+ * data scope as the corresponding read operation, so a report never widens the
+ * scope of the read it mirrors. The KPI report reuses the domain's period
+ * aggregate so the printed numbers match the dashboard's.
  */
 
 import { mkdir, writeFile } from "node:fs/promises";
@@ -55,6 +56,12 @@ import {
 	tasks,
 	user,
 } from "../db/schema";
+import {
+	getPersonalDashboard,
+	type KpiMonth,
+	selectedMonthsCondition,
+	validateMonthSelection,
+} from "../domain/kpi";
 import {
 	authorize,
 	type DataScope,
@@ -121,12 +128,11 @@ export interface ExportAttendanceArgs {
 }
 
 export interface KpiPeriodArgs {
-	input: { periodYear: number; periodMonth: number };
+	input: { months: KpiMonth[] };
 }
 
 export interface AuditWorkbookFilter {
-	periodYear: number;
-	periodMonth?: number | null;
+	months: KpiMonth[];
 	departmentId?: string | null;
 }
 
@@ -1377,19 +1383,11 @@ export async function printKpiReport(
 ): Promise<ExportArtifactRow> {
 	const scope = authorize(ctx, "printKpiReport");
 	const userId = scopedPersonalUserId(ctx, scope);
-	const { periodYear, periodMonth } = args.input;
+	const months = selectedMonths(args.input?.months);
 
-	const [summary] = await ctx.db
-		.select()
-		.from(kpiMonthlySummaries)
-		.where(
-			and(
-				eq(kpiMonthlySummaries.userId, userId),
-				eq(kpiMonthlySummaries.periodYear, periodYear),
-				eq(kpiMonthlySummaries.periodMonth, periodMonth),
-			),
-		)
-		.limit(1);
+	// The dashboard owns the period aggregate, so the printed counters and the
+	// on-screen counters are the same numbers.
+	const dashboard = await getPersonalDashboard(ctx, months);
 
 	const events = await ctx.db
 		.select()
@@ -1397,8 +1395,11 @@ export async function printKpiReport(
 		.where(
 			and(
 				eq(kpiScoreEvents.userId, userId),
-				eq(kpiScoreEvents.periodYear, periodYear),
-				eq(kpiScoreEvents.periodMonth, periodMonth),
+				selectedMonthsCondition(
+					kpiScoreEvents.periodYear,
+					kpiScoreEvents.periodMonth,
+					months,
+				),
 			),
 		)
 		.orderBy(desc(kpiScoreEvents.occurredAt));
@@ -1406,12 +1407,12 @@ export async function printKpiReport(
 	const employee = await loadUserSummary(ctx, userId);
 	const department = await departmentName(ctx, employee?.departmentId ?? null);
 	const balances = await loadLeaveBalances(ctx, [userId]);
-	const totalScore = summary?.totalKpiScore ?? 0;
+	const periodLabel = months.map(monthLabel).join(", ");
 
 	const report = await createPdf(A4_PORTRAIT);
 	report.heading("KPI EVALUATION REPORT");
 	report.muted(
-		`Period ${periodYear}-${String(periodMonth).padStart(2, "0")} · generated ${formatDateTime(new Date())}`,
+		`Period ${periodLabel} · generated ${formatDateTime(new Date())}`,
 	);
 	report.spacer(6);
 
@@ -1422,10 +1423,11 @@ export async function printKpiReport(
 	report.spacer(6);
 
 	report.subheading("Score");
-	report.field("Total KPI score", String(totalScore));
+	report.field("Total KPI score", String(dashboard.totalKpiScore));
 	report.spacer(4);
 
-	report.subheading("Monthly summary");
+	report.subheading("Period summary");
+	const summary = dashboard.summary;
 	if (!summary) {
 		report.muted("No monthly summary has been computed for this period.");
 	} else {
@@ -1477,10 +1479,39 @@ export async function printKpiReport(
 
 	const bytes = await report.finish();
 	return persistArtifact(ctx, {
-		baseName: `kpi-report-${periodYear}-${String(periodMonth).padStart(2, "0")}`,
+		baseName: periodBaseName("kpi-report", months),
 		format: "PDF",
 		data: bytes,
 	});
+}
+
+/**
+ * The months a Performance report covers, in chronological order.
+ *
+ * A selection names at least one month; the report reads them oldest first so
+ * the period header and the artifact's file name name the range.
+ */
+function selectedMonths(months: KpiMonth[] | undefined): KpiMonth[] {
+	return validateMonthSelection(months ?? []).sort(
+		(a, b) => a.periodYear - b.periodYear || a.periodMonth - b.periodMonth,
+	);
+}
+
+/** A month as `YYYY-MM`. */
+function monthLabel(month: KpiMonth): string {
+	return `${month.periodYear}-${String(month.periodMonth).padStart(2, "0")}`;
+}
+
+/**
+ * The artifact's file name: the single month, or the first and last month of
+ * the selected range.
+ */
+function periodBaseName(prefix: string, months: KpiMonth[]): string {
+	const first = monthLabel(months[0]);
+	const last = monthLabel(months[months.length - 1]);
+	return months.length === 1
+		? `${prefix}-${first}`
+		: `${prefix}-${first}-to-${last}`;
 }
 
 /** `printKpiReport` is a personal operation for every role. */
@@ -1521,11 +1552,15 @@ export async function exportAuditWorkbook(
 	const scope = authorize(ctx, "exportAuditWorkbook");
 	const filter = args.filter;
 	const ids = await effectiveUserIds(ctx, scope, filter.departmentId ?? null);
+	const months = selectedMonths(filter.months);
 
-	const conditions = [eq(kpiMonthlySummaries.periodYear, filter.periodYear)];
-	if (filter.periodMonth) {
-		conditions.push(eq(kpiMonthlySummaries.periodMonth, filter.periodMonth));
-	}
+	const conditions = [
+		selectedMonthsCondition(
+			kpiMonthlySummaries.periodYear,
+			kpiMonthlySummaries.periodMonth,
+			months,
+		),
+	];
 	if (ids !== null) {
 		if (ids.length === 0) {
 			conditions.push(sql`1 = 0`);
@@ -1563,11 +1598,11 @@ export async function exportAuditWorkbook(
 			desc(kpiMonthlySummaries.totalKpiScore),
 		);
 
-	const period = (year: number, month: number) =>
-		`${year}-${String(month).padStart(2, "0")}`;
-
 	const level1Rows = summaries.map((row) => ({
-		period: period(row.periodYear, row.periodMonth),
+		period: monthLabel({
+			periodYear: row.periodYear,
+			periodMonth: row.periodMonth,
+		}),
 		year: row.periodYear,
 		month: row.periodMonth,
 		userCode: row.userCode,
@@ -1615,7 +1650,10 @@ export async function exportAuditWorkbook(
 		departmentAggregates.set(key, bucket);
 	}
 	const level2Rows = [...departmentAggregates.values()].map((bucket) => ({
-		period: period(bucket.periodYear, bucket.periodMonth),
+		period: monthLabel({
+			periodYear: bucket.periodYear,
+			periodMonth: bucket.periodMonth,
+		}),
 		year: bucket.periodYear,
 		month: bucket.periodMonth,
 		department: bucket.departmentName,
@@ -1743,11 +1781,7 @@ export async function exportAuditWorkbook(
 	);
 
 	return persistArtifact(ctx, {
-		baseName: `audit-workbook-${filter.periodYear}${
-			filter.periodMonth
-				? `-${String(filter.periodMonth).padStart(2, "0")}`
-				: ""
-		}`,
+		baseName: periodBaseName("audit-workbook", months),
 		format: "XLSX",
 		data: await excelBytes(workbook),
 	});

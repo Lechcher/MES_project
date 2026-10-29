@@ -1115,11 +1115,37 @@ type KpiMonthlySummary {
   updatedAt: DateTime!
 }
 
-type PersonalKpiDashboard {
+type KpiMonth {
+  periodYear: Int!
+  periodMonth: Int!
+}
+
+type KpiMonthlyTotal {
   periodYear: Int!
   periodMonth: Int!
   totalKpiScore: Int!
-  summary: KpiMonthlySummary
+}
+
+type KpiPeriodSummary {
+  totalTasksAssigned: Int!
+  completedOnTime: Int!
+  completedUrgentOnTime: Int!
+  approvedFirstTime: Int!
+  overdueTasks: Int!
+  rejectedTasks: Int!
+  extensionRequestsCount: Int!
+  attendanceRate: Decimal!
+  perfectAttendanceBonus: Int!
+  unapprovedLeaveCount: Int!
+  lateEarlyCount: Int!
+  totalKpiScore: Int!
+}
+
+type PersonalKpiDashboard {
+  months: [KpiMonth!]!
+  totalKpiScore: Int!
+  monthlyTotals: [KpiMonthlyTotal!]!
+  summary: KpiPeriodSummary
   leaveBalances: [LeaveBalance!]!
   recentEvents: [KpiScoreEvent!]!
 }
@@ -1186,25 +1212,36 @@ type KpiAuditLevel3Connection {
 
 #### Inputs
 
+Every Performance operation names the period as a **list of months**. A quarter
+or a year is a client-side expansion into the months it covers, so one request
+can describe a whole period and the screen and its artifacts always describe the
+same months. `KpiPeriodInput` was removed rather than kept alongside.
+
 ```graphql
-input KpiPeriodInput {
+input KpiMonthInput {
   periodYear: Int!
   periodMonth: Int!
 }
 
+input KpiPeriodSelectionInput {
+  months: [KpiMonthInput!]!
+}
+
 input KpiAuditFilter {
-  periodYear: Int!
-  periodMonth: Int
+  months: [KpiMonthInput!]!
   departmentId: ID
 }
 ```
+
+A selection names at least one month; an empty list is rejected with a
+validation error.
 
 #### Operations
 
 | Operation | Type | Signature | Roles | Scope |
 | --- | --- | --- | --- | --- |
-| `personalKpiDashboard` | query | `(input: KpiPeriodInput!): PersonalKpiDashboard!` | all roles | `PERSONAL` |
-| `kpiScoreEvents` | query | `(input: KpiPeriodInput!, offset, limit): KpiScoreEventConnection!` | all roles | SA/TL `ALL`; HR `COMPANY_WIDE`; DH `DEPARTMENT_ONLY`; EMP `PERSONAL` |
+| `personalKpiDashboard` | query | `(input: KpiPeriodSelectionInput!): PersonalKpiDashboard!` | all roles | `PERSONAL` |
+| `kpiScoreEvents` | query | `(input: KpiPeriodSelectionInput!, offset, limit): KpiScoreEventConnection!` | all roles | SA/TL `ALL`; HR `COMPANY_WIDE`; DH `DEPARTMENT_ONLY`; EMP `PERSONAL` |
 | `kpiPointRules` | query | `: [KpiPointRule!]!` | all roles | registry read |
 | `kpiAuditLevel1Company` | query | `(filter: KpiAuditFilter!, offset, limit): KpiAuditLevel1Connection!` | SA, TL, HR | `ALL` / `COMPANY_WIDE`; **hidden from DH and EMP** |
 | `kpiAuditLevel2Department` | query | `(filter: KpiAuditFilter!): KpiAuditLevel2Connection!` | SA, TL, HR | `ALL` / `COMPANY_WIDE`; **hidden from DH and EMP** |
@@ -1212,8 +1249,8 @@ input KpiAuditFilter {
 
 ```graphql
 extend type Query {
-  personalKpiDashboard(input: KpiPeriodInput!): PersonalKpiDashboard!
-  kpiScoreEvents(input: KpiPeriodInput!, offset: Int = 0, limit: Int = 20): KpiScoreEventConnection!
+  personalKpiDashboard(input: KpiPeriodSelectionInput!): PersonalKpiDashboard!
+  kpiScoreEvents(input: KpiPeriodSelectionInput!, offset: Int = 0, limit: Int = 20): KpiScoreEventConnection!
   kpiPointRules: [KpiPointRule!]!
   kpiAuditLevel1Company(filter: KpiAuditFilter!, offset: Int = 0, limit: Int = 20): KpiAuditLevel1Connection!
   kpiAuditLevel2Department(filter: KpiAuditFilter!): KpiAuditLevel2Connection!
@@ -1228,6 +1265,12 @@ enum KpiAuditOrderBy {
 ```
 
 The three audit levels correspond to the documented tables: Level 1 = company-wide per employee (HR/Admin); Level 2 = aggregated by department/division; Level 3 = per employee within a department (Department Head).
+
+`personalKpiDashboard` aggregates the selected months into one period: the
+counters sum across the months that recorded a summary, the attendance rate is
+their mean, `monthlyTotals` reports one entry per selected month (a month with
+no recorded score reports `0`), and `recentEvents` lists the score events of
+every selected month newest-first.
 
 ### 6.4 Settings & IAM
 
@@ -1511,12 +1554,17 @@ extend type Query {
 | `printLeaveRequest` | mutation | `(leaveRequestId: ID!): ExportResult!` | all roles | PDF, A4 |
 | `printAttendanceCalendar` | mutation | `(input: MatrixCalendarInput!): ExportResult!` | all roles | PDF, A4 Landscape |
 | `exportAttendance` | mutation | `(filter: AttendanceFilter, format: ExportFormat = XLSX): ExportResult!` | all roles | `.xlsx` (AL/TOIL balances) |
-| `printKpiReport` | mutation | `(input: KpiPeriodInput!): ExportResult!` | all roles | PDF, A4 |
+| `printKpiReport` | mutation | `(input: KpiPeriodSelectionInput!): ExportResult!` | all roles | PDF, A4 |
 | `exportAuditWorkbook` | mutation | `(filter: KpiAuditFilter!): ExportResult!` | SA, TL, HR, DH | `.xlsx`, one sheet per audit level |
 | `exportSchedule` | mutation | `(input: ScheduleInput!, format: ExportFormat = XLSX): ExportResult!` | all roles | Planning Schedule report; PDF A4 landscape, `.xlsx`, `.csv`; scoped as `scheduledTasks` |
 | `taskImportTemplate` | mutation | `(format: ExportFormat = XLSX): ExportResult!` | SA, TL, HR, DH | `.xlsx` / `.csv` with header `title, category, priority, assigneeEmail, startDate, endDate, hourSlot, description` and one example row; dates `DD/MM/YYYY` |
 
 Export scope follows the caller's scope for the corresponding read operation (for example an Employee exports only personal tasks; a Department Head exports only their department).
+
+The Performance artifacts cover every month the request selects: `printKpiReport`
+names the selected months in its period header, reports the period aggregate,
+and lists the score events of all of them; `exportAuditWorkbook`'s audit tables
+and performance ranking cover all of them.
 
 ```graphql
 extend type Mutation {
@@ -1525,7 +1573,7 @@ extend type Mutation {
   printLeaveRequest(leaveRequestId: ID!): ExportResult!
   printAttendanceCalendar(input: MatrixCalendarInput!): ExportResult!
   exportAttendance(filter: AttendanceFilter, format: ExportFormat = XLSX): ExportResult!
-  printKpiReport(input: KpiPeriodInput!): ExportResult!
+  printKpiReport(input: KpiPeriodSelectionInput!): ExportResult!
   exportAuditWorkbook(filter: KpiAuditFilter!): ExportResult!
   exportSchedule(input: ScheduleInput!, format: ExportFormat = XLSX): ExportResult!
   taskImportTemplate(format: ExportFormat = XLSX): ExportResult!
