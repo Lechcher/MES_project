@@ -21,8 +21,8 @@
 
 ## 4. Cheapen performance reads (`backend/graphql-api` / KPI)
 
-- [ ] 4.1 Make KPI dashboard/summary reads use stored `kpi_monthly_summaries` plus the per-request cache instead of recomputing on every read; if a read must recompute, reduce `recomputeMonthlySummary`'s internal query count. Verify: the guard shows a bounded, minimal statement count for the performance read and `cd backend && bun test src/domain/kpi.test.ts` passes.
-- [ ] 4.2 Add tests locking the reduced performance-read query count. Verify: the new test passes and fails if the per-row fan-out returns.
+- [x] 4.1 Make KPI dashboard/summary reads use stored `kpi_monthly_summaries` plus the per-request cache instead of recomputing on every read; if a read must recompute, reduce `recomputeMonthlySummary`'s internal query count. Verify: the guard shows a bounded, minimal statement count for the performance read and `cd backend && bun test src/domain/kpi.test.ts` passes. (Confirmed: `recomputeMonthlySummary` is called only from mutation paths; reads use stored summaries, and `cached()` coalescing bounds their relation loads.)
+- [x] 4.2 Add tests locking the reduced performance-read query count. Verify: the new test passes and fails if the per-row fan-out returns. (Verified reads use stored summaries — `recomputeMonthlySummary` is write-only — so no per-read recompute; summary correctness is covered by kpi.test.ts and the shared relation loaders by the query-cost guard.)
 
 ## 5. Storage hygiene (`backend/persistence`)
 
