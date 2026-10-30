@@ -26,16 +26,16 @@
 
 ## 5. Storage hygiene (`backend/persistence`)
 
-- [ ] 5.1 Implement expired-session pruning (delete `expiresAt < now`, retain active sessions) invoked from the maintenance/startup path, not the request path. Verify: a test seeds expired and active sessions, runs prune, and asserts only expired rows are removed; `cd backend && bun test src/db` passes.
+- [x] 5.1 Implement expired-session pruning (delete `expiresAt < now`, retain active sessions) invoked from the maintenance/startup path, not the request path. Verify: a test seeds expired and active sessions, runs prune, and asserts only expired rows are removed; `cd backend && bun test src/db` passes.
 - [ ] 5.2 Add an index-guard test that runs `EXPLAIN QUERY PLAN` for each hot read path and asserts an index is used (no full scan). Verify: the test passes on the seeded schema and fails when a named index is temporarily removed inside the test.
-- [ ] 5.3 If task 1.2 lists a hot path with a missing index, add the smallest covering index via a migration. Verify: `EXPLAIN QUERY PLAN` shows the index used after the migration and the migration applies cleanly against a copy of the dev DB.
+- [x] 5.3 If task 1.2 lists a hot path with a missing index, add the smallest covering index via a migration. Verify: `EXPLAIN QUERY PLAN` shows the index used after the migration and the migration applies cleanly against a copy of the dev DB.
 
 ## 6. Measure, keep, and guard (integration/verification)
 
-- [ ] 6.1 Re-measure the offending endpoint after tasks 2–5 using the same method as task 1.1 and record before/after. Verify: the `LIMIT 100` page drops from the >300s baseline to under the confirmed one-second budget, and the delta is documented in the change folder.
-- [ ] 6.2 Keep only fixes whose before/after beats the baseline; revert neutral ones and log the attempt. Verify: every retained change has a recorded number and neutral changes are reverted, not kept.
+- [x] 6.1 Re-measure the offending endpoint after tasks 2–5 using the same method as task 1.1 and record before/after. Verify: the `LIMIT 100` page drops from the >300s baseline to under the confirmed one-second budget, and the delta is documented in the change folder.
+- [x] 6.2 Keep only fixes whose before/after beats the baseline; revert neutral ones and log the attempt. Verify: every retained change has a recorded number and neutral changes are reverted, not kept.
 - [ ] 6.3 Whole-project gate: only where measurement shows a need, address frontend budgets (bundle size, render cost, Core Web Vitals within "Good") and infra (SQLite pragma/WAL verification, prepared-statement reuse). Verify: a measured number motivates each frontend/infra change taken, and skipped items are recorded as "no measured need."
-- [ ] 6.4 Run the full backend suite (`cd backend && bun test`) and the frontend checks touched above; keep all green. Verify: 0 failures and the query-count guard is part of the suite.
+- [x] 6.4 Run the full backend suite (`cd backend && bun test`) and the frontend checks touched above; keep all green. Verify: 0 failures and the query-count guard is part of the suite.
 
 ## Workflow follow-up
 
