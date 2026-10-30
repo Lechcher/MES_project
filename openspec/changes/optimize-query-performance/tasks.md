@@ -2,10 +2,10 @@
 
 ## 1. Baseline and profiling (measure first)
 
-- [ ] 1.1 Reproduce the >300s list read: run the dev servers against a seeded DB and time the `LIMIT 100` list read the user reported, and instrument the DB handle to count SQL statements and per-statement timing. Verify: a written baseline exists (wall time + total statement count) and the offending endpoint(s) are named in `openspec/changes/optimize-query-performance/`.
-- [ ] 1.2 Capture `EXPLAIN QUERY PLAN` for the hot read paths named in the `backend/persistence` delta (tasks by assignee, attendance by user+date, KPI events by user+period, session by token) on the seeded DB. Verify: each plan is recorded and any full scans on hot paths are listed for task 5.3.
-- [ ] 1.3 Confirm the fan-out: assert the offending page's statement count is disproportionate to page size (≈6× rows plus the redundant `badges` re-selects) and isolate the culprit resolvers in `backend/src/graphql/shapes.ts`. Verify: the measured multiplier matches the predicted fan-out, so the fix targets the right code.
-- [ ] 1.4 Add a query-count guard harness (a wrapper that counts statements a resolver path issues) wired as a test. Verify: the guard reproduces the task 1.1 baseline count before any fix, proving it can detect the regression.
+- [x] 1.1 Reproduce the >300s list read: run the dev servers against a seeded DB and time the `LIMIT 100` list read the user reported, and instrument the DB handle to count SQL statements and per-statement timing. Verify: a written baseline exists (wall time + total statement count) and the offending endpoint(s) are named in `openspec/changes/optimize-query-performance/`.
+- [x] 1.2 Capture `EXPLAIN QUERY PLAN` for the hot read paths named in the `backend/persistence` delta (tasks by assignee, attendance by user+date, KPI events by user+period, session by token) on the seeded DB. Verify: each plan is recorded and any full scans on hot paths are listed for task 5.3.
+- [x] 1.3 Confirm the fan-out: assert the offending page's statement count is disproportionate to page size (≈6× rows plus the redundant `badges` re-selects) and isolate the culprit resolvers in `backend/src/graphql/shapes.ts`. Verify: the measured multiplier matches the predicted fan-out, so the fix targets the right code.
+- [x] 1.4 Add a query-count guard harness (a wrapper that counts statements a resolver path issues) wired as a test. Verify: the guard reproduces the task 1.1 baseline count before any fix, proving it can detect the regression.
 
 ## 2. Eliminate per-row fan-out (`backend/graphql-api`)
 
