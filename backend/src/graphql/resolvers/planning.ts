@@ -36,6 +36,7 @@ import {
 } from "../../domain/planning";
 import { authorize } from "../access";
 import type { ViewerContext } from "../context";
+import { clampPageArgs } from "../page-size";
 import {
 	loadDepartment,
 	loadUser,
@@ -83,7 +84,7 @@ function pageArgs(args: { offset?: number | null; limit?: number | null }): {
 	offset: number;
 	limit: number;
 } {
-	return { offset: args.offset ?? 0, limit: args.limit ?? 20 };
+	return clampPageArgs(args);
 }
 
 const queryResolvers: Record<string, Resolver> = {

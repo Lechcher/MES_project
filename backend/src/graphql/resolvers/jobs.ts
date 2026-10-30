@@ -33,6 +33,7 @@ import {
 import { commitTaskImport, previewTaskImport } from "../../reports/schedule";
 import { authorize } from "../access";
 import type { ViewerContext } from "../context";
+import { clampPageArgs } from "../page-size";
 import {
 	primeTaskCollections,
 	toProject,
@@ -57,11 +58,12 @@ export const jobsQuery: Record<string, Resolver> = {
 	projects: async (_parent, args, contextValue) => {
 		const ctx: ViewerContext = contextValue.ctx;
 		const scope = authorize(ctx, "projects");
+		const { offset, limit } = clampPageArgs(args);
 		const result = await listProjects(ctx, scope, {
 			filter: args.filter ?? null,
 			orderBy: args.orderBy ?? null,
-			offset: args.offset,
-			limit: args.limit,
+			offset,
+			limit,
 		});
 		return {
 			nodes: result.nodes.map(toProject),
@@ -78,11 +80,12 @@ export const jobsQuery: Record<string, Resolver> = {
 	tasks: async (_parent, args, contextValue, info) => {
 		const ctx: ViewerContext = contextValue.ctx;
 		const scope = authorize(ctx, "tasks");
+		const { offset, limit } = clampPageArgs(args);
 		const result = await listTasks(ctx, scope, {
 			filter: args.filter ?? null,
 			orderBy: args.orderBy ?? null,
-			offset: args.offset,
-			limit: args.limit,
+			offset,
+			limit,
 		});
 		await primeTaskCollections(ctx, result.nodes, info);
 		return {

@@ -16,7 +16,7 @@
 
 ## 3. Bound every read (`backend/graphql-api`)
 
-- [ ] 3.1 Introduce shared `DEFAULT_PAGE_SIZE`/`MAX_PAGE_SIZE` and clamp list reads in `pageArgs`/resolvers, keeping the `nodes`/`pageInfo` shape. Verify: a test asserts a no-limit read returns the default and an over-max limit is capped rather than unbounded.
+- [x] 3.1 Introduce shared `DEFAULT_PAGE_SIZE`/`MAX_PAGE_SIZE` and clamp list reads in `pageArgs`/resolvers, keeping the `nodes`/`pageInfo` shape. Verify: a test asserts a no-limit read returns the default and an over-max limit is capped rather than unbounded.
 - [ ] 3.2 Replace over-large client limits (e.g. the frontend `limit: 200` attendance call) with the documented pagination. Verify: `cd frontend && bunx tsc --noEmit` passes and the affected screen still pages correctly (Playwright e2e if present).
 
 ## 4. Cheapen performance reads (`backend/graphql-api` / KPI)
