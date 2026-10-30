@@ -56,3 +56,32 @@ and will be revisited in task 5.3 only if 1.2’s copy shows it dominating.
 - `Task.assignedTo`/`createdBy`/`department` (~765–782) route through the per-request
   memo cache (`loadUser`/`loadDepartment`), so they add only the small bounded constant,
   not per-row cost.
+
+## After — fan-out removed (cold per-request, fresh cache each)
+
+Same query, fresh context per request (`backend/perf-profile.ts`, deleted after use):
+
+| limit | nodes | statements (before) | statements (after) | stmts/node |
+| --- | --- | --- | --- | --- |
+| 10 | 10 | ~77 | **14** | 1.40 |
+| 50 | 50 | ~352 | **14** | 0.28 |
+| 100 | 100 | 705 | **15** | 0.15 |
+
+The statement count is now a **small constant independent of page size** (~14–15 for
+any page). Two root causes fixed:
+
+1. **Collection fan-out** — `Task.progressLogs`/`stateTransitions`/`requests`/`journey`/
+   `attachments` now load once per page via `primeTaskCollections` (an `inArray` batch in
+   the `tasks` list resolver, selection-set aware) and cache-hit per row; `Task.badges`
+   derives from the already-loaded `requests` and the row being resolved — no re-selects.
+2. **Relation race** — `cached()` memoised the *resolved value* after awaiting, so fields
+   resolving concurrently for the same key (a page whose rows share users/departments)
+   raced and each re-queried: measured `loadUser(sameId)` ×50 concurrently = 50 statements
+   vs ×50 sequentially = 1. `cached()` now coalesces the **in-flight promise**, so relation
+   loads are once-per-distinct-id per request across every list (Jobs, Planning,
+   Performance).
+
+Guard: `backend/src/graphql/query-cost.test.ts` asserts a nested task list issues ≤ 50
+statements for a 50-row page with a per-node rate ≤ 1.5 — the pre-fix fan-out (~350) fails
+this, so the regression cannot return silently.
+

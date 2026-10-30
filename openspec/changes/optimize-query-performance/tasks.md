@@ -9,10 +9,10 @@
 
 ## 2. Eliminate per-row fan-out (`backend/graphql-api`)
 
-- [ ] 2.1 Batch the `Task` relation collections (`progressLogs`, `stateTransitions`, `requests`, `journey`, `attachments`) into page-scoped `inArray` loads stored in the per-request cache, per design decision 2. Verify: the query guard shows one statement per relation per page instead of one per row, and `cd backend && bun test src/graphql` stays green.
-- [ ] 2.2 Remove the redundant selects in `Task.badges` (no re-select of the task row, no re-query of `taskRequests`) by reusing already-loaded request data. Verify: the guard count drops by roughly 2× the page size and badges output is unchanged by a unit test.
-- [ ] 2.3 Apply the same batch pattern to any other list path task 1.3 flagged (e.g. attendance/leave list nested fields). Verify: the guard is green for each converted path and `cd backend && bun test src/domain` passes.
-- [ ] 2.4 Add unit tests asserting batched loaders return byte-identical results to the per-row version for a page of rows. Verify: the new tests pass and fail if a batch drops or duplicates rows.
+- [x] 2.1 Batch the `Task` relation collections (`progressLogs`, `stateTransitions`, `requests`, `journey`, `attachments`) into page-scoped `inArray` loads stored in the per-request cache, per design decision 2. Verify: the query guard shows one statement per relation per page instead of one per row, and `cd backend && bun test src/graphql` stays green.
+- [x] 2.2 Remove the redundant selects in `Task.badges` (no re-select of the task row, no re-query of `taskRequests`) by reusing already-loaded request data. Verify: the guard count drops by roughly 2× the page size and badges output is unchanged by a unit test.
+- [x] 2.3 Apply the same batch pattern to any other list path task 1.3 flagged (e.g. attendance/leave list nested fields). Verify: the guard is green for each converted path and `cd backend && bun test src/domain` passes.
+- [x] 2.4 Add unit tests asserting batched loaders return byte-identical results to the per-row version for a page of rows. Verify: the new tests pass and fail if a batch drops or duplicates rows.
 
 ## 3. Bound every read (`backend/graphql-api`)
 

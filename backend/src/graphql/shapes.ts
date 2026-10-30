@@ -7,8 +7,13 @@
  * `JSON`), and resolves nested relations lazily through the per-request cache.
  */
 
-import { and, asc, eq } from "drizzle-orm";
+import { and, asc, eq, inArray } from "drizzle-orm";
 import { GraphQLScalarType, Kind } from "graphql";
+import type {
+	FragmentDefinitionNode,
+	GraphQLResolveInfo,
+	SelectionNode,
+} from "graphql";
 import type {
 	AppSettingRow,
 	AttendanceRecordRow,
@@ -699,52 +704,60 @@ export const objectResolvers = {
 				row ? toUser(row) : null,
 			),
 		progressLogs: (parent: AnyShape, _a: unknown, ctx: ViewerContext) =>
-			ctx.db
-				.select()
-				.from(taskProgressLogs)
-				.where(eq(taskProgressLogs.taskId, parent.id as string))
-				.then((rows) => rows.map(toTaskProgressLog)),
+			cached(ctx, `tcoll:progressLogs:${parent.id}`, () =>
+				ctx.db
+					.select()
+					.from(taskProgressLogs)
+					.where(eq(taskProgressLogs.taskId, parent.id as string)),
+			).then((rows) => rows.map(toTaskProgressLog)),
 		stateTransitions: (parent: AnyShape, _a: unknown, ctx: ViewerContext) =>
-			ctx.db
-				.select()
-				.from(taskStateTransitions)
-				.where(eq(taskStateTransitions.taskId, parent.id as string))
-				.then((rows) => rows.map(toTaskStateTransition)),
+			cached(ctx, `tcoll:stateTransitions:${parent.id}`, () =>
+				ctx.db
+					.select()
+					.from(taskStateTransitions)
+					.where(eq(taskStateTransitions.taskId, parent.id as string)),
+			).then((rows) => rows.map(toTaskStateTransition)),
 		requests: (parent: AnyShape, _a: unknown, ctx: ViewerContext) =>
-			ctx.db
-				.select()
-				.from(taskRequests)
-				.where(eq(taskRequests.taskId, parent.id as string))
-				.then((rows) => rows.map(toTaskRequest)),
+			cached(ctx, `tcoll:requests:${parent.id}`, () =>
+				ctx.db
+					.select()
+					.from(taskRequests)
+					.where(eq(taskRequests.taskId, parent.id as string)),
+			).then((rows) => rows.map(toTaskRequest)),
 		// The journey is the ticket's stage ledger, oldest first.
 		journey: (parent: AnyShape, _a: unknown, ctx: ViewerContext) =>
-			ctx.db
-				.select()
-				.from(taskCompletionRequests)
-				.where(eq(taskCompletionRequests.taskId, parent.id as string))
-				.orderBy(asc(taskCompletionRequests.createdAt))
-				.then((rows) => rows.map(toTaskCompletionRequest)),
+			cached(ctx, `tcoll:journey:${parent.id}`, () =>
+				ctx.db
+					.select()
+					.from(taskCompletionRequests)
+					.where(eq(taskCompletionRequests.taskId, parent.id as string))
+					.orderBy(asc(taskCompletionRequests.createdAt)),
+			).then((rows) => rows.map(toTaskCompletionRequest)),
 		attachments: (parent: AnyShape, _a: unknown, ctx: ViewerContext) =>
-			ctx.db
-				.select()
-				.from(attachments)
-				.where(eq(attachments.ownerId, parent.id as string))
-				.then((rows) => rows.map(toAttachment)),
+			cached(ctx, `tcoll:attachments:${parent.id}`, () =>
+				ctx.db
+					.select()
+					.from(attachments)
+					.where(eq(attachments.ownerId, parent.id as string)),
+			).then((rows) => rows.map(toAttachment)),
 		badges: async (parent: AnyShape, _a: unknown, ctx: ViewerContext) => {
-			const [row] = await ctx.db
-				.select()
-				.from(tasks)
-				.where(eq(tasks.id, parent.id as string))
-				.limit(1);
-			if (!row) return [];
-			const pending = await ctx.db
-				.select({ requestType: taskRequests.requestType })
-				.from(taskRequests)
-				.where(eq(taskRequests.taskId, row.id));
-			return taskBadges(
-				row,
-				pending.map((p) => p.requestType),
+			// Pending request types are derived from the rows the `requests`
+			// resolver loads (coalesced per request, prefetched per page), and the
+			// ticket row is the shape already being resolved — no re-select.
+			const pendingTypes = await cached(
+				ctx,
+				`tcoll:badgeTypes:${parent.id}`,
+				async () => {
+					const rows = await cached(ctx, `tcoll:requests:${parent.id}`, () =>
+						ctx.db
+							.select()
+							.from(taskRequests)
+							.where(eq(taskRequests.taskId, parent.id as string)),
+					);
+					return rows.map((row) => row.requestType);
+				},
 			);
+			return taskBadges(parent as unknown as TaskRow, pendingTypes);
 		},
 	},
 	TaskStateTransition: {
@@ -897,6 +910,168 @@ export const objectResolvers = {
 } as const;
 
 /** Load a task as a contract shape, or `null`. */
+/* ------------------------------------------------------------------ */
+/* Task collection batching                                           */
+/* ------------------------------------------------------------------ */
+
+/**
+ * The Task relation collections. Each is normally loaded per row by its
+ * object-type field resolver; `primeTaskCollections` loads them once per page
+ * with an `IN (…)` batch and primes the per-request cache under the same keys
+ * the resolvers read, so those resolvers become cache hits.
+ */
+const TASK_COLLECTION_RELATIONS = [
+	"progressLogs",
+	"stateTransitions",
+	"requests",
+	"journey",
+	"attachments",
+] as const;
+
+function groupRowsBy<T, K extends keyof T>(
+	rows: readonly T[],
+	key: K,
+): Map<string, T[]> {
+	const grouped = new Map<string, T[]>();
+	for (const row of rows) {
+		const bucket = grouped.get(String(row[key]));
+		if (bucket) bucket.push(row);
+		else grouped.set(String(row[key]), [row]);
+	}
+	return grouped;
+}
+
+/**
+ * Prime the per-request cache with one batched query per requested Task
+ * relation. Unrequested relations are not fetched; an empty result legitimately
+ * caches `[]` for a task so a collection resolver is a cache hit, not a query.
+ */
+async function prefetchTaskCollections(
+	ctx: ViewerContext,
+	taskRows: ReadonlyArray<{ id: string }>,
+	relations: ReadonlySet<string>,
+): Promise<void> {
+	if (taskRows.length === 0) return;
+	const ids = taskRows.map((row) => row.id);
+
+	const prime = (prefix: string, grouped: Map<string, readonly unknown[]>) => {
+		for (const id of ids) {
+			const cacheKey = `${prefix}${id}`;
+			if (!ctx.cache.has(cacheKey)) {
+				ctx.cache.set(cacheKey, Promise.resolve(grouped.get(id) ?? []));
+			}
+		}
+	};
+
+	if (relations.has("progressLogs")) {
+		const rows = await ctx.db
+			.select()
+			.from(taskProgressLogs)
+			.where(inArray(taskProgressLogs.taskId, ids));
+		prime("tcoll:progressLogs:", groupRowsBy(rows, "taskId"));
+	}
+	if (relations.has("stateTransitions")) {
+		const rows = await ctx.db
+			.select()
+			.from(taskStateTransitions)
+			.where(inArray(taskStateTransitions.taskId, ids));
+		prime("tcoll:stateTransitions:", groupRowsBy(rows, "taskId"));
+	}
+	if (relations.has("requests")) {
+		const rows = await ctx.db
+			.select()
+			.from(taskRequests)
+			.where(inArray(taskRequests.taskId, ids));
+		prime("tcoll:requests:", groupRowsBy(rows, "taskId"));
+	}
+	if (relations.has("journey")) {
+		const rows = await ctx.db
+			.select()
+			.from(taskCompletionRequests)
+			.where(inArray(taskCompletionRequests.taskId, ids))
+			.orderBy(asc(taskCompletionRequests.createdAt));
+		prime("tcoll:journey:", groupRowsBy(rows, "taskId"));
+	}
+	if (relations.has("attachments")) {
+		const rows = await ctx.db
+			.select()
+			.from(attachments)
+			.where(inArray(attachments.ownerId, ids));
+		prime("tcoll:attachments:", groupRowsBy(rows, "ownerId"));
+	}
+}
+
+function collectSelectionFields(
+	selections: readonly SelectionNode[] | undefined,
+	fragments: Record<string, FragmentDefinitionNode>,
+	into: Set<string>,
+): void {
+	for (const selection of selections ?? []) {
+		if (selection.kind === Kind.FIELD) {
+			into.add(selection.name.value);
+			// Descend into the field's own selection set so relations nested
+			// under a connection field (e.g. `tasks { nodes { progressLogs } }`)
+			// are detected, not just the connection's direct fields.
+			collectSelectionFields(
+				selection.selectionSet?.selections,
+				fragments,
+				into,
+			);
+		} else if (selection.kind === Kind.INLINE_FRAGMENT) {
+			collectSelectionFields(
+				selection.selectionSet.selections,
+				fragments,
+				into,
+			);
+		} else if (selection.kind === Kind.FRAGMENT_SPREAD) {
+			const fragment = fragments[selection.name.value];
+			if (fragment) {
+				collectSelectionFields(
+					fragment.selectionSet.selections,
+					fragments,
+					into,
+				);
+			}
+		}
+	}
+}
+
+/**
+ * The Task relation names a selection set requests, or `null` when the selection
+ * cannot be read (caller then batches all relations to stay correct).
+ */
+function requestedTaskRelations(info: unknown): ReadonlySet<string> | null {
+	if (!info || typeof info !== "object") return null;
+	const resolveInfo = info as GraphQLResolveInfo;
+	const names = new Set<string>();
+	for (const node of resolveInfo.fieldNodes ?? []) {
+		collectSelectionFields(
+			node.selectionSet?.selections,
+			resolveInfo.fragments,
+			names,
+		);
+	}
+	if (names.size === 0) return null;
+	return new Set(
+		TASK_COLLECTION_RELATIONS.filter((relation) => names.has(relation)),
+	);
+}
+
+/**
+ * Prime a tasks page's collections for the relations its GraphQL selection
+ * actually requests. Called from the `tasks` list resolver before mapping rows
+ * to shapes, so nested collection resolution is a per-page batch, not per row.
+ */
+export async function primeTaskCollections(
+	ctx: ViewerContext,
+	taskRows: ReadonlyArray<{ id: string }>,
+	info: unknown,
+): Promise<void> {
+	const requested = requestedTaskRelations(info);
+	const relations = new Set(requested ?? TASK_COLLECTION_RELATIONS);
+	await prefetchTaskCollections(ctx, taskRows, relations);
+}
+
 export async function loadTaskShape(
 	ctx: ViewerContext,
 	id: string,

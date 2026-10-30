@@ -102,17 +102,18 @@ async function measureList(variables: {
 
 	counter.reset();
 	const t0 = performance.now();
-	const res: {
-		data?: { tasks?: { nodes?: unknown[] } };
-		errors?: unknown[];
-	} = await execute({
+	const res = await execute({
 		schema,
 		document: TASK_LIST,
 		contextValue,
 		variableValues: variables,
 	});
+	const tasks = res.data as
+		| { tasks?: { nodes?: unknown[] } }
+		| null
+		| undefined;
 	return {
-		nodes: res.data?.tasks?.nodes?.length ?? 0,
+		nodes: tasks?.tasks?.nodes?.length ?? 0,
 		statements: counter.count(),
 		ms: performance.now() - t0,
 		errors: res.errors?.length ?? 0,
@@ -150,18 +151,18 @@ describe("query-cost guard", () => {
 		expect(measured.statements).toBeGreaterThan(0);
 	});
 
-	test("a nested task list issues a statement count that scales with page size", async () => {
-		// The pre-fix fan-out is ~7 statements per row (five collection loaders
-		// plus the two redundant `badges` selects). Batching removes the
-		// multiplier, so task 2.4 replaces this lower bound with an upper bound
-		// (a small constant independent of page size).
+	test("a nested task list issues a bounded query count independent of page size", async () => {
+		// Collections are batched per page and relations (user/department)
+		// coalesce per request, so the statement count is a small constant
+		// instead of the pre-fix fan-out (~7 statements per row → ~350 for 50).
 		const small = await measureList({ offset: 0, limit: 10 });
 		const large = await measureList({ offset: 0, limit: 50 });
+		expect(small.errors).toBe(0);
+		expect(large.errors).toBe(0);
 		expect(large.nodes).toBeGreaterThan(small.nodes);
 
-		const perNode =
-			(large.statements - small.statements) / (large.nodes - small.nodes);
-		expect(perNode).toBeGreaterThanOrEqual(4);
-		expect(perNode).toBeLessThanOrEqual(12);
+		expect(small.statements).toBeLessThanOrEqual(50);
+		expect(large.statements).toBeLessThanOrEqual(50);
+		expect(large.statements / large.nodes).toBeLessThanOrEqual(1.5);
 	});
 });

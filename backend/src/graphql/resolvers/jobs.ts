@@ -34,6 +34,7 @@ import { commitTaskImport, previewTaskImport } from "../../reports/schedule";
 import { authorize } from "../access";
 import type { ViewerContext } from "../context";
 import {
+	primeTaskCollections,
 	toProject,
 	toTask,
 	toTaskCompletionRequest,
@@ -74,7 +75,7 @@ export const jobsQuery: Record<string, Resolver> = {
 		return toProject(await getProject(ctx, scope, args.id));
 	},
 
-	tasks: async (_parent, args, contextValue) => {
+	tasks: async (_parent, args, contextValue, info) => {
 		const ctx: ViewerContext = contextValue.ctx;
 		const scope = authorize(ctx, "tasks");
 		const result = await listTasks(ctx, scope, {
@@ -83,6 +84,7 @@ export const jobsQuery: Record<string, Resolver> = {
 			offset: args.offset,
 			limit: args.limit,
 		});
+		await primeTaskCollections(ctx, result.nodes, info);
 		return {
 			nodes: result.nodes.map(toTask),
 			pageInfo: result.pageInfo,

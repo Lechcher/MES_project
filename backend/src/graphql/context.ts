@@ -61,16 +61,26 @@ export function createContext(input: {
 	};
 }
 
-/** Memoize an async lookup within a single GraphQL request. */
-export async function cached<T>(
+/**
+ * Memoize an async lookup within a single GraphQL request, coalescing
+ * concurrent callers. The in-flight promise is cached (not only its resolved
+ * value), so fields resolving concurrently for the same key — a list's rows
+ * each referencing the same user — share one query instead of racing into N. A
+ * rejected load is evicted so a later caller can retry.
+ */
+export function cached<T>(
 	ctx: ViewerContext,
 	key: string,
 	load: () => Promise<T>,
 ): Promise<T> {
-	if (ctx.cache.has(key)) return ctx.cache.get(key) as T;
-	const value = await load();
-	ctx.cache.set(key, value);
-	return value;
+	const existing = ctx.cache.get(key);
+	if (existing !== undefined) return existing as Promise<T>;
+	const inflight = load();
+	ctx.cache.set(key, inflight);
+	inflight.catch(() => {
+		if (ctx.cache.get(key) === inflight) ctx.cache.delete(key);
+	});
+	return inflight;
 }
 
 /**
