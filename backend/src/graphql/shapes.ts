@@ -8,12 +8,12 @@
  */
 
 import { and, asc, eq, inArray } from "drizzle-orm";
-import { GraphQLScalarType, Kind } from "graphql";
 import type {
 	FragmentDefinitionNode,
 	GraphQLResolveInfo,
 	SelectionNode,
 } from "graphql";
+import { GraphQLScalarType, Kind } from "graphql";
 import type {
 	AppSettingRow,
 	AttendanceRecordRow,
@@ -612,7 +612,12 @@ export function toExportResult(row: ExportArtifactRow) {
 		fileName: row.fileName,
 		mimeType: row.mimeType,
 		format: row.format,
-		url: `/api/v1/exports/${row.id}`,
+		// The frontend-facing download path: `/api/v1/exports/:id` is the
+		// backend's own bearer-authenticated route, which a browser navigation
+		// cannot call directly — the same-origin proxy at
+		// `frontend/src/app/api/mes/exports/[id]/route.ts` attaches the session
+		// token, exactly as `/api/mes/files/*` does for attachments.
+		url: `/api/mes/exports/${row.id}`,
 		createdAt: row.createdAt,
 	};
 }

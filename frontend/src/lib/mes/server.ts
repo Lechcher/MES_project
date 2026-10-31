@@ -16,6 +16,13 @@ export const MES_GRAPHQL_URL = `${MES_API_URL}/api/v1/graphql`;
 /** The backend's SSE change-event stream, reached through the same proxy hop. */
 export const MES_EVENTS_URL = `${MES_API_URL}/api/v1/events`;
 
+/**
+ * The backend's export-artifact download route, reached through the same proxy
+ * hop (`/api/mes/exports/<id>`): bearer-authenticated, so a browser navigation
+ * can only reach it with the session token attached by the proxy.
+ */
+export const MES_EXPORTS_URL = `${MES_API_URL}/api/v1/exports`;
+
 /** Name of the httpOnly cookie that carries the backend session token. */
 export const MES_SESSION_COOKIE = "mes_session";
 

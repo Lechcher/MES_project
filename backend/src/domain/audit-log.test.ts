@@ -277,7 +277,9 @@ describe("export", () => {
 		};
 
 		expect(result.format).toBe("CSV");
-		expect(result.url).toBe(`/api/v1/exports/${result.id}`);
+		// The frontend proxy path the browser opens; `/api/v1/exports/:id` is
+		// the backend's own bearer-authenticated route behind it.
+		expect(result.url).toBe(`/api/mes/exports/${result.id}`);
 
 		const contents = readFileSync(join(exportDir, result.fileName), "utf8");
 		expect(contents).toContain("leave.register");

@@ -535,7 +535,9 @@ async function assertArtifact(
 	}
 
 	const result = toExportResult(stored);
-	expect(result.url).toBe(`/api/v1/exports/${row.id}`);
+	// The frontend-facing download path; `/api/v1/exports/:id` is the
+	// backend's own bearer-authenticated route the proxy forwards to.
+	expect(result.url).toBe(`/api/mes/exports/${row.id}`);
 	expect(result.fileName).toBe(row.fileName);
 	expect(result.format).toBe(format);
 }
