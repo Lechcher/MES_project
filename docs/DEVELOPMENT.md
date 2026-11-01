@@ -88,6 +88,20 @@ cd backend
 bun run db:generate    # creates a new versioned migration in backend/drizzle
 ```
 
+**A committed migration is immutable.** The runner decides whether to apply an
+entry by comparing its journal timestamp against the newest application already
+recorded in the database — never by the file's content — so regenerating or
+editing a migration that a database has already applied makes the next boot
+replay it and fail on the objects it created (`table ... already exists`).
+Generate the migration *before* committing, and never regenerate an applied one.
+Correcting an applied migration means a new migration, or a deliberate
+development-database reset: stop the backend, back up (see below), drop the
+affected tables, and delete the matching `__drizzle_migrations` row so the
+committed file applies from scratch. The migration-set parity test
+(`bun test src/db/migrate.test.ts`) catches the neighbouring failure — a
+journal entry without its file, a file without its journal entry, or journal
+timestamps that do not increase — before it can crash a boot.
+
 **Backup before migrating an existing database.** SQLite keeps the whole database in one file plus its write-ahead log:
 
 ```bash

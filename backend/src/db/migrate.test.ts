@@ -1,8 +1,8 @@
 import { Database } from "bun:sqlite";
 import { afterAll, describe, expect, test } from "bun:test";
-import { existsSync, rmSync } from "node:fs";
+import { existsSync, mkdirSync, readdirSync, rmSync } from "node:fs";
 import { join } from "node:path";
-import { runMigrations } from "./migrate";
+import { DEFAULT_MIGRATIONS_FOLDER, runMigrations } from "./migrate";
 
 const TMP_ROOT =
 	"/private/var/folders/xg/lnbqz3fs2w74l46y045jdxmh0000gn/T/opencode";
@@ -78,6 +78,7 @@ describe("runMigrations", () => {
 		expect(tables).toContain("telegram_links");
 		expect(tables).toContain("telegram_link_codes");
 		expect(tables).toContain("telegram_ai_models");
+		expect(tables).toContain("telegram_ai_usage");
 		expect(tables).toContain("telegram_user_prefs");
 		expect(tables).toContain("notifications");
 		expect(tables).toContain("export_artifacts");
@@ -157,3 +158,126 @@ function countIndexes(path: string): number {
 		db.close();
 	}
 }
+
+/* ------------------------------------------------------------------ */
+/* Migration set integrity                                              */
+/* ------------------------------------------------------------------ */
+
+interface JournalEntry {
+	idx: number;
+	tag: string;
+	when: number;
+}
+
+interface Journal {
+	entries: JournalEntry[];
+}
+
+async function readJournal(folder: string): Promise<Journal> {
+	const text = await Bun.file(join(folder, "meta", "_journal.json")).text();
+	return JSON.parse(text) as Journal;
+}
+
+/**
+ * Every way the migration set can be inconsistent with itself.
+ *
+ * The runner reads each entry's `<tag>.sql` and decides whether to apply an
+ * entry by comparing its `when` against the newest recorded application — so a
+ * missing file, an unjournaled file, a duplicate tag, or a timestamp that does
+ * not increase each break the apply in a way that only shows up at boot.
+ * Snapshots are deliberately not checked: hand-maintained entries (the
+ * uncommitted `0002`/`0003`) carry no snapshot, and drizzle only needs one to
+ * generate the *next* diff.
+ */
+function setProblems(folder: string, journal: Journal): string[] {
+	const problems: string[] = [];
+	const tags = journal.entries.map((entry) => entry.tag);
+
+	if (new Set(tags).size !== tags.length) {
+		problems.push("duplicate journal tags");
+	}
+
+	for (let index = 1; index < journal.entries.length; index += 1) {
+		const previous = journal.entries[index - 1];
+		const current = journal.entries[index];
+		if (!(current.when > previous.when)) {
+			problems.push(
+				`journal timestamps do not increase at ${current.tag} (${previous.tag} → ${current.tag})`,
+			);
+		}
+	}
+
+	for (const tag of tags) {
+		if (!existsSync(join(folder, `${tag}.sql`))) {
+			problems.push(`journal entry without its file: ${tag}`);
+		}
+	}
+
+	for (const file of readdirSync(folder).filter((name) =>
+		name.endsWith(".sql"),
+	)) {
+		const tag = file.replace(/\.sql$/, "");
+		if (!tags.includes(tag)) {
+			problems.push(`file without its journal entry: ${tag}`);
+		}
+	}
+
+	return problems;
+}
+
+describe("migration set integrity", () => {
+	test("the shipped set is internally consistent", async () => {
+		const journal = await readJournal(DEFAULT_MIGRATIONS_FOLDER);
+		expect(setProblems(DEFAULT_MIGRATIONS_FOLDER, journal)).toEqual([]);
+	});
+
+	test("both halves of an inconsistent set are reported", async () => {
+		// A synthetic set rather than a copy of the shipped one: the check is
+		// a pure function of the folder and the journal, so the broken states
+		// are cheaper to build from scratch than to carve out of the real
+		// migrations. The folder cleans itself up, so the test does not depend
+		// on the shared afterAll handling directories.
+		const folder = join(TMP_ROOT, `mes-migrate-parity-${crypto.randomUUID()}`);
+		try {
+		mkdirSync(join(folder, "meta"), { recursive: true });
+		await Bun.write(join(folder, "0000_first.sql"), "-- first\n");
+		await Bun.write(join(folder, "0001_second.sql"), "-- second\n");
+		const journal: Journal = {
+			entries: [
+				{ idx: 0, tag: "0000_first", when: 100 },
+				{ idx: 1, tag: "0001_second", when: 200 },
+			],
+		};
+		await Bun.write(
+			join(folder, "meta", "_journal.json"),
+			JSON.stringify(journal),
+		);
+		expect(setProblems(folder, journal)).toEqual([]);
+
+		// An entry whose file is gone, and a file no entry names: the two
+		// halves the boot path fails on.
+		rmSync(join(folder, "0001_second.sql"));
+		await Bun.write(
+			join(folder, "0009_stray.sql"),
+			"-- stray file with no journal entry\n",
+		);
+
+		const problems = setProblems(folder, journal);
+		expect(problems).toContain("journal entry without its file: 0001_second");
+		expect(problems).toContain("file without its journal entry: 0009_stray");
+
+		// Timestamps that do not increase set up the replay the fix repaired.
+		const outOfOrder: Journal = {
+			entries: [
+				{ idx: 0, tag: "0000_first", when: 200 },
+				{ idx: 1, tag: "0001_second", when: 100 },
+			],
+		};
+		expect(setProblems(folder, outOfOrder)).toContain(
+			"journal timestamps do not increase at 0001_second (0000_first → 0001_second)",
+		);
+		} finally {
+			rmSync(folder, { recursive: true, force: true });
+		}
+	});
+});
