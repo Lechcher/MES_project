@@ -902,8 +902,10 @@ export const typeDefs = /* GraphQL */ `
   type TelegramBotSettings {
     isEnabled: Boolean!
     botToken: String
+    botTokenSet: Boolean!
     aiBaseUrl: String
     aiApiKey: String
+    aiApiKeySet: Boolean!
     aiDefaultModel: String
     pushAlertsEnabled: Boolean!
   }

@@ -1324,6 +1324,19 @@ type TelegramWebhookConfig {
   isEnabled: Boolean!
 }
 
+# Website-level bot configuration. botToken and aiApiKey are always returned
+# masked; botTokenSet and aiApiKeySet report whether a secret is configured.
+type TelegramBotSettings {
+  isEnabled: Boolean!
+  botToken: String
+  botTokenSet: Boolean!
+  aiBaseUrl: String
+  aiApiKey: String
+  aiApiKeySet: Boolean!
+  aiDefaultModel: String
+  pushAlertsEnabled: Boolean!
+}
+
 type UserConnection {
   nodes: [User!]!
   pageInfo: OffsetPageInfo!

@@ -351,3 +351,26 @@ describe("pagination and export shapes", () => {
 		expect(byName.get("limit")?.defaultValue).toBe(20);
 	});
 });
+
+describe("telegram bot settings shapes", () => {
+	function typeFields(name: string): string[] {
+		const type = schema.getType(name);
+		return type && "getFields" in type ? Object.keys(type.getFields()) : [];
+	}
+
+	// The exact field list, not presence checks: the domain view and the
+	// frontend operations both request this set, so an under-declared type
+	// here fails validation at the endpoint instead of in this suite.
+	test("the settings type declares the full contract", () => {
+		expect(typeFields("TelegramBotSettings").sort()).toEqual([
+			"aiApiKey",
+			"aiApiKeySet",
+			"aiBaseUrl",
+			"aiDefaultModel",
+			"botToken",
+			"botTokenSet",
+			"isEnabled",
+			"pushAlertsEnabled",
+		]);
+	});
+});
