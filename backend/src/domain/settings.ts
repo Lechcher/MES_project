@@ -47,12 +47,17 @@ import {
 	rolePermissions,
 	roles,
 	systemAuditLogs,
+	telegramBotSettings,
+	telegramLinkCodes,
+	telegramLinks,
 	telegramWebhookConfig,
 	user,
 	userRoles,
 } from "../db/schema";
 import type { ViewerContext } from "../graphql/context";
+import { requireViewer } from "../graphql/access";
 import { DomainError } from "../graphql/errors";
+import { maskSecret } from "../telegram/settings";
 import { recordAuditEvent } from "./audit";
 
 /** Stable action labels recorded on the settings audit trail. */
@@ -66,6 +71,8 @@ export const SETTINGS_AUDIT_ACTIONS = {
 	ROLE_PERMISSIONS_UPDATE: "role.permissions.update",
 	APP_SETTING_UPDATE: "app_setting.update",
 	TELEGRAM_WEBHOOK_UPDATE: "telegram_webhook.update",
+	TELEGRAM_BOT_SETTINGS_UPDATE: "telegram_bot_settings.update",
+	TELEGRAM_BOT_LINK_REVOKE: "telegram_bot_link.revoke",
 } as const;
 
 /* ------------------------------------------------------------------ */
@@ -949,6 +956,220 @@ export async function updateAppSetting(
 
 /* ------------------------------------------------------------------ */
 /* Telegram webhook configuration                                      */
+/* ------------------------------------------------------------------ */
+/* Inbound Telegram bot configuration                                  */
+/* ------------------------------------------------------------------ */
+
+/**
+ * The settings-editor view of the bot configuration.
+ *
+ * Secrets are returned masked here — the editor is the only surface that can
+ * *write* them, and nothing else may read them back. `__hasSecret` flags tell
+ * the form whether a value exists without revealing it.
+ */
+export interface TelegramBotSettingsView {
+	isEnabled: boolean;
+	botToken: string | null;
+	botTokenSet: boolean;
+	aiBaseUrl: string | null;
+	aiApiKey: string | null;
+	aiApiKeySet: boolean;
+	aiDefaultModel: string | null;
+	pushAlertsEnabled: boolean;
+}
+
+async function botSettingsRow(ctx: ViewerContext) {
+	const [existing] = await ctx.db.select().from(telegramBotSettings).limit(1);
+	if (existing) return existing;
+
+	const id = crypto.randomUUID();
+	await ctx.db.insert(telegramBotSettings).values({ id });
+	const [created] = await ctx.db
+		.select()
+		.from(telegramBotSettings)
+		.where(eq(telegramBotSettings.id, id))
+		.limit(1);
+	return created;
+}
+
+export async function getTelegramBotSettings(
+	ctx: ViewerContext,
+): Promise<TelegramBotSettingsView> {
+	const row = await botSettingsRow(ctx);
+	return {
+		isEnabled: row.isEnabled,
+		botToken: maskSecret(row.botToken),
+		botTokenSet: Boolean(row.botToken),
+		aiBaseUrl: row.aiBaseUrl,
+		aiApiKey: maskSecret(row.aiApiKey),
+		aiApiKeySet: Boolean(row.aiApiKey),
+		aiDefaultModel: row.aiDefaultModel,
+		pushAlertsEnabled: row.pushAlertsEnabled,
+	};
+}
+
+export interface SaveTelegramBotSettingsInput {
+	isEnabled?: boolean | null;
+	botToken?: string | null;
+	clearBotToken?: boolean | null;
+	aiBaseUrl?: string | null;
+	aiApiKey?: string | null;
+	clearAiApiKey?: boolean | null;
+	aiDefaultModel?: string | null;
+	pushAlertsEnabled?: boolean | null;
+}
+
+/**
+ * Save the website-level bot configuration.
+ *
+ * The audit record carries only presence flags, never secret values — the
+ * settings audit trail already refuses to leak them.
+ */
+export async function saveTelegramBotSettings(
+	ctx: ViewerContext,
+	input: SaveTelegramBotSettingsInput,
+): Promise<TelegramBotSettingsView> {
+	const before = await botSettingsRow(ctx);
+	const patch: Partial<typeof telegramBotSettings.$inferInsert> = {};
+
+	if (input.isEnabled !== undefined && input.isEnabled !== null) {
+		patch.isEnabled = input.isEnabled;
+	}
+	if (input.clearBotToken) patch.botToken = null;
+	else if (input.botToken !== undefined && input.botToken !== null) {
+		patch.botToken =
+			input.botToken.trim() === "" ? null : input.botToken.trim();
+	}
+	if (input.clearAiApiKey) patch.aiApiKey = null;
+	else if (input.aiApiKey !== undefined && input.aiApiKey !== null) {
+		patch.aiApiKey =
+			input.aiApiKey.trim() === "" ? null : input.aiApiKey.trim();
+	}
+	if (input.aiBaseUrl !== undefined) {
+		patch.aiBaseUrl = input.aiBaseUrl?.trim() || null;
+	}
+	if (input.aiDefaultModel !== undefined) {
+		patch.aiDefaultModel = input.aiDefaultModel?.trim() || null;
+	}
+	if (
+		input.pushAlertsEnabled !== undefined &&
+		input.pushAlertsEnabled !== null
+	) {
+		patch.pushAlertsEnabled = input.pushAlertsEnabled;
+	}
+
+	if (Object.keys(patch).length > 0) {
+		await ctx.db
+			.update(telegramBotSettings)
+			.set({ ...patch, updatedAt: new Date() })
+			.where(eq(telegramBotSettings.id, before.id));
+	}
+
+	const after = await botSettingsRow(ctx);
+	await recordAuditEvent(ctx, {
+		moduleCode: "settings",
+		action: SETTINGS_AUDIT_ACTIONS.TELEGRAM_BOT_SETTINGS_UPDATE,
+		resourceType: "telegram_bot_settings",
+		resourceId: after.id,
+		oldData: {
+			isEnabled: before.isEnabled,
+			botTokenSet: Boolean(before.botToken),
+			aiBaseUrl: before.aiBaseUrl,
+			aiApiKeySet: Boolean(before.aiApiKey),
+			aiDefaultModel: before.aiDefaultModel,
+			pushAlertsEnabled: before.pushAlertsEnabled,
+		},
+		newData: {
+			isEnabled: after.isEnabled,
+			botTokenSet: Boolean(after.botToken),
+			aiBaseUrl: after.aiBaseUrl,
+			aiApiKeySet: Boolean(after.aiApiKey),
+			aiDefaultModel: after.aiDefaultModel,
+			pushAlertsEnabled: after.pushAlertsEnabled,
+		},
+	});
+
+	return {
+		isEnabled: after.isEnabled,
+		botToken: maskSecret(after.botToken),
+		botTokenSet: Boolean(after.botToken),
+		aiBaseUrl: after.aiBaseUrl,
+		aiApiKey: maskSecret(after.aiApiKey),
+		aiApiKeySet: Boolean(after.aiApiKey),
+		aiDefaultModel: after.aiDefaultModel,
+		pushAlertsEnabled: after.pushAlertsEnabled,
+	};
+}
+
+/**
+ * Issue a link code for the *signed-in* viewer.
+ *
+ * The code is returned once, in plaintext, and stored only as a hash — the
+ * same discipline as credentials. Expiry comes from configuration, so the
+ * TTL is an env/operational decision, not a code constant.
+ */
+export async function issueTelegramLinkCode(ctx: ViewerContext): Promise<{
+	code: string;
+	expiresAt: Date;
+}> {
+	const viewer = requireViewer(ctx);
+	const { generateLinkCode, hashLinkCode, linkCodeExpiry } = await import(
+		"../telegram/settings"
+	);
+	const code = generateLinkCode();
+	const expiresAt = linkCodeExpiry(ctx.config);
+	await ctx.db.insert(telegramLinkCodes).values({
+		codeHash: await hashLinkCode(code),
+		userId: viewer.id,
+		expiresAt,
+	});
+	return { code, expiresAt };
+}
+
+/** The website's linked-account list, with the MES identity beside each row. */
+export async function listTelegramLinks(ctx: ViewerContext) {
+	return ctx.db
+		.select({
+			id: telegramLinks.id,
+			telegramUserId: telegramLinks.telegramUserId,
+			telegramChatId: telegramLinks.telegramChatId,
+			telegramUsername: telegramLinks.telegramUsername,
+			isActive: telegramLinks.isActive,
+			lastSeenAt: telegramLinks.lastSeenAt,
+			createdAt: telegramLinks.createdAt,
+			userId: telegramLinks.userId,
+			userCode: user.userCode,
+			fullName: user.name,
+		})
+		.from(telegramLinks)
+		.innerJoin(user, eq(user.id, telegramLinks.userId))
+		.orderBy(desc(telegramLinks.createdAt));
+}
+
+/** Revoke a link, recording the act on the settings audit trail. */
+export async function revokeTelegramLinkById(
+	ctx: ViewerContext,
+	linkId: string,
+): Promise<boolean> {
+	const [row] = await ctx.db
+		.select()
+		.from(telegramLinks)
+		.where(eq(telegramLinks.id, linkId))
+		.limit(1);
+	if (!row?.isActive) return false;
+
+	const { revokeLink } = await import("../telegram/settings");
+	await revokeLink(ctx.db, linkId);
+	await recordAuditEvent(ctx, {
+		moduleCode: "settings",
+		action: SETTINGS_AUDIT_ACTIONS.TELEGRAM_BOT_LINK_REVOKE,
+		resourceType: "telegram_link",
+		resourceId: linkId,
+		newData: { userId: row.userId, isActive: false },
+	});
+	return true;
+}
+
 /* ------------------------------------------------------------------ */
 
 export async function getTelegramWebhookConfig(ctx: ViewerContext) {

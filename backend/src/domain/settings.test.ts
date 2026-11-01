@@ -15,7 +15,14 @@ import { loadConfig } from "../config";
 import { createDatabase, type DatabaseHandle } from "../db";
 import type { RoleCode } from "../db/enums";
 import { runMigrations } from "../db/migrate";
-import { departments, roles, user, userRoles } from "../db/schema";
+import {
+	departments,
+	roles,
+	telegramLinkCodes,
+	telegramLinks,
+	user,
+	userRoles,
+} from "../db/schema";
 import { authorize } from "../graphql/access";
 import {
 	createContext,
@@ -23,10 +30,16 @@ import {
 	type ViewerContext,
 } from "../graphql/context";
 import { toAppSetting } from "../graphql/shapes";
+import { resolveBotSettings } from "../telegram/settings";
 import {
 	createUser,
 	deactivateUser,
+	getTelegramBotSettings,
+	issueTelegramLinkCode,
 	listAppSettings,
+	listTelegramLinks,
+	revokeTelegramLinkById,
+	saveTelegramBotSettings,
 	updateAppSetting,
 	updateTelegramWebhookConfig,
 } from "./settings";
@@ -321,3 +334,159 @@ describe("telegram webhook configuration", () => {
 		expect(after?.isEnabled).toBe(true);
 	});
 });
+describe("inbound telegram bot settings", () => {
+	test("reads a fresh row with every secret masked", async () => {
+		const db = freshDatabase("bot-defaults");
+		await seedBase(db);
+		const tech = context(db, viewer("u-tech", ["TECH_LEAD"], "d1"));
+
+		const settings = await getTelegramBotSettings(tech);
+		expect(settings.isEnabled).toBe(false);
+		expect(settings.botToken).toBeNull();
+		expect(settings.botTokenSet).toBe(false);
+		expect(settings.aiApiKeySet).toBe(false);
+		expect(settings.pushAlertsEnabled).toBe(false);
+	});
+
+	test("saves the configuration and masks the secrets on read-back", async () => {
+		const db = freshDatabase("bot-save");
+		await seedBase(db);
+		const tech = context(db, viewer("u-tech", ["TECH_LEAD"], "d1"));
+
+		const saved = await saveTelegramBotSettings(tech, {
+			isEnabled: true,
+			botToken: "111:super-secret-token",
+			aiBaseUrl: "https://gateway.example.com/v1",
+			aiApiKey: "sk-secret-key",
+			aiDefaultModel: "gpt-4o-mini",
+			pushAlertsEnabled: true,
+		});
+		expect(saved.isEnabled).toBe(true);
+		expect(saved.botTokenSet).toBe(true);
+		expect(saved.botToken).toBe("****oken");
+		expect(saved.aiApiKeySet).toBe(true);
+		expect(saved.aiApiKey).toBe("****-key");
+		expect(saved.aiBaseUrl).toBe("https://gateway.example.com/v1");
+		expect(saved.aiDefaultModel).toBe("gpt-4o-mini");
+		expect(saved.pushAlertsEnabled).toBe(true);
+
+		// The read-back is masked identically — the editor never re-reads a
+		// secret it wrote.
+		const reRead = await getTelegramBotSettings(tech);
+		expect(reRead.botToken).toBe("****oken");
+		expect(reRead.aiApiKey).toBe("****-key");
+	});
+
+	test("clears secrets explicitly and re-applies the environment afterwards", async () => {
+		const db = freshDatabase("bot-clear");
+		await seedBase(db);
+		const tech = context(db, viewer("u-tech", ["TECH_LEAD"], "d1"));
+		await saveTelegramBotSettings(tech, {
+			botToken: "111:token",
+			aiApiKey: "sk-key",
+		});
+
+		const cleared = await saveTelegramBotSettings(tech, {
+			clearBotToken: true,
+			clearAiApiKey: true,
+		});
+		expect(cleared.botTokenSet).toBe(false);
+		expect(cleared.aiApiKeySet).toBe(false);
+
+		// resolveBotSettings falls back to the environment once cleared.
+		const settings = await resolveBotSettings(
+			db,
+			loadConfig({ NODE_ENV: "test", TELEGRAM_BOT_TOKEN: "222:env-token" }),
+		);
+		expect(settings.botToken).toBe("222:env-token");
+	});
+
+	test("records an audit event carrying presence flags, never secrets", async () => {
+		const db = freshDatabase("bot-audit");
+		await seedBase(db);
+		const tech = context(db, viewer("u-tech", ["TECH_LEAD"], "d1"));
+		await saveTelegramBotSettings(tech, {
+			isEnabled: true,
+			botToken: "111:never-logged",
+			aiApiKey: "sk-never-logged",
+		});
+
+		const { systemAuditLogs } = await import("../db/schema");
+		const events = await db.select().from(systemAuditLogs);
+		const event = events.find(
+			(e) => e.action === "telegram_bot_settings.update",
+		);
+		expect(event).toBeDefined();
+		const payload = `${event?.newData ?? ""} ${event?.oldData ?? ""}`;
+		expect(payload).toContain("botTokenSet");
+		expect(payload).not.toContain("111:never-logged");
+		expect(payload).not.toContain("sk-never-logged");
+	});
+});
+
+describe("telegram link codes and links", () => {
+	test("issues a code stored only as a hash, with the configured TTL", async () => {
+		const db = freshDatabase("link-issue");
+		await seedBase(db);
+		const tech = context(db, viewer("u-tech", ["TECH_LEAD"], "d1"));
+
+		const { code, expiresAt } = await issueTelegramLinkCode(tech);
+		expect(code.startsWith("LINK-")).toBe(true);
+
+		const rows = await db.select().from(telegramLinkCodes);
+		expect(rows).toHaveLength(1);
+		expect(rows[0].consumedAt).toBeNull();
+		expect(Object.values(rows[0])).not.toContain(code);
+		// Default TTL is ten minutes.
+		expect(expiresAt.getTime()).toBeGreaterThan(Date.now() + 9 * 60 * 1000);
+		expect(expiresAt.getTime()).toBeLessThanOrEqual(
+			Date.now() + 10 * 60 * 1000,
+		);
+	});
+
+	test("lists links beside the MES identity they belong to", async () => {
+		const db = freshDatabase("link-list");
+		await seedBase(db);
+		const tech = context(db, viewer("u-tech", ["TECH_LEAD"], "d1"));
+		const { upsertLink } = await import("../telegram/settings");
+		await upsertLink(db, {
+			userId: "u-emp",
+			telegramUserId: "tg-1",
+			telegramChatId: "chat-1",
+			telegramUsername: "employee",
+		});
+
+		const links = await listTelegramLinks(tech);
+		expect(links).toHaveLength(1);
+		expect(links[0].userCode).toBe(rowsUserCode("u-emp"));
+		expect(links[0].telegramUsername).toBe("employee");
+	});
+
+	test("revokes once: the second call reports nothing to do", async () => {
+		const db = freshDatabase("link-revoke-once");
+		await seedBase(db);
+		const tech = context(db, viewer("u-tech", ["TECH_LEAD"], "d1"));
+		const { upsertLink } = await import("../telegram/settings");
+		await upsertLink(db, {
+			userId: "u-emp",
+			telegramUserId: "tg-1",
+			telegramChatId: "chat-1",
+		});
+		const [link] = await db.select().from(telegramLinks);
+
+		expect(await revokeTelegramLinkById(tech, link.id)).toBe(true);
+		expect(await revokeTelegramLinkById(tech, link.id)).toBe(false);
+		expect(await revokeTelegramLinkById(tech, "missing-id")).toBe(false);
+
+		const { systemAuditLogs } = await import("../db/schema");
+		const events = await db.select().from(systemAuditLogs);
+		expect(
+			events.filter((e) => e.action === "telegram_bot_link.revoke"),
+		).toHaveLength(1);
+	});
+});
+
+/** The seeded user code for a seeded user id (`U-<id>`). */
+function rowsUserCode(id: string): string {
+	return `U-${id}`;
+}

@@ -13,7 +13,7 @@
 import { AsyncLocalStorage } from "node:async_hooks";
 import { betterAuth } from "better-auth";
 import { drizzleAdapter } from "better-auth/adapters/drizzle";
-import { hashPassword } from "better-auth/crypto";
+import { hashPassword, verifyPassword } from "better-auth/crypto";
 import { bearer } from "better-auth/plugins";
 import { and, eq, isNull } from "drizzle-orm";
 import type { AppConfig } from "../config";
@@ -250,6 +250,89 @@ export interface SignInResult {
 	expiresAt: Date;
 	viewer: Viewer;
 }
+
+/**
+ * Resolve the sign-in identifier to the account's email.
+ *
+ * An identifier that is not an email is read as a user code. An unknown code
+ * fails exactly like a wrong password — same code, same message — so the screen
+ * cannot probe which identifiers exist.
+ */
+export async function resolveSignInEmail(
+	db: DatabaseHandle,
+	identifier: string,
+): Promise<string | null> {
+	if (identifier.includes("@")) return identifier.toLowerCase();
+	const [row] = await db
+		.select({ email: user.email })
+		.from(user)
+		.where(and(eq(user.userCode, identifier), isNull(user.deletedAt)))
+		.limit(1);
+	return row?.email ?? null;
+}
+
+/**
+ * Verify login credentials without creating a session.
+ *
+ * The Telegram bot's `/login` fallback needs exactly this: the same
+ * identifier↔password check the web sign-in performs, resolved to the viewer
+ * the bot will link the Telegram identity to. No session row is created —
+ * the link itself is the session on that surface. An unknown identifier, a
+ * missing credential row, and a wrong password all return `null` alike, so
+ * the bot cannot be used to probe which identifiers exist.
+ */
+export async function verifyCredentials(
+	db: DatabaseHandle,
+	identifier: string,
+	password: string,
+): Promise<Viewer | null> {
+	const trimmed = identifier.trim();
+	if (trimmed === "" || password === "") return null;
+
+	// Resolve the identifier to an account the same way sign-in does: an
+	// email address as-is, anything else as a user code.
+	const [userRow] = await db
+		.select()
+		.from(user)
+		.where(
+			trimmed.includes("@")
+				? eq(user.email, trimmed.toLowerCase())
+				: eq(user.userCode, trimmed),
+		)
+		.limit(1);
+
+	let hash: string | null = null;
+	if (userRow) {
+		const [credential] = await db
+			.select()
+			.from(account)
+			.where(
+				and(
+					eq(account.userId, userRow.id),
+					eq(account.providerId, "credential"),
+				),
+			)
+			.limit(1);
+		hash = credential?.password ?? null;
+	}
+
+	// Unknown identifiers check against a dummy hash so the failure takes
+	// the same time as a wrong password: the bot cannot be used as an
+	// account-existence oracle.
+	if (!(await verifyPassword({ hash: hash ?? DUMMY_HASH, password }))) {
+		return null;
+	}
+	if (!userRow) return null;
+	return loadViewer(db, userRow.id);
+}
+
+/**
+ * A valid-format hash of a throwaway password, computed once.
+ *
+ * `verifyCredentials` runs it when no credential row resolves, so the
+ * unknown-identifier path costs the same as the wrong-password path.
+ */
+const DUMMY_HASH = await hashPassword("not-a-real-password");
 
 export async function signIn(
 	auth: Auth,

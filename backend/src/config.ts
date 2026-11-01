@@ -77,6 +77,20 @@ export interface AppConfig {
 	readonly mailEndpoint: MailEndpoint | null;
 	/** Outbound Telegram notifications are dispatched only when nothing disables them. */
 	readonly allowOutboundNotifications: boolean;
+	/** Inbound Telegram bot: false keeps the bot inert (tests, unconfigured dev). */
+	readonly telegramBotEnabled: boolean;
+	/** Telegram bot token; empty when the bot is configured only on the website. */
+	readonly telegramBotToken: string;
+	/** Base URL of the OpenAI-compatible endpoint the bot's agent calls. */
+	readonly telegramAiBaseUrl: string;
+	/** API key for that endpoint; empty when the endpoint needs none. */
+	readonly telegramAiApiKey: string;
+	/** Default model id for `/ask`; empty defers to the website setting. */
+	readonly telegramAiDefaultModel: string;
+	/** Per-user `/ask` query ceiling per 30-day window; 0 means unlimited. */
+	readonly telegramAiMonthlyQuota: number;
+	/** Lifetime of a website-generated bot link code, in minutes. */
+	readonly telegramLinkCodeTtlMinutes: number;
 }
 
 export class ConfigurationError extends Error {
@@ -244,6 +258,18 @@ export function loadConfig(
 			DEFAULT_MAX_FILES_PER_REQUEST,
 		),
 		allowOutboundNotifications: serviceEnv !== "test",
+		telegramBotEnabled:
+			(env.TELEGRAM_BOT_ENABLED ?? "").trim().toLowerCase() === "true",
+		telegramBotToken: env.TELEGRAM_BOT_TOKEN?.trim() ?? "",
+		telegramAiBaseUrl: env.TELEGRAM_AI_BASE_URL?.trim() ?? "",
+		telegramAiApiKey: env.TELEGRAM_AI_API_KEY?.trim() ?? "",
+		telegramAiDefaultModel: env.TELEGRAM_AI_MODEL?.trim() ?? "",
+		telegramAiMonthlyQuota: resolveLimit(env, "TELEGRAM_AI_MONTHLY_QUOTA", 100),
+		telegramLinkCodeTtlMinutes: resolveLimit(
+			env,
+			"TELEGRAM_LINK_CODE_TTL_MINUTES",
+			10,
+		),
 	};
 }
 

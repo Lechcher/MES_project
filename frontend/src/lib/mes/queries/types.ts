@@ -565,6 +565,47 @@ export interface TelegramWebhookConfig {
   isEnabled: boolean;
 }
 
+/** The settings-editor view of the inbound bot configuration. */
+export interface TelegramBotSettings {
+  isEnabled: boolean;
+  /** Always masked (`****last4`) or null when unset. */
+  botToken: string | null;
+  /** True when a token exists, without revealing it. */
+  botTokenSet: boolean;
+  aiBaseUrl: string | null;
+  aiApiKey: string | null;
+  aiApiKeySet: boolean;
+  aiDefaultModel: string | null;
+  pushAlertsEnabled: boolean;
+}
+
+/** One linked Telegram identity (the bot session). */
+export interface TelegramLink {
+  id: string;
+  telegramUserId: string;
+  telegramChatId: string;
+  telegramUsername: string | null;
+  isActive: boolean;
+  lastSeenAt: string | null;
+  createdAt: string;
+  userId: string;
+  userCode: string | null;
+  fullName: string | null;
+}
+
+/** A website-generated bot link code (single-use, expires). */
+export interface TelegramLinkCode {
+  code: string;
+  expiresAt: string;
+}
+
+/** One cached model from the OpenAI-compatible endpoint. */
+export interface TelegramAiModel {
+  modelId: string;
+  displayName: string | null;
+  fetchedAt: string;
+}
+
 export interface ModuleActivitySummary {
   moduleCode: string;
   moduleName: string;

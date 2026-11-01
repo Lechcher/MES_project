@@ -916,6 +916,130 @@ export const exportArtifacts = sqliteTable(
 );
 
 /* ------------------------------------------------------------------ */
+/* Inbound Telegram bot (openspec/changes/add-telegram-bot)            */
+/* ------------------------------------------------------------------ */
+
+/**
+ * Singleton website-level bot configuration.
+ *
+ * Website values override the environment bootstrap (see
+ * `backend/src/telegram/settings.ts` for the precedence ladder); the old
+ * `telegram_webhook_config.bot_token` remains the fallback token source for
+ * deployments that already configured the outbound webhook.
+ */
+export const telegramBotSettings = sqliteTable("telegram_bot_settings", {
+	id: text("id").primaryKey(),
+	botToken: text("bot_token"),
+	isEnabled: integer("is_enabled", { mode: "boolean" })
+		.default(false)
+		.notNull(),
+	aiBaseUrl: text("ai_base_url"),
+	aiApiKey: text("ai_api_key"),
+	aiDefaultModel: text("ai_default_model"),
+	pushAlertsEnabled: integer("push_alerts_enabled", { mode: "boolean" })
+		.default(false)
+		.notNull(),
+	createdAt: createdAt(),
+	updatedAt: updatedAt(),
+});
+
+/**
+ * The bot session: one Telegram identity linked to one MES user.
+ *
+ * The link *is* the authenticated session on this surface — revocable by
+ * flipping `is_active`, and automatically dead when the MES account is
+ * deactivated or deleted (the viewer lookup rejects inactive accounts, so a
+ * revoked or deactivated user behaves exactly like an unlinked identity).
+ */
+export const telegramLinks = sqliteTable(
+	"telegram_links",
+	{
+		id: text("id").primaryKey(),
+		telegramUserId: text("telegram_user_id").notNull(),
+		userId: text("user_id")
+			.notNull()
+			.references(() => user.id, { onDelete: "cascade" }),
+		telegramChatId: text("telegram_chat_id").notNull(),
+		telegramUsername: text("telegram_username"),
+		isActive: integer("is_active", { mode: "boolean" }).default(true).notNull(),
+		lastSeenAt: timestampMs("last_seen_at"),
+		createdAt: createdAt(),
+		updatedAt: updatedAt(),
+	},
+	(table) => [
+		uniqueIndex("uq_telegram_links_telegram_user").on(table.telegramUserId),
+		index("idx_telegram_links_user").on(table.userId),
+	],
+);
+
+/**
+ * Single-use website-generated link codes.
+ *
+ * Only the code's hash is stored — a leaked table must not be enough to take
+ * over a link. Expiry and consumption are enforced on lookup, not by a sweep.
+ */
+export const telegramLinkCodes = sqliteTable(
+	"telegram_link_codes",
+	{
+		codeHash: text("code_hash").primaryKey(),
+		userId: text("user_id")
+			.notNull()
+			.references(() => user.id, { onDelete: "cascade" }),
+		expiresAt: timestampMs("expires_at").notNull(),
+		consumedAt: timestampMs("consumed_at"),
+		createdAt: createdAt(),
+	},
+	(table) => [
+		index("idx_telegram_link_codes_user").on(table.userId),
+		index("idx_telegram_link_codes_expiry").on(table.expiresAt),
+	],
+);
+
+/**
+ * Cached model catalog from the configured OpenAI-compatible endpoint.
+ *
+ * A failed refresh keeps the previous rows: a temporarily unreachable
+ * endpoint must not leave users without a model list.
+ */
+export const telegramAiModels = sqliteTable(
+	"telegram_ai_models",
+	{
+		modelId: text("model_id").primaryKey(),
+		displayName: text("display_name"),
+		fetchedAt: timestampMs("fetched_at").notNull(),
+		createdAt: createdAt(),
+		updatedAt: updatedAt(),
+	},
+	(table) => [index("idx_telegram_ai_models_fetched").on(table.fetchedAt)],
+);
+
+/**
+ * Per-user AI query budget usage.
+ *
+ * One row per viewer: the window start of the current rolling 30-day window
+ * and the count used inside it. Persisted so the budget survives restarts and
+ * across processes; an in-memory counter would reset on every deploy.
+ */
+export const telegramAiUsage = sqliteTable("telegram_ai_usage", {
+	userId: text("user_id")
+		.primaryKey()
+		.references(() => user.id, { onDelete: "cascade" }),
+	windowStart: timestampMs("window_start").notNull(),
+	queryCount: integer("query_count").default(0).notNull(),
+	createdAt: createdAt(),
+	updatedAt: updatedAt(),
+});
+
+/** Per-user preference overrides for the bot (currently the AI model). */
+export const telegramUserPrefs = sqliteTable("telegram_user_prefs", {
+	userId: text("user_id")
+		.primaryKey()
+		.references(() => user.id, { onDelete: "cascade" }),
+	selectedModel: text("selected_model"),
+	updatedAt: updatedAt(),
+});
+
+/* ------------------------------------------------------------------ */
 /* Inferred row types                                                  */
 /* ------------------------------------------------------------------ */
 
@@ -947,6 +1071,12 @@ export type NotificationRow = typeof notifications.$inferSelect;
 export type ExportArtifactRow = typeof exportArtifacts.$inferSelect;
 export type TelegramWebhookConfigRow =
 	typeof telegramWebhookConfig.$inferSelect;
+export type TelegramBotSettingsRow = typeof telegramBotSettings.$inferSelect;
+export type TelegramLinkRow = typeof telegramLinks.$inferSelect;
+export type TelegramLinkCodeRow = typeof telegramLinkCodes.$inferSelect;
+export type TelegramAiModelRow = typeof telegramAiModels.$inferSelect;
+export type TelegramUserPrefRow = typeof telegramUserPrefs.$inferSelect;
+export type TelegramAiUsageRow = typeof telegramAiUsage.$inferSelect;
 export type TicketStateRow = typeof ticketStates.$inferSelect;
 export type LeaveCodeRow = typeof leaveCodes.$inferSelect;
 export type ModuleRow = typeof modules.$inferSelect;

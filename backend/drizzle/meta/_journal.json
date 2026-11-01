@@ -15,6 +15,13 @@
       "when": 1792741036715,
       "tag": "0001_add-task-completion-requests",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "6",
+      "when": 1793481373316,
+      "tag": "0004_mes_telegram_bot",
+      "breakpoints": true
     }
   ]
 }

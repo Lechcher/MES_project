@@ -26,6 +26,7 @@
 | API Contract | GraphQL (see [`API_CONTACT_SPECIFICATION.md`](API_CONTACT_SPECIFICATION.md)) |
 | Report generation | exceljs (XLSX/CSV), pdf-lib (PDF) |
 | Email delivery | nodemailer (SMTP: hosted provider or local mail server) |
+| Telegram bot | grammY (long polling) + Vercel AI SDK (`ai`, `@ai-sdk/openai-compatible`) with `zod` tool schemas |
 | Error tracking & monitoring | Sentry (`@sentry/nextjs`, `@sentry/node`) |
 | End-to-end testing | Playwright (`@playwright/test`) |
 | Language | TypeScript |

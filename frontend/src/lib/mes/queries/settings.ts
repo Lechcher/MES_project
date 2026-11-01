@@ -86,6 +86,48 @@ export const TELEGRAM_WEBHOOK_QUERY = /* GraphQL */ `
   }
 `;
 
+export const TELEGRAM_BOT_SETTINGS_QUERY = /* GraphQL */ `
+  query TelegramBotSettings {
+    telegramBotSettings {
+      isEnabled
+      botToken
+      botTokenSet
+      aiBaseUrl
+      aiApiKey
+      aiApiKeySet
+      aiDefaultModel
+      pushAlertsEnabled
+    }
+  }
+`;
+
+export const TELEGRAM_LINKS_QUERY = /* GraphQL */ `
+  query TelegramLinks {
+    telegramLinks {
+      id
+      telegramUserId
+      telegramChatId
+      telegramUsername
+      isActive
+      lastSeenAt
+      createdAt
+      userId
+      userCode
+      fullName
+    }
+  }
+`;
+
+export const TELEGRAM_AI_MODELS_QUERY = /* GraphQL */ `
+  query TelegramAiModels {
+    telegramAiModels {
+      modelId
+      displayName
+      fetchedAt
+    }
+  }
+`;
+
 /* ──────────────────────────── Mutations ─────────────────────────── */
 
 export const CREATE_USER_MUTATION = /* GraphQL */ `
@@ -176,5 +218,47 @@ export const UPDATE_TELEGRAM_WEBHOOK_MUTATION = /* GraphQL */ `
       webhookUrl
       isEnabled
     }
+  }
+`;
+
+export const SAVE_TELEGRAM_BOT_SETTINGS_MUTATION = /* GraphQL */ `
+  mutation SaveTelegramBotSettings(
+    $input: SaveTelegramBotSettingsInput!
+  ) {
+    saveTelegramBotSettings(input: $input) {
+      isEnabled
+      botToken
+      botTokenSet
+      aiBaseUrl
+      aiApiKey
+      aiApiKeySet
+      aiDefaultModel
+      pushAlertsEnabled
+    }
+  }
+`;
+
+export const REFRESH_TELEGRAM_AI_MODELS_MUTATION = /* GraphQL */ `
+  mutation RefreshTelegramAiModels {
+    refreshTelegramAiModels {
+      modelId
+      displayName
+      fetchedAt
+    }
+  }
+`;
+
+export const TELEGRAM_LINK_CODE_QUERY = /* GraphQL */ `
+  query TelegramLinkCode {
+    telegramLinkCode {
+      code
+      expiresAt
+    }
+  }
+`;
+
+export const REVOKE_TELEGRAM_LINK_MUTATION = /* GraphQL */ `
+  mutation RevokeTelegramLink($linkId: ID!) {
+    revokeTelegramLink(linkId: $linkId)
   }
 `;

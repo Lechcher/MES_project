@@ -29,7 +29,14 @@ import {
 	updateRolePermissions,
 	updateTelegramWebhookConfig,
 	updateUser,
+	getTelegramBotSettings,
+	saveTelegramBotSettings,
+	issueTelegramLinkCode,
+	listTelegramLinks,
+	revokeTelegramLinkById,
 } from "../../domain/settings";
+import { loadModelCatalog, refreshModelCatalog } from "../../telegram/ai/catalog";
+import { resolveBotSettings } from "../../telegram/settings";
 import { authorize, scopedDepartmentId, scopedUserId } from "../access";
 import type { ViewerContext } from "../context";
 import {
@@ -182,6 +189,28 @@ const queryResolvers: Record<string, Resolver> = {
 		return toWebhookConfig(row);
 	},
 
+	telegramBotSettings: async (_parent, _args, { ctx }) => {
+		authorize(ctx, "telegramBotSettings");
+		return getTelegramBotSettings(ctx);
+	},
+
+	telegramLinkCode: async (_parent, _args, { ctx }) => {
+		// Any authenticated viewer links *their own* account, so this runs
+		// under the personal scope with no technical-role gate.
+		authorize(ctx, "telegramLinkCode");
+		return issueTelegramLinkCode(ctx);
+	},
+
+	telegramLinks: async (_parent, _args, { ctx }) => {
+		authorize(ctx, "telegramLinks");
+		return listTelegramLinks(ctx);
+	},
+
+	telegramAiModels: async (_parent, _args, { ctx }) => {
+		authorize(ctx, "telegramBotSettings");
+		return loadModelCatalog(ctx.db);
+	},
+
 	notifications: async (_parent, args: any, { ctx }) => {
 		authorize(ctx, "notifications");
 		const offset = args.offset ?? 0;
@@ -267,6 +296,28 @@ const mutationResolvers: Record<string, Resolver> = {
 		authorize(ctx, "updateTelegramWebhookConfig");
 		const row = await updateTelegramWebhookConfig(ctx, args.input);
 		return toWebhookConfig(row);
+	},
+
+	saveTelegramBotSettings: async (_parent, args: any, { ctx }) => {
+		authorize(ctx, "saveTelegramBotSettings");
+		return saveTelegramBotSettings(ctx, args.input);
+	},
+
+	refreshTelegramAiModels: async (_parent, _args, { ctx }) => {
+		authorize(ctx, "refreshTelegramAiModels");
+		const settings = await resolveBotSettings(ctx.db, ctx.config);
+		try {
+			await refreshModelCatalog(ctx.db, settings);
+		} catch {
+			// The previous catalog stays; the editor reports the failure
+			// through the empty refresh result.
+		}
+		return loadModelCatalog(ctx.db);
+	},
+
+	revokeTelegramLink: async (_parent, args: any, { ctx }) => {
+		authorize(ctx, "revokeTelegramLink");
+		return revokeTelegramLinkById(ctx, String(args.linkId));
 	},
 };
 

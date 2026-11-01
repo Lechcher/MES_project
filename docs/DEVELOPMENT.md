@@ -302,3 +302,56 @@ cd frontend && bun test   # includes the label coverage and catalogue parity tes
 ```
 
 Domain enum labels resolve through `useDomainLabels()` (`frontend/src/lib/mes/i18n/labels.ts`): the active locale's `enums.*` message first, the registry's canonical English name as fallback, and the code unchanged only for values neither knows. Data, queries, mutations, and filters always carry the documented code tokens verbatim — the locale affects rendered text only.
+
+## 13. Telegram bot
+
+The backend carries an inbound Telegram bot (architecture:
+[`TELEGRAM_BOT_ARCHITECTURE.md`](../TELEGRAM_BOT_ARCHITECTURE.md), design:
+`openspec/changes/add-telegram-bot/design.md`). It runs **inside the backend
+process** and receives updates by **long polling**, so it needs no public URL
+and no tunnel — a `@BotFather` token is the whole infrastructure cost.
+
+### Configuration
+
+Every setting exists in both places, with the precedence
+**per-user preference → website setting → environment variable → built-in
+default** (resolved in `backend/src/telegram/settings.ts`):
+
+| Setting | Environment variable | Website (Settings → Telegram) |
+| --- | --- | --- |
+| Bot enable flag | `TELEGRAM_BOT_ENABLED` | enable toggle |
+| Bot token | `TELEGRAM_BOT_TOKEN` | token field (masked when read back) |
+| AI endpoint | `TELEGRAM_AI_BASE_URL` | base URL field |
+| AI API key | `TELEGRAM_AI_API_KEY` | API key field |
+| Default model | `TELEGRAM_AI_MODEL` | default model field |
+| `/ask` budget | `TELEGRAM_AI_MONTHLY_QUOTA` | — |
+| Link-code TTL | `TELEGRAM_LINK_CODE_TTL_MINUTES` | — |
+| Push alerts | — | push-alert toggle |
+
+A fresh deployment boots from `.env.example` values alone; anything saved on
+the website overrides them without a restart. Clearing a website value
+re-applies the environment one. The model catalog is fetched from
+`<TELEGRAM_AI_BASE_URL>/models` (OpenAI-compatible) and cached, so `/model`
+works even while the endpoint is briefly unreachable.
+
+### Logging in
+
+Nothing works before the Telegram identity is linked to a MES account:
+
+1. Sign in to the web app, open **Settings → Telegram**, and generate a link
+   code.
+2. Send `/link <CODE>` to the bot — the code is single-use and expires after
+   `TELEGRAM_LINK_CODE_TTL_MINUTES`.
+3. Or fall back to `/login <email|userCode> <password>` (the bot deletes the
+   credential message where Telegram allows; prefer the link code).
+
+Revoke a link from the website's linked-accounts list, or with `/logout` in
+the chat. Roles, department scoping, and audit rules are exactly the web
+app's — the bot reuses the same domain functions and `authorize()`.
+
+### Running it
+
+`TELEGRAM_BOT_ENABLED=true` with a token starts polling on backend boot;
+`/ask` additionally needs `TELEGRAM_AI_BASE_URL`. With the flag off (the
+default) the bot stays completely inert — no token is read, no request is
+made. Guard tests and unit suites always run with the bot disabled.

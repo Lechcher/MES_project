@@ -15,15 +15,19 @@
 		"contract-diff": "bun run contract-diff.ts"
 	},
 	"dependencies": {
+		"@ai-sdk/openai-compatible": "^3.0.82",
+		"@sentry/node": "^8.40.0",
+		"ai": "^7.0.159",
 		"better-auth": "^1.7.7",
 		"bun": "^1.4.2",
 		"drizzle-orm": "^0.45.4",
 		"elysia": "^1.4.30",
 		"exceljs": "^4.4.0",
+		"grammy": "^1.46.0",
 		"graphql": "^16.14.2",
 		"nodemailer": "^10.1.7",
 		"pdf-lib": "^1.17.1",
-		"@sentry/node": "^8.40.0"
+		"zod": "^4.6.7"
 	},
 	"devDependencies": {
 		"@types/bun": "^1.4.2",

@@ -10,8 +10,13 @@
 
 import { eq } from "drizzle-orm";
 import type { NotificationStatusValue } from "../db/enums";
-import { notifications, telegramWebhookConfig } from "../db/schema";
+import {
+	notifications,
+	telegramBotSettings,
+	telegramWebhookConfig,
+} from "../db/schema";
 import type { ViewerContext } from "../graphql/context";
+import { deliverTelegramPush } from "../telegram/sender";
 
 export interface NotificationInput {
 	template: string;
@@ -44,6 +49,18 @@ export async function loadWebhookConfig(ctx: ViewerContext) {
 }
 
 /**
+ * The bot's global push-alert toggle, read per dispatch.
+ *
+ * The Telegram channel is attempted beside the outbound webhook when this is
+ * on *and* a live sender is registered (an unstarted bot simply never
+ * delivers, which the sender registry reports as a reason, not a success).
+ */
+async function pushAlertsEnabled(ctx: ViewerContext): Promise<boolean> {
+	const [row] = await ctx.db.select().from(telegramBotSettings).limit(1);
+	return Boolean(row?.pushAlertsEnabled);
+}
+
+/**
  * Create a pending notification and attempt delivery.
  * Returns the recorded status: `SENT` only when the webhook accepted it.
  */
@@ -72,22 +89,6 @@ export async function dispatchNotification(
 		relatedId: input.relatedId ?? null,
 	});
 
-	if (!enabled) {
-		// Disabled configuration is not a failure: record the reason and stop.
-		await ctx.db
-			.update(notifications)
-			.set({
-				status: "FAILED",
-				attempts: 1,
-				errorMessage:
-					"Telegram notifications are not enabled or not configured.",
-				updatedAt: new Date(),
-			})
-			.where(eq(notifications.id, id));
-
-		return { id, status: "FAILED" };
-	}
-
 	if (!ctx.config.allowOutboundNotifications) {
 		await ctx.db
 			.update(notifications)
@@ -103,42 +104,86 @@ export async function dispatchNotification(
 		return { id, status: "FAILED" };
 	}
 
-	try {
-		const response = await fetch(config?.webhookUrl ?? "", {
-			method: "POST",
-			headers: { "content-type": "application/json" },
-			body: payloadText ?? JSON.stringify({ template: input.template, id }),
-		});
-
-		if (!response.ok) {
-			throw new Error(`Telegram webhook responded ${response.status}`);
-		}
-
-		await ctx.db
-			.update(notifications)
-			.set({
-				status: "SENT",
-				attempts: 1,
-				sentAt: new Date(),
-				updatedAt: new Date(),
-			})
-			.where(eq(notifications.id, id));
-
-		return { id, status: "SENT" };
-	} catch (error) {
-		const message = error instanceof Error ? error.message : String(error);
+	const push = await pushAlertsEnabled(ctx);
+	if (!enabled && !push) {
+		// Disabled configuration is not a failure: record the reason and stop.
 		await ctx.db
 			.update(notifications)
 			.set({
 				status: "FAILED",
 				attempts: 1,
-				errorMessage: message,
+				errorMessage:
+					"Telegram notifications are not enabled or not configured.",
 				updatedAt: new Date(),
 			})
 			.where(eq(notifications.id, id));
 
 		return { id, status: "FAILED" };
 	}
+
+	const reasons: string[] = [];
+	let deliveredAny = false;
+
+	if (enabled) {
+		try {
+			const response = await fetch(config?.webhookUrl ?? "", {
+				method: "POST",
+				headers: { "content-type": "application/json" },
+				body: payloadText ?? JSON.stringify({ template: input.template, id }),
+			});
+			if (!response.ok) {
+				throw new Error(`Telegram webhook responded ${response.status}`);
+			}
+			deliveredAny = true;
+		} catch (error) {
+			reasons.push(
+				`webhook: ${error instanceof Error ? error.message : String(error)}`,
+			);
+		}
+	}
+
+	if (push) {
+		// The same message text the webhook carries, as the alert summary.
+		const pushText = JSON.stringify({
+			template: input.template,
+			relatedType: input.relatedType ?? null,
+			relatedId: input.relatedId ?? null,
+			payload: payloadText ? JSON.parse(payloadText) : null,
+		});
+		const outcome = await deliverTelegramPush(ctx.db, pushText);
+		if (outcome.delivered) deliveredAny = true;
+		reasons.push(...outcome.reasons);
+	}
+
+	if (deliveredAny) {
+		// SENT with the failing targets still recorded: a partially delivered
+		// broadcast is a success for the notification but not a silent one.
+		await ctx.db
+			.update(notifications)
+			.set({
+				status: "SENT",
+				attempts: 1,
+				sentAt: new Date(),
+				...(reasons.length > 0 ? { errorMessage: reasons.join("; ") } : {}),
+				updatedAt: new Date(),
+			})
+			.where(eq(notifications.id, id));
+
+		return { id, status: "SENT" };
+	}
+
+	await ctx.db
+		.update(notifications)
+		.set({
+			status: "FAILED",
+			attempts: 1,
+			errorMessage:
+				reasons.join("; ") || "No delivery channel accepted the message.",
+			updatedAt: new Date(),
+		})
+		.where(eq(notifications.id, id));
+
+	return { id, status: "FAILED" };
 }
 
 /**

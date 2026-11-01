@@ -57,6 +57,60 @@ describe("loadConfig", () => {
 		expect(config.webOrigin).toBe("http://localhost:3000");
 		expect(config.smtpUrl).toBeNull();
 		expect(config.resetEmailFrom).toBe("no-reply@mes.local");
+		// The inbound Telegram bot stays inert until it is explicitly enabled.
+		expect(config.telegramBotEnabled).toBe(false);
+		expect(config.telegramBotToken).toBe("");
+		expect(config.telegramAiBaseUrl).toBe("");
+		expect(config.telegramAiApiKey).toBe("");
+		expect(config.telegramAiDefaultModel).toBe("");
+		expect(config.telegramAiMonthlyQuota).toBe(100);
+		expect(config.telegramLinkCodeTtlMinutes).toBe(10);
+	});
+
+	test("reads the Telegram bot group from the environment", () => {
+		const config = loadConfig({
+			NODE_ENV: "development",
+			BETTER_AUTH_SECRET: "s",
+			BETTER_AUTH_URL: "http://localhost:3001",
+			TELEGRAM_BOT_ENABLED: "true",
+			TELEGRAM_BOT_TOKEN: "12345:token",
+			TELEGRAM_AI_BASE_URL: "https://gateway.example.com/v1",
+			TELEGRAM_AI_API_KEY: "sk-key",
+			TELEGRAM_AI_MODEL: "gpt-4o-mini",
+			TELEGRAM_AI_MONTHLY_QUOTA: "50",
+			TELEGRAM_LINK_CODE_TTL_MINUTES: "5",
+		});
+		expect(config.telegramBotEnabled).toBe(true);
+		expect(config.telegramBotToken).toBe("12345:token");
+		expect(config.telegramAiBaseUrl).toBe("https://gateway.example.com/v1");
+		expect(config.telegramAiApiKey).toBe("sk-key");
+		expect(config.telegramAiDefaultModel).toBe("gpt-4o-mini");
+		expect(config.telegramAiMonthlyQuota).toBe(50);
+		expect(config.telegramLinkCodeTtlMinutes).toBe(5);
+	});
+
+	test("rejects a non-positive or non-integer Telegram limit", () => {
+		for (const name of [
+			"TELEGRAM_AI_MONTHLY_QUOTA",
+			"TELEGRAM_LINK_CODE_TTL_MINUTES",
+		]) {
+			expect(() =>
+				loadConfig({
+					NODE_ENV: "development",
+					BETTER_AUTH_SECRET: "s",
+					BETTER_AUTH_URL: "http://localhost:3001",
+					[name]: "0",
+				}),
+			).toThrow(name);
+			expect(() =>
+				loadConfig({
+					NODE_ENV: "development",
+					BETTER_AUTH_SECRET: "s",
+					BETTER_AUTH_URL: "http://localhost:3001",
+					[name]: "1.5",
+				}),
+			).toThrow(name);
+		}
 	});
 
 	test("records a configured mail sender", () => {

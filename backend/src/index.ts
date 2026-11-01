@@ -10,6 +10,11 @@
  *   GET  /api/v1/events           — authenticated SSE stream of change events
  *   ALL  /api/auth/*              — Better Auth's own endpoints
  *
+ * When the inbound Telegram bot is enabled (environment or website setting),
+ * this same process also drives it by long polling — see
+ * `src/telegram/bot.ts`. Polling failures are contained: they are logged and
+ * never surface on the API surface.
+ *
  * Configuration is validated at startup so a misconfigured service fails fast
  * with an actionable message.
  */
@@ -22,6 +27,7 @@ import { type AppConfig, assertConfig, loadConfig } from "./config";
 import { createDatabase, type DatabaseHandle } from "./db";
 import { runMigrations } from "./db/migrate";
 import { exportArtifacts } from "./db/schema";
+import { startTelegramBot } from "./telegram/bot";
 import { type ChangeBus, createChangeBus } from "./events/event-bus";
 import { createEventStreamResponse } from "./events/stream";
 import {
@@ -290,4 +296,13 @@ if (import.meta.main) {
 	console.log(
 		`MES backend listening on http://localhost:${deps.config.port} (${deps.config.env})`,
 	);
+	// Inert unless enabled (environment or website) with a resolvable token:
+	// the API serves identically either way, and a polling failure is logged
+	// here instead of taking the service down.
+	const bot = await startTelegramBot(deps);
+	if (bot) {
+		process.once("beforeExit", () => {
+			void bot.stop();
+		});
+	}
 }

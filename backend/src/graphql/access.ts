@@ -149,6 +149,19 @@ export const OPERATIONS = {
 	updateAppSetting: { roles: TECHNICAL, scope: TECHNICAL_SCOPE },
 	telegramWebhookConfig: { roles: TECHNICAL, scope: TECHNICAL_SCOPE },
 	updateTelegramWebhookConfig: { roles: TECHNICAL, scope: TECHNICAL_SCOPE },
+	// The inbound bot mirrors the webhook's gate: technical roles only. The
+	// typed-graphql authorization tests enumerate every operation, so these
+	// entries keep the new surface covered by the same checks.
+	telegramBotSettings: { roles: TECHNICAL, scope: TECHNICAL_SCOPE },
+	telegramAiModels: { roles: TECHNICAL, scope: TECHNICAL_SCOPE },
+	saveTelegramBotSettings: { roles: TECHNICAL, scope: TECHNICAL_SCOPE },
+	refreshTelegramAiModels: { roles: TECHNICAL, scope: TECHNICAL_SCOPE },
+	// The link-code generator is the *sign-in path* for the bot, so it is
+	// available to every authenticated role (a user links their own account),
+	// while link management itself stays technical.
+	telegramLinkCode: { roles: ALL_ROLES, scope: PERSONAL_SCOPE },
+	telegramLinks: { roles: TECHNICAL, scope: TECHNICAL_SCOPE },
+	revokeTelegramLink: { roles: TECHNICAL, scope: TECHNICAL_SCOPE },
 	notifications: {
 		roles: ["SUPER_ADMIN", "TECH_LEAD", "HR_MANAGER"],
 		scope: APP_SCOPE,

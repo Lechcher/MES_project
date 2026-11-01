@@ -896,6 +896,53 @@ export const typeDefs = /* GraphQL */ `
     isEnabled: Boolean!
   }
 
+  # Inbound bot configuration (openspec/changes/add-telegram-bot). Secrets are
+  # always returned masked; the settings editor is the only surface that can
+  # change them.
+  type TelegramBotSettings {
+    isEnabled: Boolean!
+    botToken: String
+    aiBaseUrl: String
+    aiApiKey: String
+    aiDefaultModel: String
+    pushAlertsEnabled: Boolean!
+  }
+
+  input SaveTelegramBotSettingsInput {
+    isEnabled: Boolean
+    botToken: String
+    clearBotToken: Boolean
+    aiBaseUrl: String
+    aiApiKey: String
+    clearAiApiKey: Boolean
+    aiDefaultModel: String
+    pushAlertsEnabled: Boolean
+  }
+
+  type TelegramLinkCode {
+    code: String!
+    expiresAt: DateTime!
+  }
+
+  type TelegramLink {
+    id: ID!
+    telegramUserId: String!
+    telegramChatId: String!
+    telegramUsername: String
+    isActive: Boolean!
+    lastSeenAt: DateTime
+    createdAt: DateTime!
+    userId: ID!
+    userCode: String
+    fullName: String
+  }
+
+  type TelegramAiModel {
+    modelId: String!
+    displayName: String
+    fetchedAt: DateTime!
+  }
+
   type UserConnection {
     nodes: [User!]!
     pageInfo: OffsetPageInfo!
@@ -1088,6 +1135,10 @@ export const typeDefs = /* GraphQL */ `
     ): SystemAuditLogConnection!
     appSettings(moduleCode: String): [AppSetting!]!
     telegramWebhookConfig: TelegramWebhookConfig!
+    telegramBotSettings: TelegramBotSettings!
+    telegramLinkCode: TelegramLinkCode!
+    telegramLinks: [TelegramLink!]!
+    telegramAiModels: [TelegramAiModel!]!
     notifications(
       filter: NotificationFilter
       offset: Int = 0
@@ -1153,6 +1204,11 @@ export const typeDefs = /* GraphQL */ `
     updateTelegramWebhookConfig(
       input: UpdateTelegramWebhookConfigInput!
     ): TelegramWebhookConfig!
+    saveTelegramBotSettings(
+      input: SaveTelegramBotSettingsInput!
+    ): TelegramBotSettings!
+    refreshTelegramAiModels: [TelegramAiModel!]!
+    revokeTelegramLink(linkId: ID!): Boolean!
 
     # Audit Log app
     exportAuditLogs(

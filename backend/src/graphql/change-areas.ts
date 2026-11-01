@@ -74,6 +74,11 @@ export const MUTATION_AREAS: Record<string, ChangeArea | null> = {
 	updateRolePermissions: "users",
 	updateAppSetting: "users",
 	updateTelegramWebhookConfig: "users",
+	// The bot configuration is settings-editor data: a change invalidates the
+	// settings view, not the domain modules.
+	saveTelegramBotSettings: "users",
+	refreshTelegramAiModels: "users",
+	revokeTelegramLink: "users",
 
 	// Audit Log app.
 	exportAuditLogs: "audit",

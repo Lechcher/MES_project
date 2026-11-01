@@ -5,6 +5,7 @@ import { useState } from "react";
 import { OrgStructure } from "@/components/settings/org-structure";
 import { RbacPanel } from "@/components/settings/rbac";
 import { SystemAuditLogsPanel } from "@/components/settings/system-audit-logs";
+import { TelegramBotPanel } from "@/components/settings/telegram-bot";
 import { TelegramWebhookPanel } from "@/components/settings/telegram-webhook";
 import { UserDirectory } from "@/components/settings/user-directory";
 import { AppPageHeader } from "@/components/shared/app-page-header";
@@ -100,6 +101,7 @@ export function SettingsView() {
         {menus.includes("telegram") ? (
           <TabsContent value="telegram" className="mt-6">
             <TelegramWebhookPanel />
+            <TelegramBotPanel />
           </TabsContent>
         ) : null}
         {menus.includes("audit") ? (

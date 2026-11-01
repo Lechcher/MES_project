@@ -1443,6 +1443,13 @@ input NotificationFilter {
 | `updateAppSetting` | mutation | `(input: UpdateAppSettingInput!): AppSetting!` | SA, TL | configuration |
 | `telegramWebhookConfig` | query | `: TelegramWebhookConfig!` | SA, TL | webhook |
 | `updateTelegramWebhookConfig` | mutation | `(input: UpdateTelegramWebhookConfigInput!): TelegramWebhookConfig!` | **SA, TL only** | webhook |
+| `telegramBotSettings` | query | `: TelegramBotSettings!` | SA, TL | bot configuration |
+| `telegramLinkCode` | query | `: TelegramLinkCode!` | every authenticated role | bot login (links the caller's own account) |
+| `telegramLinks` | query | `: [TelegramLink!]!` | SA, TL | bot sessions |
+| `telegramAiModels` | query | `: [TelegramAiModel!]!` | SA, TL | bot configuration |
+| `saveTelegramBotSettings` | mutation | `(input: SaveTelegramBotSettingsInput!): TelegramBotSettings!` | **SA, TL only** | bot configuration |
+| `refreshTelegramAiModels` | mutation | `: [TelegramAiModel!]!` | **SA, TL only** | bot configuration |
+| `revokeTelegramLink` | mutation | `(linkId: ID!): Boolean!` | **SA, TL only** | bot sessions |
 | `notifications` | query | `(filter: NotificationFilter, offset, limit): NotificationConnection!` | SA, TL, HR | notification log |
 
 ```graphql
@@ -1455,6 +1462,10 @@ extend type Query {
   systemAuditLogs(filter: AuditLogFilter, offset: Int = 0, limit: Int = 20): SystemAuditLogConnection!
   appSettings(moduleCode: String): [AppSetting!]!
   telegramWebhookConfig: TelegramWebhookConfig!
+  telegramBotSettings: TelegramBotSettings!
+  telegramLinkCode: TelegramLinkCode!
+  telegramLinks: [TelegramLink!]!
+  telegramAiModels: [TelegramAiModel!]!
   notifications(filter: NotificationFilter, offset: Int = 0, limit: Int = 20): NotificationConnection!
 }
 
@@ -1468,6 +1479,9 @@ extend type Mutation {
   updateRolePermissions(input: UpdateRolePermissionsInput!): Role!
   updateAppSetting(input: UpdateAppSettingInput!): AppSetting!
   updateTelegramWebhookConfig(input: UpdateTelegramWebhookConfigInput!): TelegramWebhookConfig!
+  saveTelegramBotSettings(input: SaveTelegramBotSettingsInput!): TelegramBotSettings!
+  refreshTelegramAiModels: [TelegramAiModel!]!
+  revokeTelegramLink(linkId: ID!): Boolean!
 }
 ```
 

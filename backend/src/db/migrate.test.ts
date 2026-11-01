@@ -74,6 +74,11 @@ describe("runMigrations", () => {
 		expect(tables).toContain("system_audit_logs");
 		expect(tables).toContain("app_settings");
 		expect(tables).toContain("telegram_webhook_config");
+		expect(tables).toContain("telegram_bot_settings");
+		expect(tables).toContain("telegram_links");
+		expect(tables).toContain("telegram_link_codes");
+		expect(tables).toContain("telegram_ai_models");
+		expect(tables).toContain("telegram_user_prefs");
 		expect(tables).toContain("notifications");
 		expect(tables).toContain("export_artifacts");
 	});
