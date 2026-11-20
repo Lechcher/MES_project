@@ -5,6 +5,7 @@ import {
   Briefcase,
   CalendarDays,
   ScrollText,
+  Send,
   Settings2,
 } from "lucide-react";
 import Link from "next/link";
@@ -29,6 +30,7 @@ const ICONS: Record<MesModuleCode, typeof Briefcase> = {
   performance: BarChart3,
   settings: Settings2,
   "audit-log": ScrollText,
+  telegram: Send,
 };
 
 export function DashboardView() {

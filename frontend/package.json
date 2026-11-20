@@ -12,6 +12,7 @@
     "test:e2e:ci": "playwright test --reporter=junit",
     "test:e2e:ui": "playwright test --ui",
     "test:e2e:install": "playwright install --with-deps",
+    "vendor:telegram-web": "bash scripts/vendor-telegram-web.sh",
     "lint": "biome check",
     "format": "biome format --write"
   },

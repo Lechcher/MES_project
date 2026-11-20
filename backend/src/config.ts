@@ -91,6 +91,13 @@ export interface AppConfig {
 	readonly telegramAiMonthlyQuota: number;
 	/** Lifetime of a website-generated bot link code, in minutes. */
 	readonly telegramLinkCodeTtlMinutes: number;
+	/**
+	 * AES-256 key for linking Telegram account sessions, or `null` when
+	 * unconfigured. Carries key material, so it is never logged or echoed; the
+	 * multi-account Telegram module refuses to store a session when it is
+	 * `null` or when it fails validation at startup.
+	 */
+	readonly telegramEncryptionKey: string | null;
 }
 
 export class ConfigurationError extends Error {
@@ -195,6 +202,27 @@ function resolveStorage(env: Env): {
 }
 
 /**
+ * Read the Telegram session-encryption key.
+ *
+ * The key is 32 bytes as 64 hex characters. Unset leaves linking disabled
+ * (the module refuses to store a session, per its spec); a malformed value is
+ * a misconfiguration and fails at startup. The value is never echoed: the
+ * malformed-key message names the variable and the expected shape only.
+ */
+function resolveTelegramEncryptionKey(env: Env): string | null {
+	const raw = env.TELEGRAM_ENCRYPTION_KEY?.trim() ?? "";
+	if (raw === "") return null;
+	if (!/^[0-9a-fA-F]{64}$/.test(raw)) {
+		throw new ConfigurationError(
+			"TELEGRAM_ENCRYPTION_KEY must be 32 bytes as 64 hex characters " +
+				"(generate with: openssl rand -hex 32).",
+			["TELEGRAM_ENCRYPTION_KEY"],
+		);
+	}
+	return raw;
+}
+
+/**
  * Build the runtime configuration.
  *
  * @param env - Environment source, injectable for tests.
@@ -270,6 +298,7 @@ export function loadConfig(
 			"TELEGRAM_LINK_CODE_TTL_MINUTES",
 			10,
 		),
+		telegramEncryptionKey: resolveTelegramEncryptionKey(env),
 	};
 }
 

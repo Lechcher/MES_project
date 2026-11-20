@@ -312,6 +312,7 @@ export const MODULE_LABELS: Record<string, string> = {
   performance: "Performance & Audit",
   settings: "Settings & IAM",
   "audit-log": "Audit Log",
+  telegram: "Telegram",
 };
 
 /**

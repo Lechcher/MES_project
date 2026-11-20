@@ -27,6 +27,7 @@
 | Report generation | exceljs (XLSX/CSV), pdf-lib (PDF) |
 | Email delivery | nodemailer (SMTP: hosted provider or local mail server) |
 | Telegram bot | grammY (long polling) + Vercel AI SDK (`ai`, `@ai-sdk/openai-compatible`) with `zod` tool schemas |
+| Telegram web client | telegram-tt (vendored build at `frontend/public/telegram-web/`, GPL-3.0-or-later — see `NOTICES.md`) |
 | Error tracking & monitoring | Sentry (`@sentry/nextjs`, `@sentry/node`) |
 | End-to-end testing | Playwright (`@playwright/test`) |
 | Language | TypeScript |

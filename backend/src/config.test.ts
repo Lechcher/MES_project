@@ -113,6 +113,49 @@ describe("loadConfig", () => {
 		}
 	});
 
+	test("reads the Telegram session-encryption key from the environment", () => {
+		const config = loadConfig({
+			NODE_ENV: "development",
+			BETTER_AUTH_SECRET: "s",
+			BETTER_AUTH_URL: "http://localhost:3001",
+			TELEGRAM_ENCRYPTION_KEY:
+				"0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
+		});
+		expect(config.telegramEncryptionKey).toBe(
+			"0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
+		);
+	});
+
+	test("leaves the Telegram encryption key unset by default", () => {
+		const config = loadConfig({
+			NODE_ENV: "development",
+			BETTER_AUTH_SECRET: "s",
+			BETTER_AUTH_URL: "http://localhost:3001",
+		});
+		// Linking stays disabled by refusal at store time, not by boot failure.
+		expect(config.telegramEncryptionKey).toBeNull();
+	});
+
+	test("rejects a malformed Telegram encryption key without echoing it", () => {
+		const malformed = "not-a-real-key-0123456789abcdef";
+		try {
+			loadConfig({
+				NODE_ENV: "development",
+				BETTER_AUTH_SECRET: "s",
+				BETTER_AUTH_URL: "http://localhost:3001",
+				TELEGRAM_ENCRYPTION_KEY: malformed,
+			});
+			throw new Error("expected a ConfigurationError");
+		} catch (error) {
+			const failure = error as ConfigurationError;
+			expect(failure).toBeInstanceOf(ConfigurationError);
+			expect(failure.missing).toContain("TELEGRAM_ENCRYPTION_KEY");
+			expect(failure.message).toContain("TELEGRAM_ENCRYPTION_KEY");
+			// The key material is never echoed into the failure message.
+			expect(failure.message).not.toContain(malformed);
+		}
+	});
+
 	test("records a configured mail sender", () => {
 		const config = loadConfig({
 			NODE_ENV: "development",

@@ -161,6 +161,11 @@ export const OPERATIONS = {
 	// while link management itself stays technical.
 	telegramLinkCode: { roles: ALL_ROLES, scope: PERSONAL_SCOPE },
 	telegramLinks: { roles: TECHNICAL, scope: TECHNICAL_SCOPE },
+	// The viewer's own Telegram accounts: every authenticated role, strictly
+	// personal scope — the session material belongs to the linking viewer.
+	telegramAccounts: { roles: ALL_ROLES, scope: PERSONAL_SCOPE },
+	saveTelegramAccount: { roles: ALL_ROLES, scope: PERSONAL_SCOPE },
+	removeTelegramAccount: { roles: ALL_ROLES, scope: PERSONAL_SCOPE },
 	revokeTelegramLink: { roles: TECHNICAL, scope: TECHNICAL_SCOPE },
 	notifications: {
 		roles: ["SUPER_ADMIN", "TECH_LEAD", "HR_MANAGER"],

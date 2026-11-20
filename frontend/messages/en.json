@@ -43,6 +43,10 @@
       "audit-log": {
         "short": "Audit Log",
         "description": "Immutable system activity and per-module summaries."
+      },
+      "telegram": {
+        "short": "Telegram",
+        "description": "Your linked Telegram accounts, side by side."
       }
     },
     "dashboard": {
@@ -1008,6 +1012,20 @@
     "completionScopes": {
       "MILESTONE": "One stage of a multi-day job",
       "FULL_JOB": "The whole job"
+    }
+  },
+  "telegram": {
+    "workspace": {
+      "title": "Telegram",
+      "description": "Your linked Telegram accounts, side by side.",
+      "loading": "Opening your Telegram accounts…",
+      "loadFailed": "Your Telegram accounts could not be loaded.",
+      "retry": "Try again",
+      "emptyTitle": "No Telegram accounts yet",
+      "emptyDescription": "Link an account to see its chats here. Sessions are stored encrypted on the server and restore automatically on every sign-in.",
+      "addFirst": "Link your first account",
+      "relinkHint": "This account's session needs a sign-in again — use Telegram's own login in the workspace.",
+      "frameLabel": "Telegram chat"
     }
   }
 }

@@ -369,3 +369,73 @@ app's — the bot reuses the same domain functions and `authorize()`.
 `/ask` additionally needs `TELEGRAM_AI_BASE_URL`. With the flag off (the
 default) the bot stays completely inert — no token is read, no request is
 made. Guard tests and unit suites always run with the bot disabled.
+
+## 15. Multi-account Telegram web client
+
+The Telegram module (`frontend/src/app/(app)/telegram/`) lets a signed-in
+viewer work with several of their own Telegram accounts at once inside MES.
+Account management is the client's own: telegram-tt ships a native account
+switcher, add-account, and logout, so MES renders none of those — it only
+restores every linked account on open and backs their sessions up. The chat
+surface is the real Telegram Web client — telegram-tt, bundled at
+`frontend/public/telegram-web/` and served at `/telegram-web/`, embedded in an
+iframe (`/telegram-web/index.html?account=<slot>`). MES wraps it with the session
+bridge only: it captures each account's session material from the embedded
+client, backs it up encrypted (AES-256-GCM) to the backend, and hydrates
+every account back before mounting the iframe — so every later sign-in
+restores every account with no OTP/QR, and the client's own switcher moves
+between them freely. See
+[`TELEGRAM_MULTI_ACCOUNT_ARCHITECTURE.md`](../TELEGRAM_MULTI_ACCOUNT_ARCHITECTURE.md)
+for the structure. This is distinct from the inbound bot of §13: the bot uses
+the Bot API with a bot token; this module drives the viewer's own MTProto
+sessions through the embedded client, and the two code paths never share
+state.
+
+telegram-tt brings its own multi-account scheme: one `?account=N` slot per
+account, with per-slot localStorage keys (`account<N>` — the whole session
+material) and per-slot IndexedDB databases. MES implements no multi-account
+storage of its own; it maps each linked account to a stable slot that the
+backend assigns and records, so two viewers sharing one browser never claim
+the same slot on the shared origin.
+
+**Environment.** One value, in `.env.example` — copy it to `.env` (never
+commit `.env`):
+
+| File | Variable | Purpose |
+| --- | --- | --- |
+| `backend/.env` | `TELEGRAM_ENCRYPTION_KEY` | 32-byte AES-256 key, generated with `openssl rand -hex 32`. Encrypts the stored session material |
+
+With no encryption key the module refuses to link an account (an actionable
+configuration error) rather than storing a session unencrypted.
+
+**The vendored client build.** `frontend/public/telegram-web/` is a production
+build of telegram-tt, committed as a build artifact (GPL-3.0-or-later — see
+[`NOTICES.md`](../NOTICES.md)). Refresh it with
+`cd frontend && bun run vendor:telegram-web` after updating the clone in
+`sample/telegram-tt`: the script rebuilds the source in the clone and copies
+`dist/` into `public/` (source maps, the bundle-size report, and home-screen
+emoji tiles excluded). Update the version note in `NOTICES.md` when you
+refresh. Verify the copy with `curl -s -o /dev/null -w '%{http_code}' http://localhost:3000/telegram-web/index.html`
+— 200 means the static path is served.
+
+**Smoke test (manual, env-gated — never automated in CI).** With both servers
+running and `TELEGRAM_ENCRYPTION_KEY` set on the backend: open the Telegram
+module from the dashboard launcher and link an account through the embedded
+client's own login (phone + OTP — accept the Telegram code on your phone —
+or QR). Watch the account connect; reload the page and the module reconnects
+with no prompt. Switch accounts with the client's own switcher (an account
+added there is captured and backed up the same way). Open a second browser
+(or an incognito window),
+sign in as the same viewer, open the module — the account restores from the
+backend's session material with no OTP/QR again. Send a text message and one
+file in a chat; from Telegram's own "Active Sessions" revoke one session and
+watch that account no longer connect while the others keep working. When a QR
+login is rejected on the phone with "This account is already logged in from
+this app", the account still holds an older session from this same api_id
+(its browser-UA entry in the phone's Settings → Devices): terminate that
+session there, or log the account in by phone + OTP instead, then scan a
+fresh QR. A failed run
+usually means a missing
+`TELEGRAM_ENCRYPTION_KEY` on the backend or a stale
+`frontend/public/telegram-web/` (refresh it with
+`bun run vendor:telegram-web`).

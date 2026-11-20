@@ -945,6 +945,49 @@ export const typeDefs = /* GraphQL */ `
     fetchedAt: DateTime!
   }
 
+  # One of the viewer's own Telegram accounts, linked through the browser
+  # MTProto module (openspec/changes/add-telegram-multi-account-client).
+  # sessionString and deviceFingerprint reconnect the account in the
+  # viewer's own browser; both are returned only to the owning viewer.
+  # webSlot is the stable slot the embedded Telegram Web client keeps the
+  # account under (its ?account=N scheme).
+  type TelegramAccount {
+    id: ID!
+    telegramUserId: String!
+    phoneNumber: String
+    username: String
+    firstName: String!
+    lastName: String
+    avatarUrl: String
+    isActive: Boolean!
+    createdAt: DateTime!
+    updatedAt: DateTime!
+    deviceFingerprint: JSON
+    sessionString: String
+    webSlot: Int
+  }
+
+  input TelegramProfileInput {
+    telegramUserId: String!
+    phoneNumber: String!
+    username: String
+    firstName: String!
+    lastName: String
+    avatarUrl: String
+  }
+
+  input TelegramDeviceFingerprintInput {
+    deviceModel: String!
+    systemVersion: String!
+    appVersion: String!
+  }
+
+  input SaveTelegramAccountInput {
+    sessionString: String!
+    profile: TelegramProfileInput!
+    deviceFingerprint: TelegramDeviceFingerprintInput!
+  }
+
   type UserConnection {
     nodes: [User!]!
     pageInfo: OffsetPageInfo!
@@ -1141,6 +1184,7 @@ export const typeDefs = /* GraphQL */ `
     telegramLinkCode: TelegramLinkCode!
     telegramLinks: [TelegramLink!]!
     telegramAiModels: [TelegramAiModel!]!
+    telegramAccounts: [TelegramAccount!]!
     notifications(
       filter: NotificationFilter
       offset: Int = 0
@@ -1211,6 +1255,8 @@ export const typeDefs = /* GraphQL */ `
     ): TelegramBotSettings!
     refreshTelegramAiModels: [TelegramAiModel!]!
     revokeTelegramLink(linkId: ID!): Boolean!
+    saveTelegramAccount(input: SaveTelegramAccountInput!): TelegramAccount!
+    removeTelegramAccount(accountId: ID!): Boolean!
 
     # Audit Log app
     exportAuditLogs(

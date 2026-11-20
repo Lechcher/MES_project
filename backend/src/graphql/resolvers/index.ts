@@ -14,6 +14,10 @@ import { performanceMutation, performanceQuery } from "./performance";
 import { planningMutation, planningQuery } from "./planning";
 import { reportsMutation } from "./reports";
 import { settingsMutation, settingsQuery } from "./settings";
+import {
+	telegramAccountsMutation,
+	telegramAccountsQuery,
+} from "./telegram-accounts";
 
 /**
  * Resolver signature.
@@ -39,6 +43,7 @@ export const queryResolvers: Record<string, Resolver> = {
 	...performanceQuery,
 	...settingsQuery,
 	...auditLogQuery,
+	...telegramAccountsQuery,
 };
 
 export const mutationResolvers: Record<string, Resolver> = {
@@ -50,4 +55,5 @@ export const mutationResolvers: Record<string, Resolver> = {
 	...settingsMutation,
 	...auditLogMutation,
 	...reportsMutation,
+	...telegramAccountsMutation,
 };

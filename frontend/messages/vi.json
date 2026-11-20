@@ -43,6 +43,10 @@
       "audit-log": {
         "short": "Nhật ký hệ thống",
         "description": "Hoạt động hệ thống không thể chỉnh sửa và tổng hợp theo mô-đun."
+      },
+      "telegram": {
+        "short": "Telegram",
+        "description": "Các tài khoản Telegram bạn đã liên kết, dùng song song."
       }
     },
     "dashboard": {
@@ -1008,6 +1012,20 @@
     "completionScopes": {
       "MILESTONE": "Một giai đoạn của công việc nhiều ngày",
       "FULL_JOB": "Toàn bộ công việc"
+    }
+  },
+  "telegram": {
+    "workspace": {
+      "title": "Telegram",
+      "description": "Các tài khoản Telegram của bạn, song song ở một nơi.",
+      "loading": "Đang mở các tài khoản Telegram của bạn…",
+      "loadFailed": "Không tải được tài khoản Telegram của bạn.",
+      "retry": "Thử lại",
+      "emptyTitle": "Chưa có tài khoản Telegram",
+      "emptyDescription": "Liên kết một tài khoản để xem cuộc trò chuyện tại đây. Phiên đăng nhập được lưu mã hóa trên máy chủ và tự khôi phục mỗi lần đăng nhập.",
+      "addFirst": "Liên kết tài khoản đầu tiên",
+      "relinkHint": "Phiên của tài khoản này cần đăng nhập lại — hãy dùng chức năng đăng nhập của Telegram trong không gian làm việc.",
+      "frameLabel": "Trò chuyện Telegram"
     }
   }
 }

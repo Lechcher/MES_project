@@ -1,6 +1,6 @@
 # API_CONTACT_SPECIFICATION.md
 
-> GraphQL API contract for the MES prototype. This document defines the **interface** between clients and the system: the transport and JSON wire format, how sessions are established, how the two-layer authorization model is expressed, the GraphQL type system, and every query and mutation for the five apps (`Jobs`, `Planning`, `Performance`, `Settings & IAM`, `Audit Log`) plus shared/core concerns.
+> GraphQL API contract for the MES prototype. This document defines the **interface** between clients and the system: the transport and JSON wire format, how sessions are established, how the two-layer authorization model is expressed, the GraphQL type system, and every query and mutation for the five apps (`Jobs`, `Planning`, `Performance`, `Settings & IAM`, `Audit Log`), the `Telegram` module (§6.6), plus shared/core concerns.
 
 This is a **contract specification**, not code. It contains GraphQL SDL and JSON examples only; it introduces no resolvers, schema file, SQL, or client codegen.
 
@@ -1551,6 +1551,104 @@ extend type Mutation {
 ```
 
 Access rules: the app is fully hidden from HR Manager, Department Head, and Employee; only Super Admin and Manager/Tech Lead can read the stream, view per-module activity, or export. The app is read-only over an append-only store — no operation edits or deletes a recorded audit event. `moduleCode` filtering and per-module grouping use the registered module codes (`jobs`, `planning`, `performance`, `settings`, `audit-log`); events with no module are treated as unattributed.
+
+---
+
+### 6.6 Telegram (the viewer's own accounts)
+
+The multi-account Telegram module: a signed-in viewer links their own Telegram
+accounts inside the web app and uses several at once, the chat surface being
+the embedded Telegram Web client (telegram-tt) running in their browser and
+wrapped by MES's account rail and session backup. It is distinct from the
+inbound bot of §6.4 — the bot speaks the Bot API with a bot token from the
+server; this module speaks MTProto with viewer sessions from the browser, and
+the two share no state.
+
+Every operation is scoped to the authenticated viewer: the returned
+`sessionString` and `webSlot` restore that viewer's own accounts and are
+never produced for any other viewer. A `sessionString` is the embedded
+client's session material for a Telegram account (its per-data-center auth
+keys and server salts) — a bearer credential, stored server-side only as
+AES-256-GCM ciphertext and never appearing in error payloads or logs.
+
+#### Types
+
+```graphql
+type TelegramAccount {
+  id: ID!
+  telegramUserId: String!
+  phoneNumber: String
+  username: String
+  firstName: String!
+  lastName: String
+  avatarUrl: String
+  isActive: Boolean!
+  createdAt: DateTime!
+  updatedAt: DateTime!
+  deviceFingerprint: JSON
+  sessionString: String
+  webSlot: Int
+}
+```
+
+#### Inputs
+
+```graphql
+input TelegramProfileInput {
+  telegramUserId: String!
+  phoneNumber: String!
+  username: String
+  firstName: String!
+  lastName: String
+  avatarUrl: String
+}
+
+input TelegramDeviceFingerprintInput {
+  deviceModel: String!
+  systemVersion: String!
+  appVersion: String!
+}
+
+input SaveTelegramAccountInput {
+  sessionString: String!
+  profile: TelegramProfileInput!
+  deviceFingerprint: TelegramDeviceFingerprintInput!
+}
+```
+
+#### Operations
+
+| Operation | Type | Signature | Roles | Scope |
+| --- | --- | --- | --- | --- |
+| `telegramAccounts` | query | `: [TelegramAccount!]!` | every authenticated role | `PERSONAL`; the viewer's linked accounts, with sessions for reconnect |
+| `saveTelegramAccount` | mutation | `(input: SaveTelegramAccountInput!): TelegramAccount!` | every authenticated role | `PERSONAL`; upserts the viewer's account for a Telegram identity |
+| `removeTelegramAccount` | mutation | `(accountId: ID!): Boolean!` | every authenticated role | `PERSONAL`; removes the viewer's own account |
+
+```graphql
+extend type Query {
+  telegramAccounts: [TelegramAccount!]!
+}
+
+extend type Mutation {
+  saveTelegramAccount(input: SaveTelegramAccountInput!): TelegramAccount!
+  removeTelegramAccount(accountId: ID!): Boolean!
+}
+```
+
+Access rules: every authenticated role manages its own accounts; no role gate
+beyond authentication applies, because the data is viewer-personal by
+construction. Re-linking the same Telegram identity updates the viewer's
+existing record instead of creating a second one. Removing an account the
+viewer does not own fails with the same `NOT_FOUND` a nonexistent id produces.
+When the deployment has no session-encryption key configured, linking fails
+with an actionable configuration message surfaced as `INTERNAL` (the catalog's
+code for a server-side misconfiguration) and no session is stored in any
+form; input shape failures use `VALIDATION_FAILED`. Neither payload ever
+carries the session string, the phone number's unmasked digits, or any key
+material. Link and
+remove write audit events attributed to the viewer under no module code (the
+registered module codes do not include this private surface), carrying the
+Telegram identity and never the session material.
 
 ---
 

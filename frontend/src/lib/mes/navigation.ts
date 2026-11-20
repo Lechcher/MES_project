@@ -25,6 +25,7 @@ export const MES_MODULE_CODES = [
   "performance",
   "settings",
   "audit-log",
+  "telegram",
 ] as const;
 
 export type MesModuleCode = (typeof MES_MODULE_CODES)[number];
@@ -78,6 +79,15 @@ export const MES_APP_ACCESS: Record<
     DEPT_HEAD: "HIDDEN",
     EMPLOYEE: "HIDDEN",
   },
+  // The Telegram module is viewer-personal: every authenticated role manages
+  // its own linked accounts, so no role is excluded from the launcher.
+  telegram: {
+    SUPER_ADMIN: "PERSONAL",
+    TECH_LEAD: "PERSONAL",
+    HR_MANAGER: "PERSONAL",
+    DEPT_HEAD: "PERSONAL",
+    EMPLOYEE: "PERSONAL",
+  },
 };
 
 export interface MesAppDescriptor {
@@ -126,6 +136,13 @@ export const MES_APPS: MesAppDescriptor[] = [
     shortLabel: "Audit Log",
     href: "/audit-log",
     description: "Immutable system activity and per-module summaries.",
+  },
+  {
+    code: "telegram",
+    name: "Telegram",
+    shortLabel: "Telegram",
+    href: "/telegram",
+    description: "Your linked Telegram accounts, side by side.",
   },
 ];
 

@@ -79,6 +79,11 @@ export const MUTATION_AREAS: Record<string, ChangeArea | null> = {
 	saveTelegramBotSettings: "users",
 	refreshTelegramAiModels: "users",
 	revokeTelegramLink: "users",
+	// The viewer's own Telegram accounts change nothing the domain views
+	// display: the module's live state comes from the browser clients, so
+	// there is no area to invalidate.
+	saveTelegramAccount: null,
+	removeTelegramAccount: null,
 
 	// Audit Log app.
 	exportAuditLogs: "audit",

@@ -1039,6 +1039,57 @@ export const telegramUserPrefs = sqliteTable("telegram_user_prefs", {
 	updatedAt: updatedAt(),
 });
 
+/**
+ * One of a viewer's own Telegram accounts, linked through the browser MTProto
+ * module (`telegram_accounts`, distinct from the bot's `telegram_links`).
+ *
+ * The embedded Telegram Web client's session blob (its `account<N>`
+ * localStorage JSON — per-DC auth keys and server salts) is a bearer
+ * credential for the Telegram account, so it is stored only as AES-256-GCM
+ * ciphertext with its IV and auth tag, decryptable solely by the server-side
+ * key. `phone_number` holds the masked form (`+84••••••42`).
+ *
+ * `web_slot` is the stable slot the embedded client keeps the account under
+ * (its `?account=N` scheme). The backend assigns it once at link time — a
+ * random integer above the client's default slot 1, unique across all
+ * viewers — because the client's storage is per-origin: two viewers sharing
+ * one browser must never claim the same slot. It is nullable so rows linked
+ * before the column existed keep their shape; those rows have no session
+ * material either (migration `0002` cleared the GramJS-era sessions) and
+ * surface as disconnected until re-linked.
+ */
+export const telegramAccounts = pgTable(
+	"telegram_accounts",
+	{
+		id: text("id").primaryKey(),
+		userId: text("user_id")
+			.notNull()
+			.references(() => user.id, { onDelete: "cascade" }),
+		telegramUserId: text("telegram_user_id").notNull(),
+		phoneNumber: text("phone_number"),
+		username: text("username"),
+		firstName: text("first_name").notNull(),
+		lastName: text("last_name"),
+		avatarUrl: text("avatar_url"),
+		encryptedSession: text("encrypted_session"),
+		sessionIv: text("session_iv"),
+		sessionAuthTag: text("session_auth_tag"),
+		deviceFingerprint: text("device_fingerprint"),
+		webSlot: integer("web_slot"),
+		isActive: boolean("is_active").default(true).notNull(),
+		createdAt: createdAt(),
+		updatedAt: updatedAt(),
+	},
+	(table) => [
+		uniqueIndex("uq_telegram_accounts_user_tg").on(
+			table.userId,
+			table.telegramUserId,
+		),
+		uniqueIndex("uq_telegram_accounts_web_slot").on(table.webSlot),
+		index("idx_telegram_accounts_user").on(table.userId),
+	],
+);
+
 /* ------------------------------------------------------------------ */
 /* Inferred row types                                                  */
 /* ------------------------------------------------------------------ */
@@ -1077,6 +1128,8 @@ export type TelegramLinkCodeRow = typeof telegramLinkCodes.$inferSelect;
 export type TelegramAiModelRow = typeof telegramAiModels.$inferSelect;
 export type TelegramUserPrefRow = typeof telegramUserPrefs.$inferSelect;
 export type TelegramAiUsageRow = typeof telegramAiUsage.$inferSelect;
+export type TelegramAccountRow = typeof telegramAccounts.$inferSelect;
+export type NewTelegramAccountRow = typeof telegramAccounts.$inferInsert;
 export type TicketStateRow = typeof ticketStates.$inferSelect;
 export type LeaveCodeRow = typeof leaveCodes.$inferSelect;
 export type ModuleRow = typeof modules.$inferSelect;
