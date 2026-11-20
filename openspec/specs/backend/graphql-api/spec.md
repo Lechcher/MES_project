@@ -43,6 +43,22 @@ The system SHALL expose the documented queries and mutations for Jobs, Planning,
 - **WHEN** an authorized technical role queries audit events
 - **THEN** the API returns the filtered system-wide or per-module activity data
 
+#### Scenario: Read the viewer's Telegram accounts
+- **WHEN** an authenticated viewer queries their linked Telegram accounts
+- **THEN** the API returns exactly that viewer's accounts — profile information, the stable slot, and the session material needed to restore them — and no other viewer's accounts
+
+#### Scenario: Link a Telegram account twice
+- **WHEN** a viewer links a Telegram account they already have linked
+- **THEN** the API updates the viewer's existing record for that Telegram identity — including its session material and slot — instead of creating a second one
+
+#### Scenario: Remove a Telegram account
+- **WHEN** a viewer removes one of their linked Telegram accounts
+- **THEN** the API deletes that viewer's record for that Telegram identity and leaves the viewer's other accounts unchanged
+
+#### Scenario: Telegram account operations stay viewer-scoped
+- **WHEN** one authenticated viewer attempts to read or remove another viewer's Telegram account
+- **THEN** the API refuses with the same failure shape an out-of-scope resource produces, revealing nothing about the other viewer's accounts
+
 ### Requirement: Performance period selection inputs
 The Performance operations SHALL take a period selection expressed as a list of months rather than a single month, and the audit levels' filter SHALL name the months it selects. The personal dashboard SHALL report the selected months, the total for each of them, and one aggregate over them.
 

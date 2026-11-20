@@ -17,6 +17,14 @@ The system SHALL persist users, organization units, roles, permissions, projects
 - **WHEN** a leave request or approved overtime changes a tracked balance
 - **THEN** subsequent balance reads reflect the committed ledger entries
 
+#### Scenario: Linked Telegram account survives restart
+- **WHEN** a viewer links a Telegram account and the service restarts successfully
+- **THEN** the viewer's account record remains available — its stable slot and encrypted session restorable to that viewer only — with no second record for the same viewer and Telegram identity permitted
+
+#### Scenario: Deleting the owner removes the record's meaning
+- **WHEN** a viewer whose Telegram accounts are linked is removed
+- **THEN** their Telegram account records go with them and no orphaned session material remains restorable
+
 ### Requirement: Consistent workflow updates
 The system SHALL commit each state-changing operation and its required related records together, or leave all affected records unchanged if the operation fails.
 
