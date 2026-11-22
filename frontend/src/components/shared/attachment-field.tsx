@@ -1,8 +1,8 @@
 "use client";
 
-import { Paperclip, Trash2, Upload } from "lucide-react";
+import { Paperclip, RotateCcw, Trash2, Upload } from "lucide-react";
 import { useTranslations } from "next-intl";
-import { useId, useState } from "react";
+import { useEffect, useId, useRef, useState } from "react";
 import { InlineAlert } from "@/components/shared/query-states";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -54,11 +54,18 @@ export function AttachmentField({
   taskId,
   attachmentIds,
   onChange,
+  onUnresolvedChange,
   disabled = false,
 }: {
   taskId: string;
   attachmentIds: string[];
   onChange: (ids: string[]) => void;
+  /**
+   * Names the first picked file that is not yet stored, or null when every one
+   * is. The completion dialog uses it to refuse a submission whose evidence
+   * would otherwise be silently dropped.
+   */
+  onUnresolvedChange?: (fileName: string | null) => void;
   disabled?: boolean;
 }) {
   const t = useTranslations("jobs.attachments");
@@ -87,6 +94,40 @@ export function AttachmentField({
   const remove = (key: string) => {
     setPending((current) => current.filter((entry) => entry.key !== key));
   };
+
+  /**
+   * Re-queue a file the last attempt failed to store.
+   *
+   * The reported failure stays on the row until the retry actually starts, so
+   * the user keeps the evidence of what went wrong while acting on the
+   * backend's "Try again." without picking the file again.
+   */
+  const retry = (key: string) => {
+    setPending((current) =>
+      current.map((entry) =>
+        entry.key === key
+          ? { ...entry, status: "pending", failure: undefined }
+          : entry,
+      ),
+    );
+  };
+
+  // Name the first picked file that is not stored, so the caller can refuse a
+  // submission that would drop it. Stored, removed and untouched-clean states
+  // all report null.
+  const unresolved =
+    pending.find(
+      (entry) =>
+        entry.status === "pending" ||
+        entry.status === "uploading" ||
+        entry.status === "failed",
+    )?.file.name ?? null;
+  const unresolvedRef = useRef(unresolved);
+  useEffect(() => {
+    if (unresolvedRef.current === unresolved) return;
+    unresolvedRef.current = unresolved;
+    onUnresolvedChange?.(unresolved);
+  }, [unresolved, onUnresolvedChange]);
 
   const upload = async () => {
     const queue = pending.filter((entry) => entry.status === "pending");
@@ -222,7 +263,7 @@ export function AttachmentField({
           {pending.map((entry) => (
             <li
               key={entry.key}
-              className="flex items-center justify-between gap-2 border border-border px-2 py-1"
+              className="flex min-w-0 items-center justify-between gap-2 border border-border px-2 py-1"
             >
               <span className="flex min-w-0 items-center gap-2">
                 <Paperclip className="size-3 shrink-0" aria-hidden />
@@ -259,6 +300,17 @@ export function AttachmentField({
                   >
                     <Trash2 aria-hidden />
                     {t("remove")}
+                  </Button>
+                ) : null}
+                {entry.status === "failed" ? (
+                  <Button
+                    size="xs"
+                    variant="outline"
+                    disabled={uploading}
+                    onClick={() => retry(entry.key)}
+                  >
+                    <RotateCcw aria-hidden />
+                    {t("retry")}
                   </Button>
                 ) : null}
               </span>

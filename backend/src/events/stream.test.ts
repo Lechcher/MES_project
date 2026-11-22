@@ -3,6 +3,8 @@ import { type ChangeArea, type ChangeBus, createChangeBus } from "./event-bus";
 import {
 	changeFrame,
 	createEventStreamResponse,
+	HEARTBEAT_INTERVAL_MS,
+	SERVER_IDLE_TIMEOUT_SECONDS,
 	sseComment,
 	sseFrame,
 } from "./stream";
@@ -96,8 +98,21 @@ describe("event stream response", () => {
 		await Bun.sleep(20); // let at least one heartbeat elapse
 		const beat = await readChunk(reader);
 		expect(beat).toBe(": heartbeat\n\n");
+		// A heartbeat must never look like an event: a client would treat a
+		// named frame as a change publication and refetch for nothing.
+		expect(beat).not.toContain("event:");
 
 		await reader.cancel();
+	});
+
+	test("the server idle timeout leaves room for at least two heartbeats", () => {
+		// Bun closes a connection once no data flows for the server's idle
+		// timeout. When it equals the heartbeat interval, change-free streams
+		// are closed the moment a heartbeat is due — which is exactly how
+		// every live connection used to die ~60s in.
+		expect(SERVER_IDLE_TIMEOUT_SECONDS * 1000).toBeGreaterThan(
+			HEARTBEAT_INTERVAL_MS * 2,
+		);
 	});
 
 	test("cancelling the reader releases the bus subscription", async () => {

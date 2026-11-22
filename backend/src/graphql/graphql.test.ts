@@ -7,18 +7,14 @@
  */
 
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
-import { existsSync, rmSync } from "node:fs";
-import { join } from "node:path";
 import { type Auth, createAuth } from "../auth";
 import { type AppConfig, loadConfig } from "../config";
-import { createDatabase, type DatabaseHandle } from "../db";
-import { runMigrations } from "../db/migrate";
+import type { DatabaseHandle } from "../db";
 import { roles, session, user, userRoles } from "../db/schema";
+import { createTestDatabase, type TestDatabase } from "../db/test-db";
 import { executeGraphQL } from "./index";
 
-const TMP_ROOT =
-	"/private/var/folders/xg/lnbqz3fs2w74l46y045jdxmh0000gn/T/opencode";
-const dbPath = join(TMP_ROOT, `mes-graphql-${crypto.randomUUID()}.db`);
+let testDb: TestDatabase;
 
 let db: DatabaseHandle;
 let auth: Auth;
@@ -48,9 +44,12 @@ function execute(body: unknown, bearer?: string) {
 }
 
 beforeAll(async () => {
-	runMigrations({ databasePath: dbPath });
-	config = loadConfig({ NODE_ENV: "test", MES_DATABASE_PATH: dbPath });
-	db = createDatabase(dbPath);
+	testDb = await createTestDatabase();
+	db = testDb.db;
+	config = loadConfig({
+		NODE_ENV: "test",
+		MES_DATABASE_URL: testDb.connectionString,
+	});
 	auth = createAuth(db, config);
 
 	const departmentId = crypto.randomUUID();
@@ -98,11 +97,8 @@ beforeAll(async () => {
 	});
 });
 
-afterAll(() => {
-	for (const suffix of ["", "-wal", "-shm"]) {
-		const path = `${dbPath}${suffix}`;
-		if (existsSync(path)) rmSync(path);
-	}
+afterAll(async () => {
+	await testDb.close();
 });
 
 describe("request and response envelope", () => {

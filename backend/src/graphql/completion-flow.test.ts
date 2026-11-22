@@ -12,20 +12,16 @@
  */
 
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
-import { existsSync, rmSync } from "node:fs";
-import { join } from "node:path";
 import { type Auth, createAuth } from "../auth";
 import { type AppConfig, loadConfig } from "../config";
-import { createDatabase, type DatabaseHandle } from "../db";
-import { runMigrations } from "../db/migrate";
+import type { DatabaseHandle } from "../db";
 import { kpiPointRules, roles, user, userRoles } from "../db/schema";
+import { createTestDatabase, type TestDatabase } from "../db/test-db";
 import { type ChangeBus, createChangeBus } from "../events/event-bus";
 import { createService } from "../index";
 import { createMemoryStore } from "../storage/s3";
 
-const TMP_ROOT =
-	"/private/var/folders/xg/lnbqz3fs2w74l46y045jdxmh0000gn/T/opencode";
-const dbPath = join(TMP_ROOT, `mes-flow-${crypto.randomUUID()}.db`);
+let testDb: TestDatabase;
 
 let app: ReturnType<typeof createService>;
 let db: DatabaseHandle;
@@ -38,9 +34,12 @@ const ASSIGNEE = "u-flow-assignee";
 const REVIEWER = "u-flow-reviewer";
 
 beforeAll(async () => {
-	runMigrations({ databasePath: dbPath });
-	config = loadConfig({ NODE_ENV: "test", MES_DATABASE_PATH: dbPath });
-	db = createDatabase(dbPath);
+	testDb = await createTestDatabase();
+	db = testDb.db;
+	config = loadConfig({
+		NODE_ENV: "test",
+		MES_DATABASE_URL: testDb.connectionString,
+	});
 	auth = createAuth(db, config);
 	events = createChangeBus();
 	app = createService({ db, auth, config, events, attachmentStore });
@@ -95,11 +94,8 @@ beforeAll(async () => {
 	}
 });
 
-afterAll(() => {
-	for (const suffix of ["", "-wal", "-shm"]) {
-		const path = `${dbPath}${suffix}`;
-		if (existsSync(path)) rmSync(path);
-	}
+afterAll(async () => {
+	await testDb.close();
 });
 
 /** Call the GraphQL endpoint with one of the flow's sessions. */
@@ -450,7 +446,7 @@ describe("the file routes over HTTP", () => {
 
 	beforeAll(async () => {
 		taskId = `tasks-${crypto.randomUUID()}`;
-		await db.$client.exec(
+		await db.$client.query(
 			`INSERT INTO tasks (id, task_code, title, task_type, state, created_by, assigned_to, progress_percentage)
 			 VALUES ('${taskId}', 'T202510-9002', 'Download ticket', 'MULTI_DAY', 'ACT', '${ASSIGNEE}', '${ASSIGNEE}', 0)`,
 		);

@@ -11,30 +11,24 @@
  */
 
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
-import { existsSync, rmSync } from "node:fs";
-import { join } from "node:path";
-import { execute, parse } from "graphql";
 import { eq } from "drizzle-orm";
+import { execute, parse } from "graphql";
 import { loadConfig } from "../config";
-import { createDatabase, type DatabaseHandle } from "../db";
-import { runMigrations } from "../db/migrate";
-import { seedDatabase } from "../db/seed";
+import type { DatabaseHandle } from "../db";
 import { user as userTable } from "../db/schema";
-import { schema } from "./index";
+import { seedDatabase } from "../db/seed";
+import { createTestDatabase, type TestDatabase } from "../db/test-db";
 import { createContext, graphqlContextValue, type Viewer } from "./context";
+import { schema } from "./index";
 
-const TMP_ROOT =
-	"/private/var/folders/xg/lnbqz3fs2w74l46y045jdxmh0000gn/T/opencode";
-const dbPath = join(TMP_ROOT, `mes-query-cost-${crypto.randomUUID()}.db`);
+let testDb: TestDatabase;
 
 let db: DatabaseHandle;
 let config: ReturnType<typeof loadConfig>;
 let viewer: Viewer;
 
-afterAll(() => {
-	for (const suffix of ["", "-wal", "-shm"]) {
-		if (existsSync(`${dbPath}${suffix}`)) rmSync(`${dbPath}${suffix}`);
-	}
+afterAll(async () => {
+	await testDb.close();
 });
 
 /** Wrap a DB handle so every query-builder call is counted. */
@@ -121,9 +115,9 @@ async function measureList(variables: {
 }
 
 beforeAll(async () => {
-	runMigrations({ databasePath: dbPath });
+	testDb = await createTestDatabase();
+	db = testDb.db;
 	config = loadConfig({ NODE_ENV: "test" });
-	db = createDatabase(dbPath);
 	await seedDatabase({ db, config, now: new Date() });
 
 	const [admin] = await db

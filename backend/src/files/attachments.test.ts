@@ -7,13 +7,11 @@
  */
 
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
-import { rmSync } from "node:fs";
-import { join } from "node:path";
 import { type AppConfig, loadConfig } from "../config";
-import { createDatabase, type DatabaseHandle } from "../db";
+import type { DatabaseHandle } from "../db";
 import { ROLE_CODES } from "../db/enums";
-import { runMigrations } from "../db/migrate";
 import { attachments, departments, roles, user, userRoles } from "../db/schema";
+import { createTestDatabase, type TestDatabase } from "../db/test-db";
 import { createContext, type ViewerContext } from "../graphql/context";
 import { createMemoryStore } from "../storage/s3";
 import type { FileRouteDependencies, UploadedFile } from "./attachments";
@@ -24,10 +22,7 @@ import {
 	validateUpload,
 } from "./attachments";
 
-const TMP_ROOT =
-	"/private/var/folders/xg/lnbqz3fs2w74l46y045jdxmh0000gn/T/opencode";
-
-const dbPath = join(TMP_ROOT, `mes-files-${crypto.randomUUID()}.db`);
+let testDb: TestDatabase;
 const config: AppConfig = loadConfig({ NODE_ENV: "test" });
 const STORE = createMemoryStore();
 
@@ -83,8 +78,8 @@ function request(token?: string): Request {
 }
 
 beforeAll(async () => {
-	runMigrations({ databasePath: dbPath });
-	db = createDatabase(dbPath);
+	testDb = await createTestDatabase();
+	db = testDb.db;
 
 	await db.insert(departments).values({
 		id: "dept-a",
@@ -111,7 +106,7 @@ beforeAll(async () => {
 		userId: "u-e1",
 		roleId: "role-EMPLOYEE",
 	});
-	db.$client.exec(
+	await db.$client.query(
 		`INSERT INTO tasks (id, task_code, title, task_type, state, created_by, assigned_to, department_id, progress_percentage)
 		 VALUES ('task-1', 'T202510-0001', 'Wireframe the dashboard', 'MULTI_DAY', 'ACT', 'u-e1', 'u-e1', 'dept-a', 40)`,
 	);
@@ -132,14 +127,8 @@ beforeAll(async () => {
 	});
 });
 
-afterAll(() => {
-	for (const suffix of ["", "-wal", "-shm"]) {
-		try {
-			rmSync(`${dbPath}${suffix}`, { force: true });
-		} catch {
-			/* best effort cleanup */
-		}
-	}
+afterAll(async () => {
+	await testDb.close();
 });
 
 describe("file names", () => {
@@ -372,7 +361,7 @@ describe("download route", () => {
 	test("serves a stored object inline", async () => {
 		const key = "tasks/task-1/1-photo.png";
 		await STORE.write(key, new Uint8Array([1, 2, 3]));
-		db.$client.exec(
+		await db.$client.query(
 			`INSERT INTO attachments (id, owner_type, owner_id, url, file_name, mime_type, size_bytes, uploaded_by)
 			 VALUES ('att-1', 'TASK', 'task-1', '${key}', 'photo.png', 'image/png', 3, 'u-e1')`,
 		);
@@ -395,7 +384,7 @@ describe("download route", () => {
 	test("asks for a download when ?download=1", async () => {
 		const key = "tasks/task-1/2-sheet.xlsx";
 		await STORE.write(key, new Uint8Array([4, 5]));
-		db.$client.exec(
+		await db.$client.query(
 			`INSERT INTO attachments (id, owner_type, owner_id, url, file_name, mime_type, size_bytes, uploaded_by)
 			 VALUES ('att-2', 'TASK', 'task-1', '${key}', 'sheet.xlsx', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', 2, 'u-e1')`,
 		);

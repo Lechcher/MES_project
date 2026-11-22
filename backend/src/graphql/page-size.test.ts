@@ -2,7 +2,7 @@
  * Bounded page-size policy tests.
  */
 import { describe, expect, test } from "bun:test";
-import { DEFAULT_PAGE_SIZE, MAX_PAGE_SIZE, clampPageArgs } from "./page-size";
+import { clampPageArgs, DEFAULT_PAGE_SIZE, MAX_PAGE_SIZE } from "./page-size";
 
 describe("clampPageArgs", () => {
 	test("applies the default when the limit is omitted", () => {

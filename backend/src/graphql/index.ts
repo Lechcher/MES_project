@@ -13,11 +13,11 @@ import {
 	parse,
 	validate,
 } from "graphql";
-import { sentrySpan } from "../lib/sentry";
 import { type Auth, createAuth, resolveSession } from "../auth";
 import type { AppConfig } from "../config";
 import type { DatabaseHandle } from "../db";
 import type { ChangeBus } from "../events/event-bus";
+import { sentrySpan } from "../lib/sentry";
 import { publishMutationAreas } from "./change-areas";
 import {
 	bearerTokenFrom,

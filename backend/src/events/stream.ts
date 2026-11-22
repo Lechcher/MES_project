@@ -19,6 +19,18 @@ import type { ChangeArea, ChangeBus } from "./event-bus";
 export const HEARTBEAT_INTERVAL_MS = 30_000;
 
 /**
+ * The Bun server's idle timeout, in seconds, as set at `listen` time.
+ *
+ * Bun closes a connection once no data flows for this long. Elysia's default
+ * of 30 seconds equals the heartbeat interval, so a change-free stream is
+ * closed the moment a heartbeat is due — every live connection died ~60s in,
+ * and the browser reconnected only because `EventSource` retries. A generous
+ * timeout keeps idle streams open; the invariant test in `stream.test.ts`
+ * guards the margin against both knobs drifting back together.
+ */
+export const SERVER_IDLE_TIMEOUT_SECONDS = 255;
+
+/**
  * Maximum stream lifetime. Clients reconnect with a catch-up refetch, so a
  * close is always safe; this bounds connections stuck in a half-dead state.
  */
