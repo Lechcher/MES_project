@@ -12,16 +12,42 @@
 #   statoscope-report.html   bundle analysis page
 #   img-apple-160/ img-apple-64/  emoji tiles for home-screen icons only
 #
+# The MES-local patches in frontend/scripts/telegram-tt-patches/ are applied
+# to the source tree before building (see NOTICES.md): a patch that no longer
+# applies aborts the run instead of shipping an unpatched build.
+#
 # Usage: bun run vendor:telegram-web [--skip-build]
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 SOURCE="$ROOT/sample/telegram-tt"
 TARGET="$ROOT/frontend/public/telegram-web"
+PATCH_DIR="$ROOT/frontend/scripts/telegram-tt-patches"
 
 if [[ ! -d "$SOURCE" ]]; then
   echo "error: $SOURCE not found — clone telegram-tt there first" >&2
   exit 1
+fi
+
+# The vendored build intentionally deviates from upstream telegram-tt (see
+# NOTICES.md): apply the tracked MES patches to the source tree first. A patch
+# that no longer applies is version drift — abort rather than ship an
+# unpatched build; a patch that is already applied is skipped.
+if [[ -d "$PATCH_DIR" ]]; then
+  echo "==> applying MES patches to telegram-tt"
+  for patch in "$PATCH_DIR"/*.patch; do
+    [[ -e "$patch" ]] || continue
+    if git -C "$SOURCE" apply --reverse --check "$patch" 2>/dev/null; then
+      echo "  $(basename "$patch"): already applied"
+    elif git -C "$SOURCE" apply --check "$patch" 2>/dev/null; then
+      echo "  $(basename "$patch"): applied"
+      git -C "$SOURCE" apply "$patch"
+    else
+      echo "error: $(basename "$patch") does not apply to $SOURCE" >&2
+      echo "       rebase it onto the current telegram-tt version before vendoring" >&2
+      exit 1
+    fi
+  done
 fi
 
 if [[ "${1:-}" != "--skip-build" ]]; then

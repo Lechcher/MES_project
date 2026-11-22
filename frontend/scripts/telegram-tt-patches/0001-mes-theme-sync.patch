@@ -1,0 +1,118 @@
+diff --git a/src/global/actions/ui/initial.ts b/src/global/actions/ui/initial.ts
+index 376af9340..25f803018 100644
+--- a/src/global/actions/ui/initial.ts
++++ b/src/global/actions/ui/initial.ts
+@@ -13,6 +13,7 @@ import { getCurrentTabId } from '../../../util/establishMultitabRole';
+ import generateUniqueId from '../../../util/generateUniqueId';
+ import { setTimeFormat } from '../../../util/localization';
+ import { subscribe } from '../../../util/notifications';
++import { getParentTheme, initParentTheme } from '../../../util/parentTheme';
+ import { applyPerformanceSettings } from '../../../util/perfomanceSettings';
+ import { hasStoredSession } from '../../../util/sessions';
+ import switchTheme from '../../../util/switchTheme';
+@@ -46,6 +47,10 @@ setSystemThemeChangeCallback((theme) => {
+   setGlobal(global);
+ });
+ 
++// The embedding MES window may override the theme from the URL parameter and
++// from later parent messages; both are picked up before the first paint
++initParentTheme();
++
+ addActionHandler('switchMultitabRole', (global, actions, payload): ActionReturnType => {
+   const { isMasterTab, tabId = getCurrentTabId() } = payload;
+ 
+@@ -132,7 +137,9 @@ addCallback((global: GlobalState) => {
+ 
+   const globalTheme = selectTheme(global);
+   const systemTheme = getSystemTheme();
+-  const theme = shouldUseSystemTheme ? systemTheme : globalTheme;
++  // The embedding window's theme wins while it holds the module open; the
++  // account and system preferences are only the embedded client's fallback
++  const theme = getParentTheme() ?? (shouldUseSystemTheme ? systemTheme : globalTheme);
+ 
+   const performanceType = selectPerformanceSettings(global);
+ 
+diff --git a/src/global/actions/ui/settings.ts b/src/global/actions/ui/settings.ts
+index 8726306cc..54bc2710b 100644
+--- a/src/global/actions/ui/settings.ts
++++ b/src/global/actions/ui/settings.ts
+@@ -9,6 +9,7 @@ import { disableDebugConsole, initDebugConsole } from '../../../util/debugConsol
+ import { getCurrentTabId } from '../../../util/establishMultitabRole';
+ import { areSortedArraysEqual } from '../../../util/iteratees';
+ import { loadAndChangeLanguage, setTimeFormat } from '../../../util/localization';
++import { applyParentTheme } from '../../../util/parentTheme';
+ import { applyPerformanceSettings } from '../../../util/perfomanceSettings';
+ import switchTheme, { hasActiveThemeTransition } from '../../../util/switchTheme';
+ import { buildThemePalette, isThemePaletteTransitionSafe, updatePeerColors } from '../../../util/theme';
+@@ -80,6 +81,9 @@ addCallback((global: GlobalState) => {
+       || !isThemePaletteTransitionSafe(oldPalette, palette);
+ 
+     switchTheme(sharedSettings.theme, withThemeAnimation, palette.variables, shouldSnapMessageColors);
++    // An embedding window's theme survives an account-settings sync that would
++    // otherwise move the theme back to the account's own preference
++    applyParentTheme(withThemeAnimation);
+   }
+ 
+   if (sharedSettings.language !== oldSharedSettings.language) {
+diff --git a/src/util/parentTheme.ts b/src/util/parentTheme.ts
+new file mode 100644
+index 000000000..01758473c
+--- /dev/null
++++ b/src/util/parentTheme.ts
+@@ -0,0 +1,56 @@
++import { getGlobal, setGlobal } from '../global';
++
++import type { ThemeKey } from '../types';
++
++import { updateSharedSettings } from '../global/reducers';
++import switchTheme from './switchTheme';
++
++const THEME_PARAMETER = 'theme';
++const MESSAGE_SOURCE = 'mes';
++
++let parentTheme: ThemeKey | undefined;
++
++export function parseThemeKey(raw: unknown): ThemeKey | undefined {
++  return raw === 'light' || raw === 'dark' ? raw : undefined;
++}
++
++export function getParentTheme(): ThemeKey | undefined {
++  return parentTheme;
++}
++
++export function applyParentTheme(withAnimation: boolean): void {
++  // Re-assert the MES override after every theme application, so a late
++  // account-settings sync cannot revert the embedded presentation
++  if (!parentTheme) return;
++  switchTheme(parentTheme, withAnimation);
++}
++
++function handleParentThemeMessage(event: MessageEvent) {
++  // Only the embedding MES window may drive the theme; every other source,
++  // origin, or payload shape is ignored
++  if (event.source !== window.parent) return;
++  if (event.origin !== globalThis.location.origin) return;
++  const data = event.data as { source?: unknown; theme?: unknown };
++  if (data?.source !== MESSAGE_SOURCE) return;
++  const theme = parseThemeKey(data.theme);
++  if (!theme) return;
++
++  parentTheme = theme;
++
++  let global = getGlobal();
++  global = updateSharedSettings(global, { theme, shouldUseSystemTheme: false });
++  setGlobal(global);
++
++  // The shared-settings callback only re-applies the theme when the stored
++  // theme differs, so re-assert directly to cover a sticky embedded session
++  applyParentTheme(document.hasFocus());
++}
++
++export function initParentTheme(): void {
++  const parameter = new URLSearchParams(globalThis.location.search).get(THEME_PARAMETER);
++  const fromParameter = parseThemeKey(parameter);
++  if (fromParameter) {
++    parentTheme = fromParameter;
++  }
++  window.addEventListener('message', handleParentThemeMessage);
++}
