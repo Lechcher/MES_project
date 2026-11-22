@@ -85,3 +85,90 @@ Guard: `backend/src/graphql/query-cost.test.ts` asserts a nested task list issue
 statements for a 50-row page with a per-node rate ≤ 1.5 — the pre-fix fan-out (~350) fails
 this, so the regression cannot return silently.
 
+## 6.3 — Whole-project gate: frontend budgets and infra (measurement-gated)
+
+Method: `cd frontend && bun run build` (Next.js 16.4.6 / Turbopack), reading the route bundle
+report at `.next/diagnostics/route-bundle-stats.json` and the emitted client chunks in
+`.next/static/chunks/`; plus a CWV probe that serves the production build
+(`.next/standalone/server.js`, spare port) and records LCP/CLS/FCP/TTFB in Chromium. Per
+design Decision 1 and the Risk note ("Whole-project scope invites unfocused churn → strictly
+measurement-gated"), every item below is either changed because a measured number motivates
+it, or recorded as **no measured need**.
+
+### Bundle size — MEASURED, no change
+
+`bun run build` now completes (exit 0): the pre-existing `task-detail-view.tsx` TS2589 that
+had blocked it at the type-check step was fixed mid-task by commit `ed39b60`. First Load JS
+(uncompressed) per route, from the route report that build wrote
+(`.next/diagnostics/route-bundle-stats.json`, 2026-11-23 02:00), against the previous report
+(2026-11-21 20:51):
+
+| route | before | now |
+| --- | --- | --- |
+| `/performance` | 1 164 KB | 1 168 KB |
+| `/planning` | 1 127 KB | 1 131 KB |
+| `/settings` | 1 047 KB | 1 057 KB |
+| `/jobs/new` | 1 026 KB | 1 030 KB |
+| `/audit-log` | 984 KB | 987 KB |
+| `/planning/leave/new` | 975 KB | 979 KB |
+| `/jobs/tasks/[id]` | 937 KB | 941 KB |
+| `/jobs` | 902 KB | 905 KB |
+| `/telegram` | 866 KB | 869 KB |
+| `/` | 860 KB | 863 KB |
+| `/signin` | 802 KB | 805 KB |
+| `/reset-password` | 734 KB | 738 KB |
+| `/_not-found` | 706 KB | 709 KB |
+| `/confirm-email` | — (new route) | 731 KB |
+
+- 13 → 14 routes (a `/confirm-email` route was added by another change in the same window);
+  **max 1.16 MB → 1.17 MB (+4 KB, +0.3%)**, min 0.69 MB → 0.71 MB, **avg 0.93 MB → 0.92 MB**.
+- The deltas on pre-existing routes are ≤ 10 KB and are attributable to the other changes
+  landed in the same window, not to this one: task 3.2 (attendance paging) adds no dependency
+  and imports `@/components/shared/pagination-bar`, a module six other screens already load,
+  so its marginal bundle cost is ~0.
+- The five largest chunks are **framework, not app code** (231.9 KB `react-dom` + `next`,
+  223.9 KB `react-dom`, 156.8 / 110.0 / 100.3 KB `next` runtime) — verified by symbol grep;
+  `chart.js`, `lucide-react` and `@base-ui/react` appear in none of them.
+
+**design.md defines no numeric bundle budget**, so no threshold exists to violate.
+Verdict: **no measured need → no change.**
+
+### Render cost and Core Web Vitals — MEASURED, all "Good"
+
+Measured against the production build (`.next/standalone/server.js` on a spare port, Chromium
+headless, viewport 1280×720, **CPU throttled 4×** to approximate a mid-tier device):
+
+| route | LCP | CLS | FCP | TTFB |
+| --- | --- | --- | --- | --- |
+| `/signin` | 100 ms | 0 | 100 ms | 5 ms |
+| `/` | 588 ms | 0 | 588 ms | 9 ms |
+| `/planning` | 600 ms | 0 | 600 ms | 7 ms |
+
+Against Google's "Good" thresholds — LCP ≤ 2 500 ms, CLS ≤ 0.1, FCP ≤ 1 800 ms — **every
+route passes, with ~4× headroom on LCP and a perfect zero CLS**.
+
+Caveats: pages were fetched over localhost with **no network throttling** (~0 RTT), so the
+numbers are optimistic for real-world networks; the loads were **unauthenticated**
+(`/planning` returns its client-side session shell), and **INP is not measured** because it
+requires interaction. A field-accurate figure needs real traffic or a throttled lab run —
+nothing here shows a render-cost problem to fix.
+
+Verdict: **within "Good" → no change.**
+
+### Infra — SQLite pragma / WAL — not applicable, no change
+
+`backend/src/db/index.ts` is a **PostgreSQL** factory (`drizzle(node-postgres)` over a
+`pg.Pool`, `max: 10`); its comment records that "the per-connection PRAGMAs of the SQLite era
+are gone: PostgreSQL enforces foreign keys per database and manages its own write-ahead
+logging." design.md's SQLite/WAL context predates that migration. There is no SQLite pragma
+left to verify. Verdict: **no measured need → no change.**
+
+### Infra — prepared-statement reuse — no measured need
+
+`createDatabase` uses a `pg.Pool` (`max: 10`); no profiler run in this change measured
+statement-preparation cost. The measured bottleneck was query **count** (705 → ~15
+statements per page, above), which tasks 2–5 already fixed. Verdict: **no measured need → no
+change.**
+
+**Net:** zero frontend/infra changes taken, because no measured number motivates one.
+

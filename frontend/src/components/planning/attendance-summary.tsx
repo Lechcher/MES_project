@@ -3,7 +3,10 @@
 import { useTranslations } from "next-intl";
 import { useMemo, useState } from "react";
 import { ExportButton } from "@/components/shared/export-action";
-import { SectionHeader } from "@/components/shared/pagination-bar";
+import {
+  PaginationBar,
+  SectionHeader,
+} from "@/components/shared/pagination-bar";
 import {
   EmptyState,
   ErrorState,
@@ -50,9 +53,16 @@ function monthBounds(year: number, month: number) {
   return { from, to };
 }
 
+/** Page size for the attendance record table (the API's default page size). */
+const PAGE_LIMIT = 20;
+
 /**
  * Attendance summary (check-in/out, late and early-leave flags, working hours,
  * leave code per record) plus each person's `AL Balance` and `TOIL Balance`.
+ *
+ * The record table is offset-paginated (`PaginationBar`) instead of pulling an
+ * over-large page: the API bounds every list read with a default page size, so
+ * the screen pages through the month rather than asking for every row at once.
  */
 export function AttendanceSummary({ role }: { role: RoleCode | null }) {
   const fmt = useMesFormat();
@@ -61,6 +71,7 @@ export function AttendanceSummary({ role }: { role: RoleCode | null }) {
   const [year, setYear] = useState(now.getUTCFullYear());
   const [month, setMonth] = useState(now.getUTCMonth() + 1);
   const [departmentId, setDepartmentId] = useState("ALL");
+  const [offset, setOffset] = useState(0);
 
   const companyScope = seesCompanyCalendar(role);
   const departmentsQuery = useApiQuery<{ departments: DepartmentDetail[] }>(
@@ -80,7 +91,7 @@ export function AttendanceSummary({ role }: { role: RoleCode | null }) {
     attendanceRecords: Connection<AttendanceRecord>;
   }>(
     ATTENDANCE_RECORDS_QUERY,
-    { filter, offset: 0, limit: 200 },
+    { filter, offset, limit: PAGE_LIMIT },
     {
       liveArea: "leave",
     },
@@ -117,6 +128,7 @@ export function AttendanceSummary({ role }: { role: RoleCode | null }) {
     const next = new Date(Date.UTC(year, month - 1 + delta, 1));
     setYear(next.getUTCFullYear());
     setMonth(next.getUTCMonth() + 1);
+    setOffset(0);
   };
 
   const records = attendance.data?.attendanceRecords.nodes ?? [];
@@ -157,7 +169,10 @@ export function AttendanceSummary({ role }: { role: RoleCode | null }) {
                 </Label>
                 <Select
                   value={departmentId}
-                  onValueChange={(value) => setDepartmentId(value ?? "ALL")}
+                  onValueChange={(value) => {
+                    setDepartmentId(value ?? "ALL");
+                    setOffset(0);
+                  }}
                   items={{
                     ALL: t("allDepartments"),
                     ...Object.fromEntries(
@@ -201,58 +216,73 @@ export function AttendanceSummary({ role }: { role: RoleCode | null }) {
         ) : null}
 
         {records.length > 0 ? (
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead className="w-40">{t("colEmployee")}</TableHead>
-                <TableHead className="w-28">{t("colDate")}</TableHead>
-                <TableHead className="w-24">{t("colCheckIn")}</TableHead>
-                <TableHead className="w-24">{t("colCheckOut")}</TableHead>
-                <TableHead className="w-20">{t("colLate")}</TableHead>
-                <TableHead className="w-24">{t("colEarlyLeave")}</TableHead>
-                <TableHead className="w-24">{t("colHours")}</TableHead>
-                <TableHead className="w-28">{t("colLeave")}</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {records.map((record) => (
-                <TableRow key={record.id}>
-                  <TableCell className="text-xs">
-                    {record.user.fullName}
-                  </TableCell>
-                  <TableCell className="font-mono text-xs">
-                    {fmt.date(record.workDate)}
-                  </TableCell>
-                  <TableCell className="font-mono text-xs">
-                    {fmt.time(record.checkIn)}
-                  </TableCell>
-                  <TableCell className="font-mono text-xs">
-                    {fmt.time(record.checkOut)}
-                  </TableCell>
-                  <TableCell className="text-xs">
-                    {record.isLate ? t("yes") : "—"}
-                  </TableCell>
-                  <TableCell className="text-xs">
-                    {record.isEarlyLeave ? t("yes") : "—"}
-                  </TableCell>
-                  <TableCell className="font-mono text-xs">
-                    {fmt.decimal(record.workingHours)}
-                  </TableCell>
-                  <TableCell>
-                    {record.leaveCode ? (
-                      <StateBadge
-                        code={record.leaveCode}
-                        variant="leave"
-                        compact
-                      />
-                    ) : (
-                      <span className="text-xs text-muted-foreground">—</span>
-                    )}
-                  </TableCell>
+          <>
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead className="w-40">{t("colEmployee")}</TableHead>
+                  <TableHead className="w-28">{t("colDate")}</TableHead>
+                  <TableHead className="w-24">{t("colCheckIn")}</TableHead>
+                  <TableHead className="w-24">{t("colCheckOut")}</TableHead>
+                  <TableHead className="w-20">{t("colLate")}</TableHead>
+                  <TableHead className="w-24">{t("colEarlyLeave")}</TableHead>
+                  <TableHead className="w-24">{t("colHours")}</TableHead>
+                  <TableHead className="w-28">{t("colLeave")}</TableHead>
                 </TableRow>
-              ))}
-            </TableBody>
-          </Table>
+              </TableHeader>
+              <TableBody>
+                {records.map((record) => (
+                  <TableRow key={record.id}>
+                    <TableCell className="text-xs">
+                      {record.user.fullName}
+                    </TableCell>
+                    <TableCell className="font-mono text-xs">
+                      {fmt.date(record.workDate)}
+                    </TableCell>
+                    <TableCell className="font-mono text-xs">
+                      {fmt.time(record.checkIn)}
+                    </TableCell>
+                    <TableCell className="font-mono text-xs">
+                      {fmt.time(record.checkOut)}
+                    </TableCell>
+                    <TableCell className="text-xs">
+                      {record.isLate ? t("yes") : "—"}
+                    </TableCell>
+                    <TableCell className="text-xs">
+                      {record.isEarlyLeave ? t("yes") : "—"}
+                    </TableCell>
+                    <TableCell className="font-mono text-xs">
+                      {fmt.decimal(record.workingHours)}
+                    </TableCell>
+                    <TableCell>
+                      {record.leaveCode ? (
+                        <StateBadge
+                          code={record.leaveCode}
+                          variant="leave"
+                          compact
+                        />
+                      ) : (
+                        <span className="text-xs text-muted-foreground">—</span>
+                      )}
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+            <PaginationBar
+              className="mt-4"
+              pageInfo={
+                attendance.data?.attendanceRecords.pageInfo ?? {
+                  offset,
+                  limit: PAGE_LIMIT,
+                  totalCount: records.length,
+                  hasNextPage: false,
+                }
+              }
+              limit={PAGE_LIMIT}
+              onOffsetChange={setOffset}
+            />
+          </>
         ) : null}
       </section>
 

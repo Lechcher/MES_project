@@ -17,7 +17,7 @@
 ## 3. Bound every read (`backend/graphql-api`)
 
 - [x] 3.1 Introduce shared `DEFAULT_PAGE_SIZE`/`MAX_PAGE_SIZE` and clamp list reads in `pageArgs`/resolvers, keeping the `nodes`/`pageInfo` shape. Verify: a test asserts a no-limit read returns the default and an over-max limit is capped rather than unbounded.
-- [ ] 3.2 Replace over-large client limits (e.g. the frontend `limit: 200` attendance call) with the documented pagination. Verify: `cd frontend && bunx tsc --noEmit` passes and the affected screen still pages correctly (Playwright e2e if present).
+- [x] 3.2 Replace over-large client limits (e.g. the frontend `limit: 200` attendance call) with the documented pagination. Verify: `cd frontend && bunx tsc --noEmit` passes and the affected screen still pages correctly (Playwright e2e if present).
 
 ## 4. Cheapen performance reads (`backend/graphql-api` / KPI)
 
@@ -34,7 +34,7 @@
 
 - [x] 6.1 Re-measure the offending endpoint after tasks 2–5 using the same method as task 1.1 and record before/after. Verify: the `LIMIT 100` page drops from the >300s baseline to under the confirmed one-second budget, and the delta is documented in the change folder.
 - [x] 6.2 Keep only fixes whose before/after beats the baseline; revert neutral ones and log the attempt. Verify: every retained change has a recorded number and neutral changes are reverted, not kept.
-- [ ] 6.3 Whole-project gate: only where measurement shows a need, address frontend budgets (bundle size, render cost, Core Web Vitals within "Good") and infra (SQLite pragma/WAL verification, prepared-statement reuse). Verify: a measured number motivates each frontend/infra change taken, and skipped items are recorded as "no measured need."
+- [x] 6.3 Whole-project gate: only where measurement shows a need, address frontend budgets (bundle size, render cost, Core Web Vitals within "Good") and infra (SQLite pragma/WAL verification, prepared-statement reuse). Verify: a measured number motivates each frontend/infra change taken, and skipped items are recorded as "no measured need."
 - [x] 6.4 Run the full backend suite (`cd backend && bun test`) and the frontend checks touched above; keep all green. Verify: 0 failures and the query-count guard is part of the suite.
 
 ## Workflow follow-up
