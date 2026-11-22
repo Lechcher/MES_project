@@ -2,15 +2,32 @@
 
 import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import {
+  dedupeAssignees,
+  isSameAssignee,
+} from "@/components/jobs/assignee-selection";
 import {
   addOneHour,
   taskPayloadFrom,
 } from "@/components/planning/schedule/task-dates";
 import { AppPageHeader } from "@/components/shared/app-page-header";
+import { DatePicker } from "@/components/shared/date-picker";
 import { InlineAlert, LoadingState } from "@/components/shared/query-states";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Combobox,
+  ComboboxChip,
+  ComboboxChips,
+  ComboboxChipsInput,
+  ComboboxContent,
+  ComboboxEmpty,
+  ComboboxItem,
+  ComboboxList,
+  ComboboxValue,
+  useComboboxAnchor,
+} from "@/components/ui/combobox";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
@@ -20,7 +37,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Separator } from "@/components/ui/separator";
 import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
 import { useErrorText } from "@/lib/mes/i18n/error-text";
@@ -56,7 +72,7 @@ function today(): string {
   return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
 }
 
-/** Create Ticket form — task types, deadline slots, project, and Auto-forking. */
+/** Create Ticket form — task types, deadline slots, and project. */
 export function CreateTicketView() {
   const viewer = useViewer();
   const role = useRoleCode() as RoleCode | null;
@@ -94,7 +110,21 @@ export function CreateTicketView() {
   const [priority, setPriority] = useState<Priority>("MEDIUM");
   const [projectId, setProjectId] = useState("GENERAL_OPERATIONS");
   const [departmentId, setDepartmentId] = useState("");
-  const [assignedToId, setAssignedToId] = useState("");
+  const [assignees, setAssignees] = useState<UserRef[]>([]);
+  /** The viewer as an assignee option: the default selection. */
+  const viewerOption = useMemo<UserRef | null>(() => {
+    if (!viewer) return null;
+    return {
+      id: viewer.id,
+      userCode: viewer.userCode,
+      fullName: viewer.fullName,
+      email: viewer.email,
+      department: viewer.department,
+      isActive: true,
+    };
+  }, [viewer]);
+  const assigneeTouched = useRef(false);
+  const assigneeAnchor = useComboboxAnchor();
   const [hourlySlot, setHourlySlot] = useState<string>(HOURLY_SLOTS[0]);
   const [dailySlot, setDailySlot] = useState<string>(DAILY_SLOTS[0]);
   const [isUrgentHourly, setIsUrgentHourly] = useState(true);
@@ -114,26 +144,28 @@ export function CreateTicketView() {
     }
   }, [viewer, departmentId]);
 
+  // Default the assignee selection to the viewer until the creator picks
+  // their own set (an emptied selection stays empty so it can be refused).
   useEffect(() => {
-    if (!assignedToId && viewer?.id) setAssignedToId(viewer.id);
-  }, [viewer, assignedToId]);
+    if (!assigneeTouched.current && assignees.length === 0 && viewerOption) {
+      setAssignees([viewerOption]);
+    }
+  }, [assignees, viewerOption]);
 
   const departments = departmentsQuery.data?.departments ?? [];
   const projects = projectsQuery.data?.projects.nodes ?? [];
   const users = usersQuery.data?.users.nodes ?? [];
 
-  const selectedDepartment = departments.find(
-    (department) => department.id === departmentId,
-  );
-
   const assigneeOptions = useMemo(() => {
     const active = users.filter((user) => user.isActive !== false);
+    // Roles without the user-list permission may only assign to themselves.
+    if (!canListUsers) return viewerOption ? [viewerOption] : [];
     if (!departmentId) return active;
     const scoped = active.filter(
       (user) => user.department?.id === departmentId,
     );
     return scoped.length > 0 ? scoped : active;
-  }, [users, departmentId]);
+  }, [users, departmentId, canListUsers, viewerOption]);
 
   const deadlinePreview = useMemo(() => {
     // The same rule set the schedule reads back, so the preview shows the
@@ -203,6 +235,10 @@ export function CreateTicketView() {
     }
 
     try {
+      if (assignees.length === 0) {
+        setFeedback({ tone: "error", message: t("assigneeRequired") });
+        return;
+      }
       await createTask.run({
         input: {
           title: title.trim(),
@@ -210,7 +246,8 @@ export function CreateTicketView() {
           projectId: projectId === "GENERAL_OPERATIONS" ? undefined : projectId,
           taskType,
           priority,
-          assignedToId: assignedToId || undefined,
+          // One ticket per selected employee, in the chosen order.
+          assignedToIds: assignees.map((user) => user.id),
           departmentId: departmentId || undefined,
           startDate: dates.startDate,
           endDate: dates.endDate,
@@ -368,7 +405,10 @@ export function CreateTicketView() {
                   value={departmentId}
                   onValueChange={(value) => {
                     setDepartmentId(value ?? "");
-                    setAssignedToId(viewer.id);
+                    // A new department re-scopes the assignees, so the
+                    // selection restarts from the creator.
+                    assigneeTouched.current = true;
+                    setAssignees(viewerOption ? [viewerOption] : []);
                   }}
                   items={Object.fromEntries(
                     departments.map((department) => [
@@ -392,36 +432,53 @@ export function CreateTicketView() {
 
               <div className="grid gap-1">
                 <Label htmlFor="ticket-assignee">{t("assigneeLabel")}</Label>
-                <Select
-                  value={assignedToId}
-                  onValueChange={(value) => setAssignedToId(value ?? "")}
-                  items={Object.fromEntries([
-                    ...(canListUsers
-                      ? []
-                      : [[viewer.id, t("self", { name: viewer.fullName })]]),
-                    ...assigneeOptions.map((user) => [
-                      user.id,
-                      `${user.fullName}${user.department ? ` · ${user.department.name}` : ""}`,
-                    ]),
-                  ])}
+                <Combobox
+                  multiple
+                  autoHighlight
+                  items={assigneeOptions}
+                  value={assignees}
+                  onValueChange={(next) => {
+                    assigneeTouched.current = true;
+                    setAssignees(dedupeAssignees(next));
+                  }}
+                  itemToStringLabel={(user) =>
+                    `${user.fullName}${user.department ? ` · ${user.department.name}` : ""}`
+                  }
+                  itemToStringValue={(user) => user.id}
+                  isItemEqualToValue={isSameAssignee}
                 >
-                  <SelectTrigger id="ticket-assignee" className="w-full">
-                    <SelectValue placeholder={viewer.fullName} />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {canListUsers ? null : (
-                      <SelectItem value={viewer.id}>
-                        {t("self", { name: viewer.fullName })}
-                      </SelectItem>
-                    )}
-                    {assigneeOptions.map((user) => (
-                      <SelectItem key={user.id} value={user.id}>
-                        {user.fullName}
-                        {user.department ? ` · ${user.department.name}` : ""}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                  <ComboboxChips ref={assigneeAnchor} className="w-full">
+                    <ComboboxValue>
+                      {(values) => (
+                        <>
+                          {values.map((user: UserRef) => (
+                            <ComboboxChip key={user.id}>
+                              {user.fullName}
+                            </ComboboxChip>
+                          ))}
+                          <ComboboxChipsInput
+                            id="ticket-assignee"
+                            placeholder={t("assigneePlaceholder")}
+                          />
+                        </>
+                      )}
+                    </ComboboxValue>
+                  </ComboboxChips>
+                  <ComboboxContent anchor={assigneeAnchor}>
+                    <ComboboxEmpty>{t("assigneeEmpty")}</ComboboxEmpty>
+                    <ComboboxList>
+                      {(user: UserRef) => (
+                        <ComboboxItem key={user.id} value={user}>
+                          {user.fullName}
+                          {user.department ? ` · ${user.department.name}` : ""}
+                        </ComboboxItem>
+                      )}
+                    </ComboboxList>
+                  </ComboboxContent>
+                </Combobox>
+                <p className="text-xs text-muted-foreground">
+                  {t("assigneeHint")}
+                </p>
               </div>
 
               <div className="grid gap-1 md:col-span-2">
@@ -485,20 +542,26 @@ export function CreateTicketView() {
               <div className="grid gap-4 md:grid-cols-2">
                 <div className="grid gap-1">
                   <Label htmlFor="ticket-start">{t("startDate")}</Label>
-                  <Input
+                  <DatePicker
                     id="ticket-start"
-                    type="date"
                     value={startDate}
-                    onChange={(event) => setStartDate(event.target.value)}
+                    onChange={setStartDate}
+                    placeholder={t("selectStartEnd")}
+                    invalid={
+                      startDate !== "" && endDate !== "" && startDate > endDate
+                    }
                   />
                 </div>
                 <div className="grid gap-1">
                   <Label htmlFor="ticket-end">{t("endDate")}</Label>
-                  <Input
+                  <DatePicker
                     id="ticket-end"
-                    type="date"
                     value={endDate}
-                    onChange={(event) => setEndDate(event.target.value)}
+                    onChange={setEndDate}
+                    placeholder={t("selectStartEnd")}
+                    invalid={
+                      startDate !== "" && endDate !== "" && startDate > endDate
+                    }
                   />
                 </div>
               </div>
@@ -520,31 +583,6 @@ export function CreateTicketView() {
             <p className="text-xs text-muted-foreground">
               {t("deadlinePreview", { preview: deadlinePreview })}
             </p>
-
-            <Separator />
-
-            <div className="flex items-start gap-3">
-              <Switch
-                id="ticket-auto-forking"
-                checked={selectedDepartment?.autoForkingEnabled ?? false}
-                disabled
-              />
-              <div>
-                <Label htmlFor="ticket-auto-forking">{t("autoForking")}</Label>
-                <p className="text-xs text-muted-foreground">
-                  {selectedDepartment
-                    ? selectedDepartment.autoForkingEnabled
-                      ? t("autoForkingEnabled", {
-                          name: selectedDepartment.name,
-                        })
-                      : t("autoForkingDisabled", {
-                          name: selectedDepartment.name,
-                        })
-                    : t("autoForkingPick")}{" "}
-                  {t("autoForkingNote")}
-                </p>
-              </div>
-            </div>
           </CardContent>
         </Card>
 

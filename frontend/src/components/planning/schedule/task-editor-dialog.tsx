@@ -6,6 +6,7 @@ import Link from "next/link";
 import { useTranslations } from "next-intl";
 import { useEffect, useState } from "react";
 import { TaskActions } from "@/components/jobs/task-actions";
+import { DatePicker } from "@/components/shared/date-picker";
 import { InlineAlert } from "@/components/shared/query-states";
 import { StateBadge } from "@/components/shared/state-badge";
 import { Button } from "@/components/ui/button";
@@ -432,12 +433,10 @@ export function TaskEditorDialog({
                 <div className="grid gap-1">
                   <Label htmlFor="task-day">{t("startDay")}</Label>
                   <div className="flex items-center gap-1">
-                    <Input
+                    <DatePicker
                       id="task-day"
-                      type="date"
                       value={startText ? startText.slice(0, 10) : ""}
-                      onChange={(event) => {
-                        const day = event.target.value;
+                      onChange={(day) => {
                         if (!day) {
                           setInterval(EMPTY_INTERVAL);
                           return;
@@ -447,7 +446,6 @@ export function TaskEditorDialog({
                           endText: `${day}T23:59`,
                         });
                       }}
-                      className="w-full"
                     />
                     <DayShift
                       label={t("previousDay")}
@@ -473,12 +471,10 @@ export function TaskEditorDialog({
                 <div className="grid gap-1">
                   <Label htmlFor="task-start-day">{t("startDay")}</Label>
                   <div className="flex items-center gap-1">
-                    <Input
+                    <DatePicker
                       id="task-start-day"
-                      type="date"
                       value={startText ? startText.slice(0, 10) : ""}
-                      onChange={(event) => {
-                        const day = event.target.value;
+                      onChange={(day) => {
                         if (!day) {
                           setInterval({ ...interval, startText: "" });
                           return;
@@ -490,7 +486,6 @@ export function TaskEditorDialog({
                             endDay >= day ? `${endDay}T23:59` : `${day}T23:59`,
                         });
                       }}
-                      className="w-full"
                     />
                     <DayShift
                       label={t("previousDay")}
@@ -501,13 +496,10 @@ export function TaskEditorDialog({
                 <div className="grid gap-1">
                   <Label htmlFor="task-end-day">{t("endDay")}</Label>
                   <div className="flex items-center gap-1">
-                    <Input
+                    <DatePicker
                       id="task-end-day"
-                      type="date"
                       value={endText ? endText.slice(0, 10) : ""}
-                      min={startText ? startText.slice(0, 10) : undefined}
-                      onChange={(event) => {
-                        const day = event.target.value;
+                      onChange={(day) => {
                         if (!day) {
                           setInterval({ ...interval, endText: "" });
                           return;
@@ -525,7 +517,6 @@ export function TaskEditorDialog({
                           endText: `${day}T23:59`,
                         });
                       }}
-                      className="w-full"
                     />
                     <DayShift
                       label={t("nextDay")}
@@ -541,12 +532,10 @@ export function TaskEditorDialog({
                 <div className="grid gap-1">
                   <Label htmlFor="task-hour-day">{t("day")}</Label>
                   <div className="flex items-center gap-1">
-                    <Input
+                    <DatePicker
                       id="task-hour-day"
-                      type="date"
                       value={startText ? startText.slice(0, 10) : ""}
-                      onChange={(event) => {
-                        const day = event.target.value;
+                      onChange={(day) => {
                         if (!day) {
                           setInterval(EMPTY_INTERVAL);
                           return;
@@ -559,7 +548,6 @@ export function TaskEditorDialog({
                           endText: `${day}T${time}`,
                         });
                       }}
-                      className="w-full"
                     />
                     <DayShift
                       label={t("previousDay")}

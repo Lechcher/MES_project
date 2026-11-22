@@ -4,6 +4,8 @@ import { PlanningView } from "@/components/planning/planning-view";
 // has no prerendered content. Declaring the segment as allowed to block stops the
 // framework from reporting it as an unrenderable segment during validation.
 
+export const instant = false;
+
 export default function PlanningPage() {
   return <PlanningView />;
 }

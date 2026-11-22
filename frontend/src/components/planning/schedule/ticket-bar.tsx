@@ -221,8 +221,13 @@ export function TicketBar({
         }
       }}
       className={cn(
-        "group relative z-10 m-[3px] flex cursor-pointer items-center gap-1 overflow-hidden border border-l-4 px-1.5 text-left text-xs whitespace-nowrap select-none",
+        "group relative z-10 m-0.75 flex cursor-pointer items-center gap-1 overflow-hidden border border-l-4 px-1.5 text-left text-xs whitespace-nowrap select-none",
         category.stripe,
+        // The continuation chevrons are pinned to the bar's edges, so the
+        // edge they sit on reserves the space they occupy: without it the
+        // chevron would overlay the category icon, code, or trailing label.
+        continuesBefore && "pl-5",
+        continuesAfter && "pr-5",
         canWrite ? "cursor-grab active:cursor-grabbing" : "cursor-pointer",
       )}
       style={{

@@ -25,6 +25,10 @@ type StateBadgeProps = {
  * The active locale's name renders alone — never the code token — in the
  * documented color: `REQ` White (outline), `ACT` Yellow, `PEN` Blue, `APP`
  * Green, `REJ` Orange, `CAN` Red, `OVERDUE` Red (Warning).
+ *
+ * `REQ` is documented as White, so its ink is taken from the active theme's
+ * canvas token rather than a literal: white on the light canvas, charcoal on
+ * the dark one, which is what keeps the outline readable in both.
  */
 export function StateBadge({
   code,
@@ -74,8 +78,8 @@ export function StateBadge({
       style={
         isOutline
           ? {
-              borderColor: "#161616",
-              color: "#161616",
+              borderColor: "var(--foreground)",
+              color: "var(--foreground)",
               backgroundColor: "transparent",
             }
           : { backgroundColor: hex, color: onDark ? "#ffffff" : "#161616" }

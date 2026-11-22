@@ -492,35 +492,6 @@ export function shiftByColumns(
   };
 }
 
-/* ------------------------------------------------------------------ */
-/* DD/MM/YYYY parsing                                                 */
-/* ------------------------------------------------------------------ */
-
-const DMY = /^(\d{2})\/(\d{2})\/(\d{4})$/;
-
-/** Strict `DD/MM/YYYY` in local time; rejects impossible dates like 31/02. */
-export function parseDmy(value: string): Date | null {
-  const match = DMY.exec(value.trim());
-  if (!match) return null;
-  const day = Number(match[1]);
-  const month = Number(match[2]);
-  const year = Number(match[3]);
-  const date = new Date(year, month - 1, day);
-  if (
-    date.getFullYear() !== year ||
-    date.getMonth() !== month - 1 ||
-    date.getDate() !== day
-  ) {
-    return null;
-  }
-  return date;
-}
-
-export function formatDmy(date: Date): string {
-  const pad = (value: number) => String(value).padStart(2, "0");
-  return `${pad(date.getDate())}/${pad(date.getMonth() + 1)}/${date.getFullYear()}`;
-}
-
 /**
  * A custom `[from, to]` day range from two `DD/MM/YYYY` dates. The end date
  * is inclusive on screen, so the exclusive `to` is the following midnight.

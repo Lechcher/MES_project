@@ -101,6 +101,68 @@ export class SchedulePage extends BasePage {
   }
 
   /**
+   * The grid's horizontal scroll host: the `overflow-x-auto` box wrapping the
+   * rows, which the toolbar's dates and the drag bounds both read from.
+   */
+  scrollHost(): Locator {
+    return this.page
+      .locator("div.overflow-x-auto")
+      .filter({ has: this.allRows().first() });
+  }
+
+  /** The sticky employee cell pinned at a row's left edge. */
+  employeeCell(index = 0): Locator {
+    return this.allRows().nth(index).locator("> div").first();
+  }
+
+  /** The popover the toolbar's date-range trigger opens. */
+  rangePopover(): Locator {
+    return this.page.locator("[data-slot=popover-content]");
+  }
+
+  /** Open the toolbar's date-range calendar. */
+  async openRangeCalendar() {
+    await this.page.locator("#schedule-range").click();
+    await expect(this.rangePopover()).toBeVisible();
+  }
+
+  /**
+   * The range band's rendered colors: the popover's own background, every
+   * in-between day's background, and the endpoint days' fills — read as
+   * computed styles so a band that matches the popover (or a lost endpoint
+   * fill) shows up in either theme.
+   */
+  async rangeBandColors() {
+    return this.rangePopover().evaluate((popover) => {
+      const calendar = popover.querySelector("[data-slot=calendar]");
+      const buttons = calendar
+        ? Array.from(calendar.querySelectorAll("button"))
+        : [];
+      const middles: string[] = [];
+      const endpoints: string[] = [];
+      for (const button of buttons) {
+        const modifiers = [
+          button.getAttribute("data-range-middle"),
+          button.getAttribute("data-range-start"),
+          button.getAttribute("data-range-end"),
+        ];
+        if (!modifiers.some((value) => value === "true")) continue;
+        const background = getComputedStyle(button).backgroundColor;
+        if (button.getAttribute("data-range-middle") === "true") {
+          middles.push(background);
+        } else {
+          endpoints.push(background);
+        }
+      }
+      return {
+        popoverBackground: getComputedStyle(popover).backgroundColor,
+        middles,
+        endpoints,
+      };
+    });
+  }
+
+  /**
    * Wait until the grid stops changing.
    *
    * Rows and bars arrive from two queries plus the live channel, so a fixed
@@ -199,6 +261,56 @@ export class SchedulePage extends BasePage {
           };
         }),
       );
+  }
+
+  /**
+   * The content boxes a continuation chevron must stay clear of.
+   *
+   * Reads the chevron icons and the bar's own children (the category icon and
+   * the text spans) as rendered boxes, so a spacing regression shows up as a
+   * box intersection rather than a pixel comparison.
+   */
+  async chevronClearance() {
+    return this.ticketBars.evaluateAll((nodes) =>
+      nodes.map((node) => {
+        const element = node as HTMLElement;
+        const chevrons = [
+          ...element.querySelectorAll("svg[aria-label]"),
+        ] as SVGSVGElement[];
+        // The chevrons are themselves direct-child svgs, and the overflow-menu
+        // trigger span is an affordance that shares the bar's right edge with
+        // the chevron (it appears on hover), so the ticket's own content is
+        // the un-labeled category icon plus the text spans without buttons.
+        const contents = [
+          ...element.querySelectorAll(
+            ":scope > svg:not([aria-label]), :scope > span:not(:has(button))",
+          ),
+        ] as HTMLElement[];
+        return {
+          code: element.querySelector(".font-mono")?.textContent ?? "",
+          chevronCount: chevrons.length,
+          chevronBoxes: chevrons.map((svg) => {
+            const box = svg.getBoundingClientRect();
+            return {
+              x: Math.round(box.x),
+              right: Math.round(box.right),
+              top: Math.round(box.y),
+              bottom: Math.round(box.bottom),
+            };
+          }),
+          contentBoxes: contents.map((child) => {
+            const box = child.getBoundingClientRect();
+            return {
+              x: Math.round(box.x),
+              right: Math.round(box.right),
+              top: Math.round(box.y),
+              bottom: Math.round(box.bottom),
+              text: (child.textContent ?? "").slice(0, 30),
+            };
+          }),
+        };
+      }),
+    );
   }
 
   /** The row's lane count and height, from its inline grid template. */

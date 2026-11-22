@@ -4,7 +4,7 @@ import { MesLiveProvider } from "@/lib/mes/live-provider";
 
 // Every screen in this tree resolves its viewer in the browser from
 // `/api/mes/session`, so no prerendered shell can hold the screen's content.
-export const dynamic = "force-dynamic";
+export const instant = false;
 
 export default function AppLayout({ children }: { children: React.ReactNode }) {
   return (

@@ -94,7 +94,6 @@ export interface DepartmentRef {
   departmentType?: DepartmentType;
   parent?: DepartmentRef | null;
   manager?: UserRef | null;
-  autoForkingEnabled?: boolean;
   isActive?: boolean;
 }
 
@@ -120,7 +119,6 @@ export interface DepartmentDetail {
   departmentType: DepartmentType;
   parent: DepartmentRef | null;
   manager: UserRef | null;
-  autoForkingEnabled: boolean;
   isActive: boolean;
 }
 

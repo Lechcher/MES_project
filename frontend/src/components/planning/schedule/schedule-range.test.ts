@@ -14,9 +14,7 @@ import {
   columnsFor,
   customRange,
   defaultRange,
-  formatDmy,
   isCanonical,
-  parseDmy,
   placeBar,
   rangeFromParams,
   rangeParams,
@@ -105,11 +103,10 @@ function diffInDays(a: Date, b: Date): number {
   return Math.round((a.getTime() - b.getTime()) / 86_400_000);
 }
 
-/** `parseDmy` with the impossible-date check already covered above. */
+/** A local-midnight date, the same seam the calendar pickers use. */
 function dmy(value: string): Date {
-  const date = parseDmy(value);
-  if (!date) throw new Error(`unparseable date: ${value}`);
-  return date;
+  const [year, month, day] = value.split("-").map(Number);
+  return new Date(year, month - 1, day);
 }
 
 describe("columnsFor", () => {
@@ -144,7 +141,7 @@ describe("columnsFor", () => {
   });
 
   test("a custom range yields exactly the entered days", () => {
-    const range = customRange(dmy("01/11/2026"), dmy("15/11/2026"));
+    const range = customRange(dmy("2026-11-01"), dmy("2026-11-15"));
     const cols = columnsFor(range);
     expect(cols).toHaveLength(15);
     expect(cols[0].getDate()).toBe(1);
@@ -613,28 +610,6 @@ describe("shiftByColumns", () => {
   });
 });
 
-describe("parseDmy and formatDmy", () => {
-  test("parses DD/MM/YYYY in local time", () => {
-    const date = parseDmy("05/11/2026");
-    expect(date?.getFullYear()).toBe(2026);
-    expect(date?.getMonth()).toBe(10);
-    expect(date?.getDate()).toBe(5);
-  });
-
-  test("rejects impossible and malformed dates", () => {
-    expect(parseDmy("31/02/2026")).toBeNull();
-    expect(parseDmy("2026/11/05")).toBeNull();
-    expect(parseDmy("5/11/2026")).toBeNull();
-    expect(parseDmy("05/13/2026")).toBeNull();
-    expect(parseDmy("")).toBeNull();
-  });
-
-  test("formats back to DD/MM/YYYY", () => {
-    expect(formatDmy(new Date(2026, 10, 5))).toBe("05/11/2026");
-    expect(formatDmy(new Date(2026, 0, 31))).toBe("31/01/2026");
-  });
-});
-
 describe("step", () => {
   test("month scale steps to the following calendar month", () => {
     const october = windowFor("MONTH", at(21));
@@ -661,7 +636,7 @@ describe("step", () => {
   });
 
   test("a custom range slides by its own length", () => {
-    const range = customRange(dmy("01/11/2026"), dmy("15/11/2026"));
+    const range = customRange(dmy("2026-11-01"), dmy("2026-11-15"));
     const next = step(range, 1);
     expect(next.from.getDate()).toBe(16);
     expect(next.from.getMonth()).toBe(10);
@@ -679,7 +654,7 @@ describe("URL round-trip", () => {
   });
 
   test("custom ranges keep their exact window", () => {
-    const range = customRange(dmy("01/11/2026"), dmy("15/11/2026"));
+    const range = customRange(dmy("2026-11-01"), dmy("2026-11-15"));
     const params = rangeParams(range);
     expect(params.to).toBe("2026-11-15");
     expect(rangeFromParams(params.scale, params.from, params.to)).toEqual(

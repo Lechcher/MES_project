@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { useMemo, useState } from "react";
 import { AppPageHeader } from "@/components/shared/app-page-header";
+import { DatePicker } from "@/components/shared/date-picker";
 import { InlineAlert } from "@/components/shared/query-states";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -228,23 +229,25 @@ export function CreateLeaveView() {
 
               <div className="grid gap-1">
                 <Label htmlFor="leave-start">{t("startDate")}</Label>
-                <Input
+                <DatePicker
                   id="leave-start"
-                  type="date"
                   value={startDate}
-                  required
-                  onChange={(event) => setStartDate(event.target.value)}
+                  onChange={setStartDate}
+                  invalid={
+                    startDate !== "" && endDate !== "" && startDate > endDate
+                  }
                 />
               </div>
 
               <div className="grid gap-1">
                 <Label htmlFor="leave-end">{t("endDate")}</Label>
-                <Input
+                <DatePicker
                   id="leave-end"
-                  type="date"
                   value={endDate}
-                  required
-                  onChange={(event) => setEndDate(event.target.value)}
+                  onChange={setEndDate}
+                  invalid={
+                    startDate !== "" && endDate !== "" && startDate > endDate
+                  }
                 />
               </div>
 

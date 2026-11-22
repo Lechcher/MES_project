@@ -70,11 +70,11 @@ export class TicketDetailPage extends BasePage {
 
   /** Get the current ticket state badge text. */
   async state(): Promise<string> {
-    return this.stateBadge.textContent() ?? "";
+    return (await this.stateBadge.textContent()) ?? "";
   }
 
   /** Get the progress percentage text. */
   async progress(): Promise<string> {
-    return this.page.getByText(/%/).first().textContent() ?? "";
+    return (await this.page.getByText(/%/).first().textContent()) ?? "";
   }
 }

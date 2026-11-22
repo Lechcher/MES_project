@@ -86,7 +86,6 @@ export const DEPARTMENTS_QUERY = /* GraphQL */ `
       manager {
         ${USER_BRIEF}
       }
-      autoForkingEnabled
       isActive
     }
   }

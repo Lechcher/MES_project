@@ -9,13 +9,13 @@ import {
   Printer,
 } from "lucide-react";
 import { useTranslations } from "next-intl";
-import { useEffect, useState } from "react";
+import { useMemo, useState } from "react";
+import { addDays, SCALES } from "@/components/planning/schedule/schedule-range";
+import { DateRangePicker } from "@/components/shared/date-range-picker";
 import {
-  addDays,
-  formatDmy,
-  parseDmy,
-  SCALES,
-} from "@/components/planning/schedule/schedule-range";
+  parseIsoDateValue,
+  toIsoDateValue,
+} from "@/components/shared/date-values";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -23,7 +23,6 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
   Select,
@@ -91,20 +90,35 @@ export function ScheduleToolbar({
   const t = useTranslations("planning.schedule");
   const labels = useDomainLabels();
 
-  const [fromText, setFromText] = useState(() => formatDmy(range.from));
-  const [toText, setToText] = useState(() => formatDmy(addDays(range.to, -1)));
   const [rangeError, setRangeError] = useState<string | null>(null);
 
-  // Keep the inputs in step with navigation without clobbering edits.
-  useEffect(() => {
-    setFromText(formatDmy(range.from));
-    setToText(formatDmy(addDays(range.to, -1)));
-    setRangeError(null);
-  }, [range.from, range.to]);
+  // The schedule range's `to` is exclusive; the picker shows the last
+  // covered day, so the value round-trips through the same seam.
+  const rangeValue = useMemo(
+    () => ({
+      from: toIsoDateValue(range.from),
+      to: toIsoDateValue(addDays(range.to, -1)),
+    }),
+    [range.from, range.to],
+  );
 
-  const applyCustomRange = () => {
-    const from = parseDmy(fromText);
-    const to = parseDmy(toText);
+  // Navigation cancels a stale inline error from a rejected custom range.
+  const clearErrorAndNavigate = (dir: -1 | 1) => {
+    setRangeError(null);
+    onNavigate(dir);
+  };
+  const clearErrorAndToday = () => {
+    setRangeError(null);
+    onToday();
+  };
+  const clearErrorAndScale = (scale: ScheduleScale) => {
+    setRangeError(null);
+    onScaleChange(scale);
+  };
+
+  const applyCustomRange = (next: { from: string; to: string }) => {
+    const from = parseIsoDateValue(next.from);
+    const to = parseIsoDateValue(next.to);
     if (!from || !to) {
       setRangeError(t("range.invalidDate"));
       return;
@@ -133,18 +147,18 @@ export function ScheduleToolbar({
             variant="outline"
             size="icon-sm"
             aria-label={t("previous")}
-            onClick={() => onNavigate(-1)}
+            onClick={() => clearErrorAndNavigate(-1)}
           >
             <ChevronLeft />
           </Button>
-          <Button variant="outline" size="sm" onClick={onToday}>
+          <Button variant="outline" size="sm" onClick={clearErrorAndToday}>
             {t("today")}
           </Button>
           <Button
             variant="outline"
             size="icon-sm"
             aria-label={t("next")}
-            onClick={() => onNavigate(1)}
+            onClick={() => clearErrorAndNavigate(1)}
           >
             <ChevronRight />
           </Button>
@@ -157,51 +171,26 @@ export function ScheduleToolbar({
               variant={range.scale === scale ? "default" : "outline"}
               size="sm"
               aria-pressed={range.scale === scale}
-              onClick={() => onScaleChange(scale)}
+              onClick={() => clearErrorAndScale(scale)}
             >
               {t(`scale.${scale}`)}
             </Button>
           ))}
         </div>
 
-        {/* Custom DD/MM/YYYY range */}
-        <div className="flex flex-wrap items-end gap-1">
-          <div className="grid gap-1">
-            <Label htmlFor="schedule-range-from" className="text-xs">
-              {t("range.from")}
-            </Label>
-            <Input
-              id="schedule-range-from"
-              value={fromText}
-              onChange={(event) => setFromText(event.target.value)}
-              placeholder={t("range.placeholder")}
-              aria-invalid={rangeError !== null}
-              className="w-28"
-              inputMode="numeric"
-            />
-          </div>
-          <div className="grid gap-1">
-            <Label htmlFor="schedule-range-to" className="text-xs">
-              {t("range.to")}
-            </Label>
-            <Input
-              id="schedule-range-to"
-              value={toText}
-              onChange={(event) => setToText(event.target.value)}
-              placeholder={t("range.placeholder")}
-              aria-invalid={rangeError !== null}
-              className="w-28"
-              inputMode="numeric"
-            />
-          </div>
-          <Button
-            variant="outline"
-            size="sm"
-            className="mb-0.5"
-            onClick={applyCustomRange}
-          >
-            {t("range.apply")}
-          </Button>
+        {/* Custom range, picked on the calendar */}
+        <div className="grid gap-1">
+          <Label htmlFor="schedule-range" className="text-xs">
+            {t("range.label")}
+          </Label>
+          <DateRangePicker
+            id="schedule-range"
+            value={rangeValue}
+            onChange={applyCustomRange}
+            placeholder={t("range.placeholder")}
+            invalid={rangeError !== null}
+            className="w-64"
+          />
         </div>
 
         {rangeError ? (

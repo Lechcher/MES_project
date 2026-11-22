@@ -177,14 +177,6 @@ export function JobsView() {
         })}
         actions={
           <>
-            <Button
-              variant="outline"
-              size="sm"
-              nativeButton={false}
-              render={<Link href="/jobs/quick-add" />}
-            >
-              {t("quickAdd")}
-            </Button>
             <ExportButton
               mutation={EXPORT_TASKS_MUTATION}
               resultKey="exportTasks"

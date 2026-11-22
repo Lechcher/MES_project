@@ -16,9 +16,6 @@ export class TicketListPage extends BasePage {
   readonly createNewButton = this.page.getByRole("button", {
     name: /create new/i,
   });
-  readonly quickAddButton = this.page.getByRole("button", {
-    name: /quick add/i,
-  });
 
   async goto() {
     await this.gotoAndWait("/jobs");
@@ -51,12 +48,6 @@ export class TicketListPage extends BasePage {
   /** Open the new ticket creation page. */
   async createNew() {
     await this.createNewButton.click();
-    await this.waitForNetworkIdle();
-  }
-
-  /** Open quick add ticket page. */
-  async quickAdd() {
-    await this.quickAddButton.click();
     await this.waitForNetworkIdle();
   }
 

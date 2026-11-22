@@ -19,11 +19,11 @@
  * - Date-only columns are `YYYY-MM-DD` text (`toDateOnly`), while `DateTime`
  *   values are `Date` objects (`parseDate`).
  *
- * Multi-row state changes run in a synchronous SQLite transaction so the status
- * change, its ledger entry and its scoring side effect commit together or not
- * at all.
+ * Multi-row state changes run in a database transaction so the status change,
+ * its ledger entry and its scoring side effect commit together or not at all.
  */
 
+import type { Column } from "drizzle-orm";
 import {
 	and,
 	asc,
@@ -37,7 +37,6 @@ import {
 	type SQL,
 	sql,
 } from "drizzle-orm";
-import type { SQLiteColumn } from "drizzle-orm/sqlite-core";
 import {
 	BALANCE_TRACKED_LEAVE_CODES,
 	LEAVE_CODE_VALUES,
@@ -195,7 +194,7 @@ async function resolveScope(
 
 /** Membership condition for the caller's permitted user ids. */
 function scopeCondition(
-	column: SQLiteColumn,
+	column: Column,
 	userIds: string[] | null,
 ): SQL | undefined {
 	if (userIds === null) return undefined;
@@ -344,8 +343,10 @@ export async function matrixCalendar(
 			and(
 				isNull(taskTable.deletedAt),
 				inArray(taskTable.assignedTo, memberIds),
-				sql`(${taskTable.startDate} is null or ${taskTable.startDate} <= ${rangeEndMs})`,
-				sql`(coalesce(${taskTable.extendedDeadline}, ${taskTable.endDate}) is null or coalesce(${taskTable.extendedDeadline}, ${taskTable.endDate}) >= ${rangeStartMs})`,
+				// The timestamptz columns compare against Date values on PostgreSQL; raw
+				// epoch-millisecond numbers (valid on SQLite) are rejected there.
+				sql`(${taskTable.startDate} is null or ${taskTable.startDate} <= ${new Date(rangeEndMs)})`,
+				sql`(coalesce(${taskTable.extendedDeadline}, ${taskTable.endDate}) is null or coalesce(${taskTable.extendedDeadline}, ${taskTable.endDate}) >= ${new Date(rangeStartMs)})`,
 			),
 		);
 
@@ -724,28 +725,26 @@ export async function registerLeave(
 	const now = new Date();
 	const attachmentIds = (input.attachmentIds ?? []).filter(Boolean);
 
-	ctx.db.transaction((tx) => {
-		tx.insert(leaveRequestTable)
-			.values({
-				id,
-				userId: viewer.id,
-				leaveCode: input.leaveCode,
-				startDate: startDay,
-				endDate: endDay,
-				totalDays,
-				reason,
-				handoverUserId: input.handoverUserId ?? null,
-				status: "PENDING",
-				createdAt: now,
-				updatedAt: now,
-			})
-			.run();
+	await ctx.db.transaction(async (tx) => {
+		await tx.insert(leaveRequestTable).values({
+			id,
+			userId: viewer.id,
+			leaveCode: input.leaveCode,
+			startDate: startDay,
+			endDate: endDay,
+			totalDays,
+			reason,
+			handoverUserId: input.handoverUserId ?? null,
+			status: "PENDING",
+			createdAt: now,
+			updatedAt: now,
+		});
 
 		if (attachmentIds.length > 0) {
-			tx.update(attachmentsTable)
+			await tx
+				.update(attachmentsTable)
 				.set({ ownerType: "LEAVE_REQUEST", ownerId: id })
-				.where(inArray(attachmentsTable.id, attachmentIds))
-				.run();
+				.where(inArray(attachmentsTable.id, attachmentIds));
 		}
 	});
 
@@ -844,34 +843,32 @@ export async function reviewLeave(
 		existing.leaveCode,
 	);
 
-	ctx.db.transaction((tx) => {
-		tx.update(leaveRequestTable)
+	await ctx.db.transaction(async (tx) => {
+		await tx
+			.update(leaveRequestTable)
 			.set({
 				status: input.decision,
 				approvedBy: viewer.id,
 				approvedAt: now,
 				updatedAt: now,
 			})
-			.where(eq(leaveRequestTable.id, existing.id))
-			.run();
+			.where(eq(leaveRequestTable.id, existing.id));
 
 		if (approved && isTracked) {
-			tx.insert(leaveBalanceTable)
-				.values({
-					id: crypto.randomUUID(),
-					userId: existing.userId,
-					leaveCode: existing.leaveCode,
-					entryType: "USAGE",
-					// Approval draws the requested days from the tracked fund.
-					deltaDays: -existing.totalDays,
-					periodYear: yearOf(existing.startDate),
-					referenceType: "LEAVE_REQUEST",
-					referenceId: existing.id,
-					note: `Approved ${existing.leaveCode} leave (${existing.totalDays} day(s)).`,
-					createdBy: viewer.id,
-					createdAt: now,
-				})
-				.run();
+			await tx.insert(leaveBalanceTable).values({
+				id: crypto.randomUUID(),
+				userId: existing.userId,
+				leaveCode: existing.leaveCode,
+				entryType: "USAGE",
+				// Approval draws the requested days from the tracked fund.
+				deltaDays: -existing.totalDays,
+				periodYear: yearOf(existing.startDate),
+				referenceType: "LEAVE_REQUEST",
+				referenceId: existing.id,
+				note: `Approved ${existing.leaveCode} leave (${existing.totalDays} day(s)).`,
+				createdBy: viewer.id,
+				createdAt: now,
+			});
 		}
 	});
 
@@ -1000,9 +997,10 @@ export async function assignPenaltyLeave(
 		.filter(Boolean)
 		.join(" ");
 
-	ctx.db.transaction((tx) => {
+	await ctx.db.transaction(async (tx) => {
 		if (existing) {
-			tx.update(attendanceTable)
+			await tx
+				.update(attendanceTable)
 				.set({
 					leaveCode: input.leaveCode,
 					isLate: false,
@@ -1011,40 +1009,35 @@ export async function assignPenaltyLeave(
 					note,
 					updatedAt: now,
 				})
-				.where(eq(attendanceTable.id, id))
-				.run();
+				.where(eq(attendanceTable.id, id));
 		} else {
-			tx.insert(attendanceTable)
-				.values({
-					id,
-					userId: input.userId,
-					workDate: workDay,
-					checkIn: null,
-					checkOut: null,
-					isLate: false,
-					isEarlyLeave: false,
-					leaveCode: input.leaveCode,
-					workingHours: 0,
-					note,
-					createdAt: now,
-					updatedAt: now,
-				})
-				.run();
+			await tx.insert(attendanceTable).values({
+				id,
+				userId: input.userId,
+				workDate: workDay,
+				checkIn: null,
+				checkOut: null,
+				isLate: false,
+				isEarlyLeave: false,
+				leaveCode: input.leaveCode,
+				workingHours: 0,
+				note,
+				createdAt: now,
+				updatedAt: now,
+			});
 		}
 
-		tx.insert(kpiScoreEventTable)
-			.values({
-				id: crypto.randomUUID(),
-				userId: input.userId,
-				taskId: null,
-				ruleCode: KPI_UNAPPROVED_LEAVE,
-				points: kpiRule.points,
-				periodYear: yearOf(workDay),
-				periodMonth: monthOf(workDay),
-				occurredAt: now,
-				note: `Penalty leave ${input.leaveCode} assigned for ${workDay}.`,
-			})
-			.run();
+		await tx.insert(kpiScoreEventTable).values({
+			id: crypto.randomUUID(),
+			userId: input.userId,
+			taskId: null,
+			ruleCode: KPI_UNAPPROVED_LEAVE,
+			points: kpiRule.points,
+			periodYear: yearOf(workDay),
+			periodMonth: monthOf(workDay),
+			occurredAt: now,
+			note: `Penalty leave ${input.leaveCode} assigned for ${workDay}.`,
+		});
 	});
 
 	const [row] = await ctx.db
@@ -1122,21 +1115,19 @@ export async function recordOvertime(
 	const id = crypto.randomUUID();
 	const now = new Date();
 
-	ctx.db.transaction((tx) => {
-		tx.insert(overtimeTable)
-			.values({
-				id,
-				userId: input.userId,
-				workDate: workDay,
-				hours,
-				isApproved: false,
-				approvedBy: null,
-				approvedAt: null,
-				note: input.note?.trim() ? input.note.trim() : null,
-				createdAt: now,
-				updatedAt: now,
-			})
-			.run();
+	await ctx.db.transaction(async (tx) => {
+		await tx.insert(overtimeTable).values({
+			id,
+			userId: input.userId,
+			workDate: workDay,
+			hours,
+			isApproved: false,
+			approvedBy: null,
+			approvedAt: null,
+			note: input.note?.trim() ? input.note.trim() : null,
+			createdAt: now,
+			updatedAt: now,
+		});
 	});
 
 	const [row] = await ctx.db
@@ -1212,33 +1203,31 @@ export async function reviewOvertime(
 	const approved = input.decision === "APPROVED";
 	const toilDays = approved ? existing.hours / OVERTIME_HOURS_PER_TOIL_DAY : 0;
 
-	ctx.db.transaction((tx) => {
-		tx.update(overtimeTable)
+	await ctx.db.transaction(async (tx) => {
+		await tx
+			.update(overtimeTable)
 			.set({
 				isApproved: approved,
 				approvedBy: viewer.id,
 				approvedAt: now,
 				updatedAt: now,
 			})
-			.where(eq(overtimeTable.id, existing.id))
-			.run();
+			.where(eq(overtimeTable.id, existing.id));
 
 		if (approved) {
-			tx.insert(leaveBalanceTable)
-				.values({
-					id: crypto.randomUUID(),
-					userId: existing.userId,
-					leaveCode: "TOIL",
-					entryType: "ACCRUAL",
-					deltaDays: toilDays,
-					periodYear: yearOf(existing.workDate),
-					referenceType: "OVERTIME_RECORD",
-					referenceId: existing.id,
-					note: `Approved overtime: ${existing.hours}h / ${OVERTIME_HOURS_PER_TOIL_DAY}h per TOIL day.`,
-					createdBy: viewer.id,
-					createdAt: now,
-				})
-				.run();
+			await tx.insert(leaveBalanceTable).values({
+				id: crypto.randomUUID(),
+				userId: existing.userId,
+				leaveCode: "TOIL",
+				entryType: "ACCRUAL",
+				deltaDays: toilDays,
+				periodYear: yearOf(existing.workDate),
+				referenceType: "OVERTIME_RECORD",
+				referenceId: existing.id,
+				note: `Approved overtime: ${existing.hours}h / ${OVERTIME_HOURS_PER_TOIL_DAY}h per TOIL day.`,
+				createdBy: viewer.id,
+				createdAt: now,
+			});
 		}
 	});
 

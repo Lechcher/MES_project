@@ -107,6 +107,10 @@ export const TASK_QUERY = /* GraphQL */ `
       }
       journey {
         id
+        task {
+          id
+          taskCode
+        }
         scope
         title
         description

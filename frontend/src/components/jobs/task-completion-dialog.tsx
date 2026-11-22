@@ -56,6 +56,10 @@ export function TaskCompletionDialog({
   const [plannedStageCount, setPlannedStageCount] = useState("");
   const [attachmentIds, setAttachmentIds] = useState<string[]>([]);
   const [error, setError] = useState<string | null>(null);
+  /** The first picked attachment that is not stored, per the field, or null. */
+  const [unresolvedAttachment, setUnresolvedAttachment] = useState<
+    string | null
+  >(null);
 
   const reset = () => {
     setTitle("");
@@ -64,6 +68,7 @@ export function TaskCompletionDialog({
     setPlannedStageCount("");
     setAttachmentIds([]);
     setError(null);
+    setUnresolvedAttachment(null);
   };
 
   const close = () => {
@@ -71,11 +76,18 @@ export function TaskCompletionDialog({
     onOpenChange(false);
   };
 
-  const canSubmit = title.trim().length > 0 && !submit.loading;
+  const canSubmit =
+    title.trim().length > 0 && unresolvedAttachment === null && !submit.loading;
 
   const run = async () => {
     if (!canSubmit) {
-      setError(t("completionTitleRequired"));
+      setError(
+        unresolvedAttachment !== null
+          ? t("completionAttachmentsUnresolved", {
+              name: unresolvedAttachment,
+            })
+          : t("completionTitleRequired"),
+      );
       return;
     }
     setError(null);
@@ -136,7 +148,7 @@ export function TaskCompletionDialog({
             </div>
           ) : null}
 
-          <div className="grid gap-1">
+          <div className="grid min-w-0 gap-1">
             <Label htmlFor="completion-title">
               {t("completionTitleLabel")}
             </Label>
@@ -148,7 +160,7 @@ export function TaskCompletionDialog({
             />
           </div>
 
-          <div className="grid gap-1">
+          <div className="grid min-w-0 gap-1">
             <Label htmlFor="completion-description">
               {t("completionDescriptionLabel")}
             </Label>
@@ -202,8 +214,17 @@ export function TaskCompletionDialog({
             taskId={task.id}
             attachmentIds={attachmentIds}
             onChange={setAttachmentIds}
+            onUnresolvedChange={setUnresolvedAttachment}
             disabled={submit.loading}
           />
+
+          {unresolvedAttachment !== null ? (
+            <InlineAlert tone="error">
+              {t("completionAttachmentsUnresolved", {
+                name: unresolvedAttachment,
+              })}
+            </InlineAlert>
+          ) : null}
 
           {error ? <InlineAlert tone="error">{error}</InlineAlert> : null}
         </div>

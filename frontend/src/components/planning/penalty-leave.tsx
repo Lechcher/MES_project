@@ -2,6 +2,7 @@
 
 import { useTranslations } from "next-intl";
 import { useMemo, useState } from "react";
+import { DatePicker } from "@/components/shared/date-picker";
 import { InlineAlert, LoadingState } from "@/components/shared/query-states";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -144,12 +145,11 @@ export function PenaltyLeaveSection() {
         </div>
         <div className="grid gap-1">
           <Label htmlFor="penalty-date">{t("workDateLabel")}</Label>
-          <Input
+          <DatePicker
             id="penalty-date"
-            type="date"
             value={workDate}
-            required
-            onChange={(event) => setWorkDate(event.target.value)}
+            onChange={setWorkDate}
+            invalid={workDate === ""}
           />
         </div>
         <div className="grid gap-1">

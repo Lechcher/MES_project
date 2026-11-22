@@ -4,6 +4,8 @@ import { DashboardView } from "@/components/home/dashboard-view";
 // has no prerendered content. Declaring the segment as allowed to block stops the
 // framework from reporting it as an unrenderable segment during validation.
 
+export const instant = false;
+
 export default function DashboardPage() {
   return <DashboardView />;
 }

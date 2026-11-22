@@ -19,7 +19,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { asc, eq } from "drizzle-orm";
 import { type AppConfig, loadConfig } from "../config";
-import { createDatabase, type DatabaseHandle } from "../db";
+import type { DatabaseHandle } from "../db";
 import { ROLE_CODES, type RoleCode } from "../db/enums";
 import { DEFAULT_MIGRATIONS_FOLDER } from "../db/migrate";
 import type { TaskCompletionRequestRow } from "../db/schema";
@@ -33,13 +33,14 @@ import {
 	user,
 	userRoles,
 } from "../db/schema";
+import { createTestDatabase, type TestDatabase } from "../db/test-db";
 import { createContext, type ViewerContext } from "../graphql/context";
 import { jobsMutation, jobsQuery } from "../graphql/resolvers/jobs";
 
-const PREFERRED_TMP =
-	"/private/var/folders/xg/lnbqz3fs2w74l46y045jdxmh0000gn/T/opencode";
+const PREFERRED_TMP = tmpdir();
 
 let tempDir: string;
+let testDb: TestDatabase;
 let db: DatabaseHandle;
 const config: AppConfig = loadConfig({ NODE_ENV: "test" });
 const authStub = {} as never;
@@ -60,12 +61,12 @@ interface TaskRequestShape {
 }
 
 /** Apply the versioned migration SQL to this connection. */
-function applyMigrations(handle: DatabaseHandle): void {
+async function _applyMigrations(handle: DatabaseHandle): Promise<void> {
 	const files = readdirSync(DEFAULT_MIGRATIONS_FOLDER)
 		.filter((file) => file.endsWith(".sql"))
 		.sort();
 	for (const file of files) {
-		handle.$client.exec(
+		await handle.$client.query(
 			readFileSync(join(DEFAULT_MIGRATIONS_FOLDER, file), "utf8"),
 		);
 	}
@@ -271,8 +272,8 @@ beforeAll(async () => {
 	const root = existsSync(PREFERRED_TMP) ? PREFERRED_TMP : tmpdir();
 	mkdirSync(root, { recursive: true });
 	tempDir = mkdtempSync(join(root, "mes-jobs-"));
-	db = createDatabase(join(tempDir, "test.db"));
-	applyMigrations(db);
+	testDb = await createTestDatabase();
+	db = testDb.db;
 	await seed(db);
 
 	techLead = makeCtx({
@@ -292,9 +293,9 @@ beforeAll(async () => {
 	});
 });
 
-afterAll(() => {
+afterAll(async () => {
 	try {
-		db?.$client.close();
+		await testDb.close();
 	} finally {
 		if (tempDir) rmSync(tempDir, { recursive: true, force: true });
 	}

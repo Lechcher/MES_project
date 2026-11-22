@@ -112,7 +112,12 @@ export function ScheduleGrid({
   const laneCounts = lanePlan.map((plan) => plan.laneCount);
 
   return (
-    <div className="border border-border">
+    // The grid lives in a `grid gap-4` container whose items refuse to shrink
+    // below their content (`min-width: auto`), so the bordered box opts out of
+    // that and lets the scroll host below be sized by the available width —
+    // otherwise the track (and the page) grow to the timeline's full width
+    // instead of the host scrolling.
+    <div className="min-w-0 border border-border">
       <div ref={bodyRef} className="overflow-x-auto">
         <div style={{ minWidth: EMPLOYEE_COL_PX + cols.length * colWidth }}>
           {/* Header */}

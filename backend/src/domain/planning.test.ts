@@ -1,9 +1,7 @@
 import { afterAll, describe, expect, test } from "bun:test";
-import { existsSync, rmSync } from "node:fs";
-import { join } from "node:path";
 import { and, eq } from "drizzle-orm";
 import { loadConfig } from "../config";
-import { createDatabase, type DatabaseHandle } from "../db";
+import type { DatabaseHandle } from "../db";
 import {
 	attendanceRecords,
 	kpiPointRules,
@@ -15,6 +13,7 @@ import {
 	user,
 	userRoles,
 } from "../db/schema";
+import { createTestDatabase, type TestDatabase } from "../db/test-db";
 import {
 	createContext,
 	type Viewer,
@@ -27,16 +26,12 @@ import {
 	reviewLeave,
 } from "./planning";
 
-const TMP_ROOT =
-	"/private/var/folders/xg/lnbqz3fs2w74l46y045jdxmh0000gn/T/opencode";
-const created: string[] = [];
+const testDbs: TestDatabase[] = [];
 
-afterAll(() => {
-	for (const path of created) {
-		for (const suffix of ["", "-wal", "-shm"]) {
-			if (existsSync(`${path}${suffix}`)) rmSync(`${path}${suffix}`);
-		}
-	}
+afterAll(async () => {
+	// Closing the generated databases in parallel keeps the
+	// teardown well inside the hook timeout under a loaded server.
+	await Promise.all(testDbs.map((testDb) => testDb.close()));
 });
 
 /* ------------------------------------------------------------------ */
@@ -53,13 +48,9 @@ interface Fixture {
 }
 
 async function createFixture(): Promise<Fixture> {
-	const path = join(TMP_ROOT, `mes-planning-${crypto.randomUUID()}.db`);
-	created.push(path);
-
-	// Apply migrations to a clean database file, then open the runtime handle.
-	const { runMigrations } = await import("../db/migrate");
-	runMigrations({ databasePath: path });
-	const db = createDatabase(path);
+	const testDb = await createTestDatabase();
+	testDbs.push(testDb);
+	const db = testDb.db;
 	const config = loadConfig({ NODE_ENV: "test" });
 
 	await db
