@@ -25,6 +25,13 @@ The stack SHALL create a complete backup of its application state — the Postgr
 
 Backup SHALL capture the database through the database engine's own consistent snapshot mechanism, and SHALL capture the file-based state — exported reports and the attachment store — only while the services that write them are stopped, so the archive is internally consistent and contains every record committed before the capture.
 
+#### Scenario: Writers are paused for the capture
+
+- **WHEN** a backup captures the exported reports or the attachment store
+- **THEN** the services that write that state are stopped for the duration of the capture
+- **AND** the database service is not stopped, because its dump is taken through the engine's own consistent snapshot mechanism
+- **AND** only services that were running before the backup are restarted afterwards
+
 #### Scenario: The database dump is a consistent snapshot
 - **WHEN** a backup captures the database while the API is serving writes
 - **THEN** the dump reflects one consistent point in time and contains every record committed before the capture began

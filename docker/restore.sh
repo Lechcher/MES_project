@@ -91,8 +91,8 @@ $COMPOSE exec -T "$PG_SERVICE" \
 stage="$(new_staging)"
 tar -xzOf "$archive" database.dump >"$stage/database.dump"
 $COMPOSE exec -T -i "$PG_SERVICE" \
-	pg_restore -U "${POSTGRES_USER:-mes}" --no-owner --no-privileges \
-	-d "$PG_DB" <"$stage/database.dump"
+	pg_restore -U "${POSTGRES_USER:-mes}" --clean --if-exists \
+	--no-owner --no-privileges -d "$PG_DB" <"$stage/database.dump"
 rm -rf -- "$stage"
 stage=""
 
