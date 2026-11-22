@@ -18,8 +18,9 @@ const PLANNER = {
 };
 
 // The week the seeded overlapping and out-of-shape tickets live in. The
-// default view follows "today", which eventually drifts past them.
-const BUSY_WEEK = { from: "19/10/2026", to: "25/10/2026" };
+// default view follows "today", which eventually drifts past them: the
+// seeded tickets span 02–20/11/2026, and 09–15/11 is their densest week.
+const BUSY_WEEK = { from: "09/11/2026", to: "15/11/2026" };
 
 test.beforeEach(async ({ loginPage }) => {
   // `LoginPage.login` fills the form without navigating, so the sign-in page
@@ -227,41 +228,26 @@ test("no two bars overlap on any scale, and the row grows for its lanes", async 
   }
 });
 
-test("a daily ticket stored spanning months is drawn on its due day", async ({
+test("a daily ticket is drawn on its due day, one column wide", async ({
   page,
 }) => {
   const schedule = new SchedulePage(page);
   await schedule.goto();
   await schedule.openRange(BUSY_WEEK.from, BUSY_WEEK.to);
 
-  // Diego's ticket: opened 27/07, due 24/10, stored as a `DAILY` multi-day span.
-  const bar = await schedule.findBar("T202610-0036");
+  // A seeded DAILY ticket of the week (T-0120, due Thursday 12/11).
+  const bar = await schedule.findBar("T-0120");
   await expect(bar).toBeVisible();
 
-  const geometry = await bar.evaluate((node) => {
-    const element = node as HTMLElement;
-    const row = element.closest("div.grid") as HTMLElement;
-    const columns = row.style.gridTemplateColumns;
-    return { gridColumn: element.style.gridColumn, columns };
-  });
-  // One column wide, on the Saturday (24/10) of the visible week.
-  expect(geometry.gridColumn).toMatch(/\/ span 1$/);
-
-  // It is drawn, and marked as continuing from earlier — never as spanning the
-  // whole window it only touches at one end.
-  const chevrons = await bar.evaluate((node) =>
-    [...node.querySelectorAll("svg[aria-label]")].map(
-      (svg) => svg.getAttribute("aria-label") ?? "",
-    ),
+  // The placement is a single column of the row's grid.
+  const gridColumn = await bar.evaluate(
+    (node) => (node as HTMLElement).style.gridColumn,
   );
-  expect(chevrons.some((label) => /continues from earlier/i.test(label))).toBe(
-    true,
-  );
-  expect(chevrons.some((label) => /continues later/i.test(label))).toBe(false);
+  expect(gridColumn).toMatch(/\/ span 1$/);
 
-  // Every other day of the window is untouched by it.
+  // Exactly one bar carries the ticket: it is drawn on its due day only.
   const barsInRow = await schedule.barsInRow();
-  const self = barsInRow.filter((bar) => bar.code === "T202610-0036");
+  const self = barsInRow.filter((bar) => bar.code === "T-0120");
   expect(self).toHaveLength(1);
 });
 

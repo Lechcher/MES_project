@@ -39,7 +39,11 @@ jobs:
         working-directory: ./frontend
 
       - name: Run E2E tests
-        run: bun run test:e2e:ci
+        # The `test:e2e:ci` script already passes `--reporter=junit`, which
+        # prints its XML to stdout; tee writes it to the file the upload step
+        # expects, and the last `--reporter` wins, so html joins junit and the
+        # HTML report is written too.
+        run: mkdir -p tests/e2e && bun run test:e2e:ci --reporter=junit,html | tee tests/e2e/junit.xml
         working-directory: ./frontend
         env:
           CI: "true"
@@ -50,18 +54,26 @@ jobs:
           MES_API_PORT: "3001"
           MES_WEB_ORIGIN: "http://localhost:3000"
 
-      - name: Upload test results
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: playwright-report
-          path: frontend/tests/e2e/playwright-report/
-          retention-days: 7
-
       - name: upload JUnit report
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: junit-report
           path: frontend/tests/e2e/junit.xml
+          retention-days: 7
+
+      - name: Upload HTML report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report
+          path: frontend/playwright-report/
+          retention-days: 7
+
+      - name: Upload failure artifacts
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-failure-artifacts
+          path: frontend/tests/e2e/playwright-report/
           retention-days: 7

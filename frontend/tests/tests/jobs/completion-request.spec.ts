@@ -10,12 +10,21 @@ import { TicketCompletionPage } from "../../pages/jobs/ticket-completion";
 import { TicketDetailPage } from "../../pages/jobs/ticket-detail";
 import { TicketListPage } from "../../pages/jobs/ticket-list";
 
+// A manager-role account: the seeded demo accounts are the only sign-in
+// credentials the dev stack knows, and an approver role is what deciding a
+// completion request needs.
+const MANAGER = {
+  email: "hr.manager@mes.local",
+  password: "MES-dev-seed-2026!",
+};
+
 test("submit and approve a milestone completion request", async ({
   page,
   loginPage,
   createTicket,
 }) => {
-  await loginPage.login("demo@mes.local", "demo-password");
+  await loginPage.goto();
+  await loginPage.login(MANAGER.email, MANAGER.password);
 
   const listPage = new TicketListPage(page);
   await listPage.goto();
@@ -44,12 +53,13 @@ test("submit and approve a milestone completion request", async ({
   await expect(detailPage.state()).resolves.toContain("PEN");
 });
 
-test("submit and reject a full-job completion request", async ({
+test("submit, reject, and resubmit a full-job completion request", async ({
   page,
   loginPage,
   createTicket,
 }) => {
-  await loginPage.login("demo@mes.local", "demo-password");
+  await loginPage.goto();
+  await loginPage.login(MANAGER.email, MANAGER.password);
 
   const listPage = new TicketListPage(page);
   await listPage.goto();
@@ -71,4 +81,11 @@ test("submit and reject a full-job completion request", async ({
   // Reject with a reason
   await completionPage.reject("The deliverable is missing the final report.");
   await expect(detailPage.state()).resolves.toContain("REJ");
+
+  // Resubmit after the rejection: the same completion flow reopens the request
+  await detailPage.complete();
+  await completionPage.selectFullJob();
+  await completionPage.fillTitle("Final report attached");
+  await completionPage.submit();
+  await expect(detailPage.state()).resolves.toContain("PEN");
 });

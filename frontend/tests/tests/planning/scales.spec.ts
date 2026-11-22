@@ -19,12 +19,17 @@ test.beforeEach(async ({ loginPage }) => {
   await loginPage.login(PLANNER.email, PLANNER.password);
 });
 
+// The week the seeded multi-lane tickets live in (02–20/11/2026 in the dev
+// data); the default view follows "today", which drifts past them.
+const BUSY_WEEK = { from: "09/11/2026", to: "15/11/2026" };
+
 for (const scale of ["Day", "Week", "Month", "Year"] as const) {
   test(`${scale} scale keeps every bar inside its interval`, async ({
     page,
   }) => {
     const schedule = new SchedulePage(page);
     await schedule.goto();
+    await schedule.openRange(BUSY_WEEK.from, BUSY_WEEK.to);
     await page
       .getByRole("button", { name: new RegExp(scale, "i") })
       .first()
@@ -59,13 +64,12 @@ for (const scale of ["Day", "Week", "Month", "Year"] as const) {
   });
 }
 
-test("a custom quarter range renders its bars", async ({ page }) => {
+test("a custom month range renders its bars", async ({ page }) => {
   const schedule = new SchedulePage(page);
   await schedule.goto();
 
-  await page.locator("#schedule-range-from").fill("01/10/2026");
-  await page.locator("#schedule-range-to").fill("31/12/2026");
-  await page.getByRole("button", { name: /^apply$/i }).click();
+  // The whole seeded month of November 2026, picked on the toolbar calendar.
+  await schedule.openRange("01/11/2026", "30/11/2026");
   await page.waitForTimeout(2500);
 
   await expect(schedule.ticketBars.first()).toBeVisible();

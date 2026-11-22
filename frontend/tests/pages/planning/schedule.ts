@@ -60,22 +60,52 @@ export class SchedulePage extends BasePage {
       .getByRole("tab", { name: /schedule/i })
       .first()
       .click();
-    await this.ticketBars.first().waitFor({ state: "attached" });
+    // The default window follows "today", which can be a week past the seeded
+    // tickets: the grid renders one row per employee either way, so the wait
+    // is on a row, never on a bar.
+    await this.allRows().first().waitFor({ state: "attached" });
     await this.waitForGridToSettle();
   }
 
   /**
-   * Apply a custom day range from the toolbar.
+   * Apply a custom day range through the toolbar's calendar.
    *
-   * The seeded multi-lane tickets live in one week of October 2026, so the
-   * geometry checks open that range rather than whatever "today" happens to
-   * show. Applying the range is a client-side navigation, so the session
-   * survives.
+   * The toolbar's typed `DD/MM/YYYY` pair was replaced by the calendar
+   * DateRangePicker, so the two endpoint days are picked in its popover.
+   * Applying the range is a client-side navigation
+   * (`?scale=...&from=...&to=...`), so the session survives.
    */
   async openRange(fromDmy: string, toDmy: string) {
-    await this.page.locator("#schedule-range-from").fill(fromDmy);
-    await this.page.locator("#schedule-range-to").fill(toDmy);
-    await this.page.getByRole("button", { name: /^apply$/i }).click();
+    await this.openRangeCalendar();
+    const popover = this.rangePopover();
+    const currentMonth = new Date(
+      new Date().getFullYear(),
+      new Date().getMonth(),
+      1,
+    );
+    // The picker opens on the viewed month, so step toward the endpoint's
+    // month while it is not rendered yet.
+    const pickDay = async (dmy: string) => {
+      const day = popover.locator(`button[data-day="${toPickerDay(dmy)}"]`);
+      const target = new Date(`${toIsoDay(dmy)}T00:00:00`);
+      const nav =
+        new Date(target.getFullYear(), target.getMonth(), 1) < currentMonth
+          ? /previous month/i
+          : /next month/i;
+      for (let guard = 0; guard < 24; guard += 1) {
+        if ((await day.count()) > 0) break;
+        await popover.getByRole("button", { name: nav }).click();
+      }
+      await day.first().click();
+    };
+    await pickDay(fromDmy);
+    await pickDay(toDmy);
+    await this.page.keyboard.press("Escape");
+    // The applied range round-trips through the URL before the grid re-reads.
+    await this.page.waitForURL(
+      new RegExp(`[?&]from=${toIsoDay(fromDmy)}(&|$)`),
+    );
+    await this.page.waitForURL(new RegExp(`[?&]to=${toIsoDay(toDmy)}(&|$)`));
     await this.ticketBars.first().waitFor({ state: "attached" });
     await this.waitForGridToSettle();
   }
@@ -443,4 +473,16 @@ export class SchedulePage extends BasePage {
     }
     return null;
   }
+}
+
+/** `DD/MM/YYYY` as the calendar day button's `M/D/YYYY` data attribute. */
+function toPickerDay(dmy: string): string {
+  const [day, month, year] = dmy.split("/");
+  return `${Number(month)}/${Number(day)}/${year}`;
+}
+
+/** `DD/MM/YYYY` as the `YYYY-MM-DD` the range URL params carry. */
+function toIsoDay(dmy: string): string {
+  const [day, month, year] = dmy.split("/");
+  return `${year}-${month.padStart(2, "0")}-${day.padStart(2, "0")}`;
 }

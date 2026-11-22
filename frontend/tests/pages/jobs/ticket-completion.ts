@@ -27,9 +27,10 @@ export class TicketCompletionPage extends BasePage {
   });
   readonly rejectButton = this.page.getByRole("button", { name: /^reject$/i });
   readonly rejectReasonInput = this.page.getByLabel(/reason/i);
-  readonly rejectSubmitButton = this.page.getByRole("button", {
-    name: /reject/i,
-  });
+  // Scoped to the reject dialog: the trigger behind it also says "Reject".
+  readonly rejectSubmitButton = this.page
+    .getByRole("dialog")
+    .getByRole("button", { name: /reject/i });
 
   /** Select "Complete milestone" scope (MULTI_DAY tickets). */
   async selectMilestone() {
