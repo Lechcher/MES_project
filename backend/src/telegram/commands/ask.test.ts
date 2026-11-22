@@ -18,17 +18,15 @@ import {
 	expect,
 	test,
 } from "bun:test";
-import { existsSync, rmSync } from "node:fs";
-import { join } from "node:path";
 import { loadConfig } from "../../config";
-import { createDatabase, type DatabaseHandle } from "../../db";
+import type { DatabaseHandle } from "../../db";
 import type { RoleCode } from "../../db/enums";
-import { runMigrations } from "../../db/migrate";
 import {
 	telegramAiModels,
 	telegramAiUsage,
 	user as userTable,
 } from "../../db/schema";
+import { createTestDatabase, type TestDatabase } from "../../db/test-db";
 import {
 	createContext,
 	type Viewer,
@@ -37,9 +35,7 @@ import {
 import type { BotContext } from "../bot-context";
 import { registerAskCommands } from "./ask";
 
-const TMP_ROOT =
-	"/private/var/folders/xg/lnbqz3fs2w74l46y045jdxmh0000gn/T/opencode";
-const dbPath = join(TMP_ROOT, `mes-tg-ask-${crypto.randomUUID()}.db`);
+let testDb: TestDatabase;
 
 let db: DatabaseHandle;
 let handlers: Map<string, (ctx: BotContext) => Promise<void>>;
@@ -53,24 +49,22 @@ function composer() {
 	};
 }
 
-beforeAll(() => {
-	runMigrations({ databasePath: dbPath });
-	db = createDatabase(dbPath);
+beforeAll(async () => {
+	testDb = await createTestDatabase();
+	db = testDb.db;
 	handlers = new Map();
 	registerAskCommands(composer() as never, {
 		db,
 		config: loadConfig({
 			NODE_ENV: "test",
-			MES_DATABASE_PATH: dbPath,
+			MES_DATABASE_URL: testDb.connectionString,
 			TELEGRAM_AI_MONTHLY_QUOTA: "1",
 		}),
 	});
 });
 
-afterAll(() => {
-	for (const suffix of ["", "-wal", "-shm"]) {
-		if (existsSync(`${dbPath}${suffix}`)) rmSync(`${dbPath}${suffix}`);
-	}
+afterAll(async () => {
+	await testDb.close();
 });
 
 afterEach(async () => {
@@ -89,7 +83,10 @@ function fakeContext(
 	const replies: string[] = [];
 	const viewerCtx: ViewerContext = createContext({
 		db,
-		config: loadConfig({ NODE_ENV: "test", MES_DATABASE_PATH: dbPath }),
+		config: loadConfig({
+			NODE_ENV: "test",
+			MES_DATABASE_URL: testDb.connectionString,
+		}),
 		request: { ipAddress: null, userAgent: "telegram-bot" },
 		viewer: who,
 	});

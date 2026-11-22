@@ -15,18 +15,14 @@ import {
 	expect,
 	test,
 } from "bun:test";
-import { existsSync, rmSync } from "node:fs";
-import { join } from "node:path";
 import { eq } from "drizzle-orm";
-import { createDatabase, type DatabaseHandle } from "../../db";
-import { runMigrations } from "../../db/migrate";
+import type { DatabaseHandle } from "../../db";
 import { telegramAiUsage, user as userTable } from "../../db/schema";
+import { createTestDatabase, type TestDatabase } from "../../db/test-db";
 import type { Viewer } from "../../graphql/context";
 import { BUDGET_WINDOW_DAYS, consumeBudget } from "./budget";
 
-const TMP_ROOT =
-	"/private/var/folders/xg/lnbqz3fs2w74l46y045jdxmh0000gn/T/opencode";
-const dbPath = join(TMP_ROOT, `mes-tg-budget-${crypto.randomUUID()}.db`);
+let testDb: TestDatabase;
 
 let db: DatabaseHandle;
 
@@ -52,15 +48,13 @@ function viewer(id: string): Viewer {
 	};
 }
 
-beforeAll(() => {
-	runMigrations({ databasePath: dbPath });
-	db = createDatabase(dbPath);
+beforeAll(async () => {
+	testDb = await createTestDatabase();
+	db = testDb.db;
 });
 
-afterAll(() => {
-	for (const suffix of ["", "-wal", "-shm"]) {
-		if (existsSync(`${dbPath}${suffix}`)) rmSync(`${dbPath}${suffix}`);
-	}
+afterAll(async () => {
+	await testDb.close();
 });
 
 afterEach(async () => {

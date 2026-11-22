@@ -9,13 +9,11 @@
  */
 
 import { afterAll, describe, expect, test } from "bun:test";
-import { existsSync, rmSync } from "node:fs";
-import { join } from "node:path";
 import { eq } from "drizzle-orm";
 import { loadConfig } from "../config";
-import { createDatabase, type DatabaseHandle } from "../db";
-import { runMigrations } from "../db/migrate";
+import type { DatabaseHandle } from "../db";
 import { telegramWebhookConfig, user } from "../db/schema";
+import { createTestDatabase, type TestDatabase } from "../db/test-db";
 import type { Viewer } from "../graphql/context";
 import {
 	consumeLinkCode,
@@ -32,26 +30,18 @@ import {
 	upsertLink,
 } from "./settings";
 
-const TMP_ROOT =
-	"/private/var/folders/xg/lnbqz3fs2w74l46y045jdxmh0000gn/T/opencode";
-const createdPaths: string[] = [];
+const testDbs: TestDatabase[] = [];
 
-afterAll(() => {
-	for (const path of createdPaths) {
-		for (const suffix of ["", "-wal", "-shm"]) {
-			if (existsSync(`${path}${suffix}`)) rmSync(`${path}${suffix}`);
-		}
-	}
+afterAll(async () => {
+	// Closing the generated databases in parallel keeps the
+	// teardown well inside the hook timeout under a loaded server.
+	await Promise.all(testDbs.map((testDb) => testDb.close()));
 });
 
-function freshDatabase(name: string): DatabaseHandle {
-	const path = join(
-		TMP_ROOT,
-		`mes-tg-settings-${name}-${crypto.randomUUID()}.db`,
-	);
-	createdPaths.push(path);
-	runMigrations({ databasePath: path });
-	return createDatabase(path);
+async function freshDatabase(_name: string): Promise<DatabaseHandle> {
+	const testDb = await createTestDatabase();
+	testDbs.push(testDb);
+	return testDb.db;
 }
 
 function viewer(id: string): Viewer {
@@ -78,7 +68,7 @@ async function seedUser(db: DatabaseHandle, id: string): Promise<void> {
 
 describe("resolveBotSettings", () => {
 	test("stays disabled and tokenless with nothing configured", async () => {
-		const db = freshDatabase("defaults");
+		const db = await freshDatabase("defaults");
 		const settings = await resolveBotSettings(
 			db,
 			loadConfig({ NODE_ENV: "test" }),
@@ -90,7 +80,7 @@ describe("resolveBotSettings", () => {
 	});
 
 	test("bootstraps from the environment alone", async () => {
-		const db = freshDatabase("env");
+		const db = await freshDatabase("env");
 		const settings = await resolveBotSettings(
 			db,
 			loadConfig({
@@ -110,7 +100,7 @@ describe("resolveBotSettings", () => {
 	});
 
 	test("website values override the environment", async () => {
-		const db = freshDatabase("website");
+		const db = await freshDatabase("website");
 		// The row is created on first read; then saved with website values.
 		await resolveBotSettings(
 			db,
@@ -155,7 +145,7 @@ describe("resolveBotSettings", () => {
 	});
 
 	test("falls back to the outbound webhook's token when neither side sets one", async () => {
-		const db = freshDatabase("webhook-fallback");
+		const db = await freshDatabase("webhook-fallback");
 		await db.insert(telegramWebhookConfig).values({
 			id: crypto.randomUUID(),
 			botToken: "333:webhook-token",
@@ -169,7 +159,7 @@ describe("resolveBotSettings", () => {
 	});
 
 	test("the environment re-applies once the website value is cleared", async () => {
-		const db = freshDatabase("cleared");
+		const db = await freshDatabase("cleared");
 		const envConfig = loadConfig({
 			NODE_ENV: "test",
 			TELEGRAM_BOT_TOKEN: "env-token",
@@ -188,18 +178,18 @@ describe("resolveBotSettings", () => {
 });
 
 describe("maskSecret", () => {
-	test("returns null for empty values", () => {
+	test("returns null for empty values", async () => {
 		expect(maskSecret(null)).toBeNull();
 		expect(maskSecret(undefined)).toBeNull();
 		expect(maskSecret("")).toBeNull();
 	});
 
-	test("keeps only the last four characters", () => {
+	test("keeps only the last four characters", async () => {
 		expect(maskSecret("sk-super-secret-key")).toBe("****-key");
 		expect(maskSecret("1234567890")).toBe("****7890");
 	});
 
-	test("masks short values entirely", () => {
+	test("masks short values entirely", async () => {
 		expect(maskSecret("abc")).toBe("****");
 		expect(maskSecret("abcd")).toBe("****");
 	});
@@ -207,7 +197,7 @@ describe("maskSecret", () => {
 
 describe("resolveAiModel", () => {
 	test("prefers the per-user preference, then the website default, then the environment", async () => {
-		const db = freshDatabase("model-ladder");
+		const db = await freshDatabase("model-ladder");
 		await seedUser(db, "u1");
 		const who = viewer("u1");
 
@@ -235,7 +225,7 @@ describe("resolveAiModel", () => {
 	});
 
 	test("persists across a simulated restart", async () => {
-		const db = freshDatabase("model-persist");
+		const db = await freshDatabase("model-persist");
 		await seedUser(db, "u1");
 		await setUserModel(db, "u1", "user-model");
 		const who = viewer("u1");
@@ -247,7 +237,7 @@ describe("resolveAiModel", () => {
 
 describe("link codes", () => {
 	test("a fresh code consumes once and links the identity", async () => {
-		const db = freshDatabase("link-ok");
+		const db = await freshDatabase("link-ok");
 		await seedUser(db, "u1");
 		const code = generateLinkCode();
 		const { telegramLinkCodes } = await import("../db/schema");
@@ -270,7 +260,7 @@ describe("link codes", () => {
 	});
 
 	test("stores only the hash, never the plaintext", async () => {
-		const db = freshDatabase("link-hash");
+		const db = await freshDatabase("link-hash");
 		await seedUser(db, "u1");
 		const code = generateLinkCode();
 		const { telegramLinkCodes } = await import("../db/schema");
@@ -285,7 +275,7 @@ describe("link codes", () => {
 	});
 
 	test("an expired code is refused", async () => {
-		const db = freshDatabase("link-expired");
+		const db = await freshDatabase("link-expired");
 		await seedUser(db, "u1");
 		const { telegramLinkCodes } = await import("../db/schema");
 		await db.insert(telegramLinkCodes).values({
@@ -299,13 +289,13 @@ describe("link codes", () => {
 	});
 
 	test("an unknown code is refused", async () => {
-		const db = freshDatabase("link-unknown");
+		const db = await freshDatabase("link-unknown");
 		expect(
 			await consumeLinkCode(db, "LINK-QQQQ1111", "tg-1", "chat-1"),
 		).toBeNull();
 	});
 
-	test("the expiry is read from configuration", () => {
+	test("the expiry is read from configuration", async () => {
 		const config = loadConfig({
 			NODE_ENV: "test",
 			TELEGRAM_LINK_CODE_TTL_MINUTES: "5",
@@ -318,7 +308,7 @@ describe("link codes", () => {
 
 describe("links", () => {
 	test("resolve the linked viewer and chat", async () => {
-		const db = freshDatabase("link-resolve");
+		const db = await freshDatabase("link-resolve");
 		await seedUser(db, "u1");
 		await upsertLink(db, {
 			userId: "u1",
@@ -331,7 +321,7 @@ describe("links", () => {
 	});
 
 	test("a revoked link resolves to null", async () => {
-		const db = freshDatabase("link-revoke");
+		const db = await freshDatabase("link-revoke");
 		await seedUser(db, "u1");
 		await upsertLink(db, {
 			userId: "u1",
@@ -345,7 +335,7 @@ describe("links", () => {
 	});
 
 	test("a deactivated account resolves to null", async () => {
-		const db = freshDatabase("link-inactive");
+		const db = await freshDatabase("link-inactive");
 		await seedUser(db, "u1");
 		await upsertLink(db, {
 			userId: "u1",
@@ -357,7 +347,7 @@ describe("links", () => {
 	});
 
 	test("re-linking a revoked identity reactivates it", async () => {
-		const db = freshDatabase("link-relink");
+		const db = await freshDatabase("link-relink");
 		await seedUser(db, "u1");
 		await seedUser(db, "u2");
 		await upsertLink(db, {

@@ -15,11 +15,9 @@ import {
 	expect,
 	test,
 } from "bun:test";
-import { existsSync, rmSync } from "node:fs";
-import { join } from "node:path";
-import { createDatabase, type DatabaseHandle } from "../../db";
-import { runMigrations } from "../../db/migrate";
+import type { DatabaseHandle } from "../../db";
 import { telegramAiModels } from "../../db/schema";
+import { createTestDatabase, type TestDatabase } from "../../db/test-db";
 import {
 	catalogAgeMs,
 	fetchModelCatalog,
@@ -28,21 +26,17 @@ import {
 	refreshModelCatalog,
 } from "./catalog";
 
-const TMP_ROOT =
-	"/private/var/folders/xg/lnbqz3fs2w74l46y045jdxmh0000gn/T/opencode";
-const dbPath = join(TMP_ROOT, `mes-tg-catalog-${crypto.randomUUID()}.db`);
+let testDb: TestDatabase;
 
 let db: DatabaseHandle;
 
-beforeAll(() => {
-	runMigrations({ databasePath: dbPath });
-	db = createDatabase(dbPath);
+beforeAll(async () => {
+	testDb = await createTestDatabase();
+	db = testDb.db;
 });
 
-afterAll(() => {
-	for (const suffix of ["", "-wal", "-shm"]) {
-		if (existsSync(`${dbPath}${suffix}`)) rmSync(`${dbPath}${suffix}`);
-	}
+afterAll(async () => {
+	await testDb.close();
 });
 
 afterEach(async () => {

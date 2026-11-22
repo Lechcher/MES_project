@@ -16,19 +16,15 @@ import {
 	expect,
 	test,
 } from "bun:test";
-import { existsSync, rmSync } from "node:fs";
-import { join } from "node:path";
 import { loadConfig } from "../config";
-import { createDatabase, type DatabaseHandle } from "../db";
-import { runMigrations } from "../db/migrate";
+import type { DatabaseHandle } from "../db";
 import { notifications, telegramBotSettings, user } from "../db/schema";
+import { createTestDatabase, type TestDatabase } from "../db/test-db";
 import { createContext, type ViewerContext } from "../graphql/context";
 import { setTelegramSender } from "../telegram/sender";
 import { dispatchNotification } from "./notifications";
 
-const TMP_ROOT =
-	"/private/var/folders/xg/lnbqz3fs2w74l46y045jdxmh0000gn/T/opencode";
-const dbPath = join(TMP_ROOT, `mes-tg-push-${crypto.randomUUID()}.db`);
+let testDb: TestDatabase;
 
 let db: DatabaseHandle;
 /** Test environment: outbound delivery is refused by the env gate. */
@@ -36,12 +32,15 @@ let ctx: ViewerContext;
 /** Development environment: outbound delivery is allowed, so the channels run. */
 let outboundCtx: ViewerContext;
 
-beforeAll(() => {
-	runMigrations({ databasePath: dbPath });
-	db = createDatabase(dbPath);
+beforeAll(async () => {
+	testDb = await createTestDatabase();
+	db = testDb.db;
 	ctx = createContext({
 		db,
-		config: loadConfig({ NODE_ENV: "test", MES_DATABASE_PATH: dbPath }),
+		config: loadConfig({
+			NODE_ENV: "test",
+			MES_DATABASE_URL: testDb.connectionString,
+		}),
 		request: { ipAddress: null, userAgent: "bun-test" },
 	});
 	outboundCtx = createContext({
@@ -50,16 +49,14 @@ beforeAll(() => {
 			NODE_ENV: "development",
 			BETTER_AUTH_SECRET: "a-development-secret-for-tests",
 			BETTER_AUTH_URL: "http://localhost:3001",
-			MES_DATABASE_PATH: dbPath,
+			MES_DATABASE_URL: testDb.connectionString,
 		}),
 		request: { ipAddress: null, userAgent: "bun-test" },
 	});
 });
 
-afterAll(() => {
-	for (const suffix of ["", "-wal", "-shm"]) {
-		if (existsSync(`${dbPath}${suffix}`)) rmSync(`${dbPath}${suffix}`);
-	}
+afterAll(async () => {
+	await testDb.close();
 });
 
 afterEach(async () => {

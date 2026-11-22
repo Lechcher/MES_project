@@ -16,12 +16,10 @@ import {
 	expect,
 	test,
 } from "bun:test";
-import { existsSync, rmSync } from "node:fs";
-import { join } from "node:path";
 import { eq } from "drizzle-orm";
 import { loadConfig } from "../../config";
-import { createDatabase, type DatabaseHandle } from "../../db";
-import { runMigrations } from "../../db/migrate";
+import type { DatabaseHandle } from "../../db";
+import type { RoleCode } from "../../db/enums";
 import {
 	departments,
 	notifications,
@@ -31,7 +29,7 @@ import {
 	userRoles,
 	user as userTable,
 } from "../../db/schema";
-import type { RoleCode } from "../../db/enums";
+import { createTestDatabase, type TestDatabase } from "../../db/test-db";
 import {
 	createContext,
 	type Viewer,
@@ -40,9 +38,7 @@ import {
 import type { BotContext } from "../bot-context";
 import { registerFeatureCommands } from "./features";
 
-const TMP_ROOT =
-	"/private/var/folders/xg/lnbqz3fs2w74l46y045jdxmh0000gn/T/opencode";
-const dbPath = join(TMP_ROOT, `mes-tg-features-${crypto.randomUUID()}.db`);
+let testDb: TestDatabase;
 
 let db: DatabaseHandle;
 let config: ReturnType<typeof loadConfig>;
@@ -68,10 +64,8 @@ function composer() {
 	};
 }
 
-afterAll(() => {
-	for (const suffix of ["", "-wal", "-shm"]) {
-		if (existsSync(`${dbPath}${suffix}`)) rmSync(`${dbPath}${suffix}`);
-	}
+afterAll(async () => {
+	await testDb.close();
 });
 
 afterEach(async () => {
@@ -270,9 +264,12 @@ describe("database seeds", () => {
 });
 
 async function bootstrapSeeds() {
-	runMigrations({ databasePath: dbPath });
-	config = loadConfig({ NODE_ENV: "test", MES_DATABASE_PATH: dbPath });
-	db = createDatabase(dbPath);
+	testDb = await createTestDatabase();
+	db = testDb.db;
+	config = loadConfig({
+		NODE_ENV: "test",
+		MES_DATABASE_URL: testDb.connectionString,
+	});
 	departmentId = crypto.randomUUID();
 	await db.insert(departments).values({
 		id: departmentId,

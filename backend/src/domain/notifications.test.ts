@@ -8,19 +8,15 @@
  */
 
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
-import { existsSync, rmSync } from "node:fs";
-import { join } from "node:path";
 import { eq } from "drizzle-orm";
 import { type AppConfig, loadConfig } from "../config";
-import { createDatabase, type DatabaseHandle } from "../db";
-import { runMigrations } from "../db/migrate";
+import type { DatabaseHandle } from "../db";
 import { notifications, telegramWebhookConfig } from "../db/schema";
+import { createTestDatabase, type TestDatabase } from "../db/test-db";
 import { createContext, type ViewerContext } from "../graphql/context";
 import { dispatchNotification, notify } from "./notifications";
 
-const TMP_ROOT =
-	"/private/var/folders/xg/lnbqz3fs2w74l46y045jdxmh0000gn/T/opencode";
-const dbPath = join(TMP_ROOT, `mes-notify-${crypto.randomUUID()}.db`);
+let testDb: TestDatabase;
 
 let db: DatabaseHandle;
 let testConfig: AppConfig;
@@ -57,24 +53,24 @@ async function readNotification(id: string) {
 	return row;
 }
 
-beforeAll(() => {
-	runMigrations({ databasePath: dbPath });
-	testConfig = loadConfig({ NODE_ENV: "test", MES_DATABASE_PATH: dbPath });
+beforeAll(async () => {
+	testDb = await createTestDatabase();
+	db = testDb.db;
+	testConfig = loadConfig({
+		NODE_ENV: "test",
+		MES_DATABASE_URL: testDb.connectionString,
+	});
 	// `development` keeps outbound delivery enabled, with an explicit secret.
 	outboundConfig = loadConfig({
 		NODE_ENV: "development",
 		BETTER_AUTH_SECRET: "a-development-secret-for-tests",
 		BETTER_AUTH_URL: "http://localhost:3001",
-		MES_DATABASE_PATH: dbPath,
+		MES_DATABASE_URL: testDb.connectionString,
 	});
-	db = createDatabase(dbPath);
 });
 
-afterAll(() => {
-	for (const suffix of ["", "-wal", "-shm"]) {
-		const path = `${dbPath}${suffix}`;
-		if (existsSync(path)) rmSync(path);
-	}
+afterAll(async () => {
+	await testDb.close();
 });
 
 describe("unconfigured and disabled delivery", () => {
