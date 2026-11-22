@@ -49,30 +49,41 @@ async function readSessionToken(): Promise<string | null> {
 }
 
 export async function POST(request: Request): Promise<Response> {
-  let payload: { email?: unknown; password?: unknown };
+  let payload: { identifier?: unknown; password?: unknown };
   try {
-    payload = (await request.json()) as { email?: unknown; password?: unknown };
+    payload = (await request.json()) as {
+      identifier?: unknown;
+      password?: unknown;
+    };
   } catch {
     return errorResponse(
       "VALIDATION_FAILED",
-      "A JSON body with email and password is required.",
+      "A JSON body with an identifier and password is required.",
       400,
     );
   }
 
-  const email = typeof payload.email === "string" ? payload.email.trim() : "";
+  const identifier =
+    typeof payload.identifier === "string" ? payload.identifier.trim() : "";
   const password = typeof payload.password === "string" ? payload.password : "";
-  if (email === "" || password === "") {
+  if (identifier === "" || password === "") {
     return errorResponse(
       "VALIDATION_FAILED",
-      "Email and password are required.",
+      "An identifier and password are required.",
       400,
     );
   }
+
+  // An identifier carrying an "@" is an email address; anything else is read
+  // as a user code. Neither form is validated here, so a wrong guess fails
+  // exactly like a wrong password rather than revealing which accounts exist.
+  const identifyingField = identifier.includes("@")
+    ? ({ email: identifier } as const)
+    : ({ userCode: identifier } as const);
 
   const result = await callBackendGraphQL<MesLoginResult>({
     query: MES_LOGIN_MUTATION,
-    variables: { input: { email, password } },
+    variables: { input: { ...identifyingField, password } },
     operationName: "Login",
   });
 
@@ -80,9 +91,7 @@ export async function POST(request: Request): Promise<Response> {
     const code = result.errorCode ?? "INTERNAL";
     const message =
       result.errorMessage ??
-      (code === "UNAUTHENTICATED"
-        ? "Invalid email or password."
-        : "Sign-in failed.");
+      (code === "UNAUTHENTICATED" ? "Invalid credentials." : "Sign-in failed.");
     return errorResponse(code, message, statusForErrorCode(code));
   }
 

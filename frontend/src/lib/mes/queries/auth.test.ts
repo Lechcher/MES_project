@@ -8,10 +8,30 @@
 
 import { describe, expect, test } from "bun:test";
 import {
+  CHANGE_PASSWORD,
+  CONFIRM_EMAIL_CHANGE,
   isInvalidResetToken,
   MIN_PASSWORD_LENGTH,
   passwordPolicyError,
+  REQUEST_EMAIL_CHANGE,
 } from "./auth";
+
+describe("self-service credential documents", () => {
+  test("the password change calls the documented operation with its input", () => {
+    expect(CHANGE_PASSWORD).toContain("mutation ChangePassword");
+    expect(CHANGE_PASSWORD).toContain("changePassword(input: $input)");
+  });
+
+  test("the email change request names its operation and fields", () => {
+    expect(REQUEST_EMAIL_CHANGE).toContain("mutation RequestEmailChange");
+    expect(REQUEST_EMAIL_CHANGE).toContain("requestEmailChange(input: $input)");
+  });
+
+  test("the confirmation takes the token as its only argument", () => {
+    expect(CONFIRM_EMAIL_CHANGE).toContain("mutation ConfirmEmailChange");
+    expect(CONFIRM_EMAIL_CHANGE).toContain("confirmEmailChange(token: $token)");
+  });
+});
 
 describe("password policy", () => {
   test("matches the length the administrative reset enforces", () => {
@@ -73,5 +93,16 @@ describe("invalid-token detection", () => {
     expect(isInvalidResetToken(null)).toBe(false);
     expect(isInvalidResetToken(undefined)).toBe(false);
     expect(isInvalidResetToken({})).toBe(false);
+  });
+
+  // The email-change confirmation route reports an unusable link with the
+  // same encoding as the reset route, so the reset helper is its detector.
+  test("recognises the email-change confirmation failure", () => {
+    expect(
+      isInvalidResetToken({
+        code: "VALIDATION_FAILED",
+        details: { reason: "INVALID_TOKEN" },
+      }),
+    ).toBe(true);
   });
 });

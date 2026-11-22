@@ -65,16 +65,16 @@ export default function SignInPage() {
           {mode === "signin" ? (
             <form className="grid gap-4" onSubmit={handleSubmit} noValidate>
               <div className="grid gap-1.5">
-                <Label htmlFor="email">{t("email")}</Label>
+                <Label htmlFor="email">{t("identifier")}</Label>
                 <Input
                   id="email"
                   name="email"
-                  type="email"
-                  autoComplete="email"
+                  type="text"
+                  autoComplete="username"
                   required
                   value={email}
                   onChange={(event) => setEmail(event.target.value)}
-                  placeholder={t("emailPlaceholder")}
+                  placeholder={t("identifierPlaceholder")}
                   aria-invalid={error ? true : undefined}
                 />
               </div>

@@ -52,3 +52,28 @@ export const RESET_PASSWORD = /* GraphQL */ `
     resetPassword(input: $input)
   }
 `;
+
+/**
+ * Self-service credential operations (`API_CONTACT_SPECIFICATION.md` §3.3).
+ *
+ * Both act on the signed-in user's own account: the password change keeps the
+ * current session and revokes the others server-side, and the email change
+ * mails a verification link before the address moves.
+ */
+export const CHANGE_PASSWORD = /* GraphQL */ `
+  mutation ChangePassword($input: ChangePasswordInput!) {
+    changePassword(input: $input)
+  }
+`;
+
+export const REQUEST_EMAIL_CHANGE = /* GraphQL */ `
+  mutation RequestEmailChange($input: RequestEmailChangeInput!) {
+    requestEmailChange(input: $input)
+  }
+`;
+
+export const CONFIRM_EMAIL_CHANGE = /* GraphQL */ `
+  mutation ConfirmEmailChange($token: String!) {
+    confirmEmailChange(token: $token)
+  }
+`;

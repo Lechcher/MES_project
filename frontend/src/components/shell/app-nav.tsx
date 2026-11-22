@@ -16,6 +16,7 @@ import { visibleApps } from "@/lib/mes/navigation";
 import { useMesSession } from "@/lib/mes/session";
 import { LanguageSwitcher } from "./language-switcher";
 import { LiveStatusIndicator } from "./live-status";
+import { ThemeSwitcher } from "./theme-switcher";
 
 export function AppNav() {
   const { viewer, signOut } = useMesSession();
@@ -65,6 +66,7 @@ export function AppNav() {
         <div className="flex items-center gap-3">
           <LiveStatusIndicator />
           <LanguageSwitcher />
+          <ThemeSwitcher />
           <DropdownMenu>
             {/* The trigger renders its own `<button>`, so composing the styled
                 Button through `render` replaces it rather than nesting a second
@@ -78,6 +80,9 @@ export function AppNav() {
               }
             >
               <span className="text-sm">{viewer.fullName}</span>
+              <span className="font-mono text-xs text-muted-foreground">
+                {viewer.userCode}
+              </span>
               <span className="text-xs text-muted-foreground">
                 {primaryRoleName}
               </span>

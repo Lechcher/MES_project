@@ -70,7 +70,8 @@ export const VIEWER_QUERY = /* GraphQL */ `
 interface SessionState {
   viewer: MesViewer | null;
   loading: boolean;
-  signIn(email: string, password: string): Promise<MesViewer>;
+  /** Identifier is an email address or a user code. */
+  signIn(identifier: string, password: string): Promise<MesViewer>;
   signOut(): Promise<void>;
   refresh(): Promise<MesViewer | null>;
 }
@@ -132,12 +133,15 @@ export function MesSessionProvider({ children }: { children: ReactNode }) {
     };
   }, []);
 
-  const signIn = useCallback(async (email: string, password: string) => {
+  const signIn = useCallback(async (identifier: string, password: string) => {
     setLoading(true);
     try {
-      const next = await sessionRequest<MesViewer>("POST", { email, password });
+      const next = await sessionRequest<MesViewer>("POST", {
+        identifier,
+        password,
+      });
       if (!next) {
-        throw new MesApiError("Invalid email or password.", {
+        throw new MesApiError("Invalid credentials.", {
           code: "UNAUTHENTICATED",
         });
       }
