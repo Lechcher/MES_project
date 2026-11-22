@@ -56,7 +56,7 @@ export function ScheduleGrid({
   onOpenTask,
   onMoveTask,
   onDuplicateTask,
-  onDeleteTask,
+  onRequestDelete,
 }: {
   range: ScheduleRange;
   cols: Date[];
@@ -67,7 +67,7 @@ export function ScheduleGrid({
   onOpenTask: (task: ScheduledTask) => void;
   onMoveTask: (task: ScheduledTask, move: TicketBarMove) => void;
   onDuplicateTask: (task: ScheduledTask) => void;
-  onDeleteTask: (task: ScheduledTask) => void;
+  onRequestDelete: (task: ScheduledTask) => void;
 }) {
   const t = useTranslations("planning.schedule");
   const fmt = useMesFormat();
@@ -303,7 +303,7 @@ export function ScheduleGrid({
                           onOpen={onOpenTask}
                           onMove={onMoveTask}
                           onDuplicate={onDuplicateTask}
-                          onDelete={onDeleteTask}
+                          onRequestDelete={onRequestDelete}
                         />
                       );
                     })}

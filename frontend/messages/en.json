@@ -391,6 +391,7 @@
         "continuesAfter": "Continues later",
         "menu": "Task actions for {code}",
         "open": "Open",
+        "move": "Move…",
         "duplicate": "Duplicate",
         "delete": "Delete"
       },

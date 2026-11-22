@@ -23,14 +23,14 @@
 
 ## 5. Frontend: Schedule UI
 
-- [ ] 5.1 Build `schedule-view.tsx` (URL-param range, default Week, queries, pending-move map) and `schedule-toolbar.tsx` (‹ Today ›, scale toggle, `DD/MM/YYYY` range with inline error, department filter by role, New/Import/Export, Print attendance calendar); verify in the browser that Week is default and next/prev/range work
-- [ ] 5.2 Build `schedule-grid.tsx` (sticky employee column grouped by department, leave/penalty/late marks from `matrixCalendar`) and `ticket-bar.tsx` (category stripe + icon, state fill, progress for `MULTI_DAY`, hour slot + urgent marker for `HOURLY`); verify as `EMPLOYEE` (own row), `DEPT_HEAD` (own department), `HR_MANAGER` (filter)
-- [ ] 5.3 Build `task-editor-dialog.tsx` (Details/Time/Notes tabs, priority stars, state tag with allowed transitions, read-only for non-writers, delete with confirmation, duplicate); verify create-from-empty-cell prefills assignee and start
-- [ ] 5.4 Wire neodrag in `ticket-bar.tsx`: grid snap, move/reassign via `updateTask`, Alt-drop copy via `duplicateTask`, rollback + error on failure, disabled for non-writers, context-menu Move/Duplicate for keyboard users; verify move, reassign, copy, and forced-failure revert in the browser
-- [ ] 5.5 Build `import-dialog.tsx` (template download, file pick, preview table with per-row errors, commit disabled on errors) and the export menu (PDF/CSV/XLSX with state filter); verify a template round-trip imports and exported files match the visible filter
-- [ ] 5.6 Swap `MatrixCalendarView` for `ScheduleView` in `planning-view.tsx`, rename the tab to Schedule, delete `matrix-calendar.tsx`; add `planning.schedule.*` keys to `messages/en.json` and `messages/vi.json` and drop unused `planning.calendar.*`; verify `labels.test.ts` locale parity passes and Vietnamese UI shows the three category names
+- [x] 5.1 Build `schedule-view.tsx` (URL-param range, default Week, queries, pending-move map) and `schedule-toolbar.tsx` (‹ Today ›, scale toggle, `DD/MM/YYYY` range with inline error, department filter by role, New/Import/Export, Print attendance calendar); verify in the browser that Week is default and next/prev/range work
+- [x] 5.2 Build `schedule-grid.tsx` (sticky employee column grouped by department, leave/penalty/late marks from `matrixCalendar`) and `ticket-bar.tsx` (category stripe + icon, state fill, progress for `MULTI_DAY`, hour slot + urgent marker for `HOURLY`); verify as `EMPLOYEE` (own row), `DEPT_HEAD` (own department), `HR_MANAGER` (filter)
+- [x] 5.3 Build `task-editor-dialog.tsx` (Details/Time/Notes tabs, priority stars, state tag with allowed transitions, read-only for non-writers, delete with confirmation, duplicate); verify create-from-empty-cell prefills assignee and start
+- [x] 5.4 Wire neodrag in `ticket-bar.tsx`: grid snap, move/reassign via `updateTask`, Alt-drop copy via `duplicateTask`, rollback + error on failure, disabled for non-writers, context-menu Move/Duplicate for keyboard users; verify move, reassign, copy, and forced-failure revert in the browser
+- [x] 5.5 Build `import-dialog.tsx` (template download, file pick, preview table with per-row errors, commit disabled on errors) and the export menu (PDF/CSV/XLSX with state filter); verify a template round-trip imports and exported files match the visible filter
+- [x] 5.6 Swap `MatrixCalendarView` for `ScheduleView` in `planning-view.tsx`, rename the tab to Schedule, delete `matrix-calendar.tsx`; add `planning.schedule.*` keys to `messages/en.json` and `messages/vi.json` and drop unused `planning.calendar.*`; verify `labels.test.ts` locale parity passes and Vietnamese UI shows the three category names
 
 ## 6. Integration
 
 - [ ] 6.1 Run `bun run lint` and `bun test` in `frontend/` and `backend/`, and `bun run build` in `frontend/`; verify all pass
-- [ ] 6.2 Run `openspec validate replace-matrix-calendar-with-schedule --strict`; verify it passes
+- [x] 6.2 Run `openspec validate replace-matrix-calendar-with-schedule --strict`; verify it passes

@@ -95,6 +95,7 @@ export function TaskEditorDialog({
   onOpenChange,
   task,
   prefill,
+  confirmDelete = false,
   assignees,
   canWrite,
   role,
@@ -109,6 +110,8 @@ export function TaskEditorDialog({
   onOpenChange: (open: boolean) => void;
   task: ScheduledTask | null;
   prefill: { assigneeId: string | null; start: Date | null } | null;
+  /** Open straight on the delete confirmation (a bar's Delete menu item). */
+  confirmDelete?: boolean;
   assignees: UserRef[];
   canWrite: boolean;
   role: RoleCode | null;
@@ -141,7 +144,9 @@ export function TaskEditorDialog({
   useEffect(() => {
     if (!open) return;
     setError(null);
-    setConfirmingDelete(false);
+    // A delete request from a bar's menu opens on the confirmation step; any
+    // other opening starts from the form itself.
+    setConfirmingDelete(Boolean(confirmDelete) && task !== null);
     if (task) {
       setTitle(task.title);
       setTaskType(task.taskType);
@@ -313,119 +318,138 @@ export function TaskEditorDialog({
         ) : null}
 
         {/* One page, all fields: the dialog body scrolls instead of tabbing,
-            and horizontally when it is wider than the screen. */}
+            and horizontally when it is wider than the screen. The three
+            groups the tabs used to hide behind keep their own legends
+            (Details / Time / Notes), so nothing is behind a switch. */}
         <div className="grid max-h-[65vh] gap-4 overflow-x-auto overflow-y-auto">
-          <div className="grid gap-1">
-            <Label htmlFor="task-title">{t("title")}</Label>
-            <Input
-              id="task-title"
-              value={title}
-              onChange={(event) => setTitle(event.target.value)}
-              disabled={!canWrite}
-            />
-          </div>
-
-          <div className="grid gap-4 sm:grid-cols-2">
+          <fieldset
+            className="grid gap-3 border border-border p-3"
+            disabled={!canWrite}
+          >
+            <legend className="px-1 text-xs font-semibold tracking-wide text-muted-foreground uppercase">
+              {t("tabDetails")}
+            </legend>
             <div className="grid gap-1">
-              <Label htmlFor="task-category">{t("category")}</Label>
-              <Select
-                value={taskType}
-                onValueChange={(value) => setType(value as TaskType)}
+              <Label htmlFor="task-title">{t("title")}</Label>
+              <Input
+                id="task-title"
+                value={title}
+                onChange={(event) => setTitle(event.target.value)}
                 disabled={!canWrite}
-                items={Object.fromEntries(
-                  (Object.keys(TASK_TYPE_LABELS) as TaskType[]).map((type) => [
-                    type,
-                    labels.taskType(type),
-                  ]),
-                )}
-              >
-                <SelectTrigger id="task-category" className="w-full" size="sm">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {(Object.keys(TASK_TYPE_LABELS) as TaskType[]).map((type) => (
-                    <SelectItem key={type} value={type}>
-                      {labels.taskType(type)}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              />
             </div>
 
-            <div className="grid gap-1">
-              <Label htmlFor="task-assignee">{t("assignee")}</Label>
-              <Select
-                value={assignedToId}
-                onValueChange={(value) => setAssignedToId(value ?? "")}
-                disabled={!canWrite}
-                items={{
-                  "": t("unassigned"),
-                  ...Object.fromEntries(
-                    assignees.map((user) => [user.id, user.fullName]),
-                  ),
-                }}
-              >
-                <SelectTrigger id="task-assignee" className="w-full" size="sm">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="">{t("unassigned")}</SelectItem>
-                  {assignees.map((user) => (
-                    <SelectItem key={user.id} value={user.id}>
-                      {user.fullName} ({user.userCode})
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-          </div>
-
-          <div className="grid gap-1">
-            <Label>{t("priority")}</Label>
-            <div className="flex items-center gap-1">
-              {PRIORITIES.map((candidate) => {
-                const filled =
-                  STARS_BY_PRIORITY[candidate] <= STARS_BY_PRIORITY[priority];
-                return (
-                  <button
-                    key={candidate}
-                    type="button"
-                    disabled={!canWrite}
-                    aria-label={t("priorityStars", {
-                      count: STARS_BY_PRIORITY[candidate],
-                      label: labels.priority(candidate),
-                    })}
-                    aria-pressed={priority === candidate}
-                    onClick={() => setPriority(candidate)}
-                    className={cn(
-                      "rounded-sm p-0.5 disabled:cursor-not-allowed disabled:opacity-50",
-                      priority === candidate && "outline outline-ring",
-                    )}
+            <div className="grid gap-4 sm:grid-cols-2">
+              <div className="grid gap-1">
+                <Label htmlFor="task-category">{t("category")}</Label>
+                <Select
+                  value={taskType}
+                  onValueChange={(value) => setType(value as TaskType)}
+                  disabled={!canWrite}
+                  items={Object.fromEntries(
+                    (Object.keys(TASK_TYPE_LABELS) as TaskType[]).map(
+                      (type) => [type, labels.taskType(type)],
+                    ),
+                  )}
+                >
+                  <SelectTrigger
+                    id="task-category"
+                    className="w-full"
+                    size="sm"
                   >
-                    <Star
-                      className={cn(
-                        "size-5",
-                        filled
-                          ? "fill-[#f1c21b] text-[#f1c21b]"
-                          : "text-muted-foreground",
-                      )}
-                      aria-hidden
-                    />
-                  </button>
-                );
-              })}
-              <span className="ml-1 text-xs text-muted-foreground">
-                {labels.priority(priority)}
-              </span>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {(Object.keys(TASK_TYPE_LABELS) as TaskType[]).map(
+                      (type) => (
+                        <SelectItem key={type} value={type}>
+                          {labels.taskType(type)}
+                        </SelectItem>
+                      ),
+                    )}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="grid gap-1">
+                <Label htmlFor="task-assignee">{t("assignee")}</Label>
+                <Select
+                  value={assignedToId}
+                  onValueChange={(value) => setAssignedToId(value ?? "")}
+                  disabled={!canWrite}
+                  items={{
+                    "": t("unassigned"),
+                    ...Object.fromEntries(
+                      assignees.map((user) => [user.id, user.fullName]),
+                    ),
+                  }}
+                >
+                  <SelectTrigger
+                    id="task-assignee"
+                    className="w-full"
+                    size="sm"
+                  >
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="">{t("unassigned")}</SelectItem>
+                    {assignees.map((user) => (
+                      <SelectItem key={user.id} value={user.id}>
+                        {user.fullName} ({user.userCode})
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
             </div>
-          </div>
+
+            <div className="grid gap-1">
+              <Label>{t("priority")}</Label>
+              <div className="flex items-center gap-1">
+                {PRIORITIES.map((candidate) => {
+                  const filled =
+                    STARS_BY_PRIORITY[candidate] <= STARS_BY_PRIORITY[priority];
+                  return (
+                    <button
+                      key={candidate}
+                      type="button"
+                      disabled={!canWrite}
+                      aria-label={t("priorityStars", {
+                        count: STARS_BY_PRIORITY[candidate],
+                        label: labels.priority(candidate),
+                      })}
+                      aria-pressed={priority === candidate}
+                      onClick={() => setPriority(candidate)}
+                      className={cn(
+                        "rounded-sm p-0.5 disabled:cursor-not-allowed disabled:opacity-50",
+                        priority === candidate && "outline outline-ring",
+                      )}
+                    >
+                      <Star
+                        className={cn(
+                          "size-5",
+                          filled
+                            ? "fill-[#f1c21b] text-[#f1c21b]"
+                            : "text-muted-foreground",
+                        )}
+                        aria-hidden
+                      />
+                    </button>
+                  );
+                })}
+                <span className="ml-1 text-xs text-muted-foreground">
+                  {labels.priority(priority)}
+                </span>
+              </div>
+            </div>
+          </fieldset>
 
           <fieldset
             className="grid gap-3 border border-border p-3"
             disabled={!canWrite}
           >
             <legend className="px-1 text-xs font-semibold tracking-wide text-muted-foreground uppercase">
-              {t("time")}
+              {t("tabTime")}
             </legend>
 
             {taskType === "DAILY" ? (
@@ -615,17 +639,25 @@ export function TaskEditorDialog({
             </p>
           </fieldset>
 
-          <div className="grid gap-1">
-            <Label htmlFor="task-notes">{t("notes")}</Label>
-            <Textarea
-              id="task-notes"
-              rows={4}
-              placeholder={t("notesPlaceholder")}
-              value={description}
-              onChange={(event) => setDescription(event.target.value)}
-              disabled={!canWrite}
-            />
-          </div>
+          <fieldset
+            className="grid gap-3 border border-border p-3"
+            disabled={!canWrite}
+          >
+            <legend className="px-1 text-xs font-semibold tracking-wide text-muted-foreground uppercase">
+              {t("tabNotes")}
+            </legend>
+            <div className="grid gap-1">
+              <Label htmlFor="task-notes">{t("notes")}</Label>
+              <Textarea
+                id="task-notes"
+                rows={4}
+                placeholder={t("notesPlaceholder")}
+                value={description}
+                onChange={(event) => setDescription(event.target.value)}
+                disabled={!canWrite}
+              />
+            </div>
+          </fieldset>
         </div>
 
         {task && !isCreate ? (

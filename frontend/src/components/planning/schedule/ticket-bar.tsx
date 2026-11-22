@@ -11,6 +11,7 @@ import {
   Copy,
   type LucideIcon,
   MoreHorizontal,
+  MoveRight,
   Star,
   Trash2,
   Zap,
@@ -80,7 +81,7 @@ export function TicketBar({
   onOpen,
   onMove,
   onDuplicate,
-  onDelete,
+  onRequestDelete,
 }: {
   task: ScheduledTask;
   placement: { start: number; span: number };
@@ -99,7 +100,8 @@ export function TicketBar({
   onOpen: (task: ScheduledTask) => void;
   onMove: (task: ScheduledTask, move: TicketBarMove) => void;
   onDuplicate: (task: ScheduledTask) => void;
-  onDelete: (task: ScheduledTask) => void;
+  /** Opens the editor on its delete confirmation — never deletes outright. */
+  onRequestDelete: (task: ScheduledTask) => void;
 }) {
   const t = useTranslations("planning.schedule");
   const labels = useDomainLabels();
@@ -323,25 +325,54 @@ export function TicketBar({
             <MoreHorizontal />
           </DropdownMenuTrigger>
           <DropdownMenuContent align="start">
-            <DropdownMenuItem onClick={() => onOpen(task)}>
-              {t("bar.open")}
-            </DropdownMenuItem>
             {canWrite ? (
               <>
-                <DropdownMenuSeparator />
-                <DropdownMenuItem onClick={() => onDuplicate(task)}>
+                {/* The keyboard path to a move: the editor holds the dates and
+                    the assignee, so opening it is how a bar moves without a
+                    pointer (design D5). */}
+                <DropdownMenuItem
+                  onClick={(event) => {
+                    // React portals bubble through the component tree, so a
+                    // menu click would reach the bar's own onClick and reopen
+                    // the editor without the requested action.
+                    event.stopPropagation();
+                    onOpen(task);
+                  }}
+                >
+                  <MoveRight data-icon="inline-start" />
+                  {t("bar.move")}
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                  onClick={(event) => {
+                    event.stopPropagation();
+                    onDuplicate(task);
+                  }}
+                >
                   <Copy data-icon="inline-start" />
                   {t("bar.duplicate")}
                 </DropdownMenuItem>
+                <DropdownMenuSeparator />
                 <DropdownMenuItem
                   variant="destructive"
-                  onClick={() => onDelete(task)}
+                  onClick={(event) => {
+                    event.stopPropagation();
+                    onRequestDelete(task);
+                  }}
                 >
                   <Trash2 data-icon="inline-start" />
                   {t("bar.delete")}
                 </DropdownMenuItem>
               </>
-            ) : null}
+            ) : (
+              <DropdownMenuItem
+                onClick={(event) => {
+                  event.stopPropagation();
+                  onOpen(task);
+                }}
+              >
+                {t("bar.open")}
+              </DropdownMenuItem>
+            )}
           </DropdownMenuContent>
         </DropdownMenu>
       </span>

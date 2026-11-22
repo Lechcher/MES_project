@@ -76,6 +76,8 @@ interface EditorState {
   open: boolean;
   task: ScheduledTask | null;
   prefill: { assigneeId: string | null; start: Date | null } | null;
+  /** Opens the editor straight on its delete confirmation. */
+  confirmDelete: boolean;
 }
 
 function ScheduleViewInner({ role }: { role: RoleCode | null }) {
@@ -317,20 +319,26 @@ function ScheduleViewInner({ role }: { role: RoleCode | null }) {
     open: false,
     task: null,
     prefill: null,
+    confirmDelete: false,
   });
   const [importOpen, setImportOpen] = useState(false);
   const [exportStateFilter, setExportStateFilter] = useState("ALL");
 
   const openEditor = (task: ScheduledTask) =>
-    setEditor({ open: true, task, prefill: null });
+    setEditor({ open: true, task, prefill: null, confirmDelete: false });
   const openCreate = (user: UserRef, column: Date) => {
     if (!canWrite) return;
     setEditor({
       open: true,
       task: null,
       prefill: { assigneeId: user.id || null, start: column },
+      confirmDelete: false,
     });
   };
+  // A bar's Delete menu item goes through the editor's confirmation, so a
+  // ticket never disappears on a single mis-click.
+  const openDelete = (task: ScheduledTask) =>
+    setEditor({ open: true, task, prefill: null, confirmDelete: true });
 
   const handleCreate = useCallback(
     async (input: TaskCreateInput) => {
@@ -409,7 +417,14 @@ function ScheduleViewInner({ role }: { role: RoleCode | null }) {
         onDepartmentChange={onDepartmentChange}
         showDepartmentFilter={companyScope}
         canWrite={canWrite}
-        onNew={() => setEditor({ open: true, task: null, prefill: null })}
+        onNew={() =>
+          setEditor({
+            open: true,
+            task: null,
+            prefill: null,
+            confirmDelete: false,
+          })
+        }
         onImport={() => setImportOpen(true)}
         onExport={onExport}
         exportLoading={exportAction.loading}
@@ -451,7 +466,7 @@ function ScheduleViewInner({ role }: { role: RoleCode | null }) {
           onOpenTask={openEditor}
           onMoveTask={(task, move) => void moveTask(task, move)}
           onDuplicateTask={(task) => void handleDuplicate(task)}
-          onDeleteTask={(task) => void handleDelete(task)}
+          onRequestDelete={openDelete}
         />
       ) : null}
 
@@ -460,6 +475,7 @@ function ScheduleViewInner({ role }: { role: RoleCode | null }) {
         onOpenChange={(open) => setEditor((current) => ({ ...current, open }))}
         task={editor.task}
         prefill={editor.prefill}
+        confirmDelete={editor.confirmDelete}
         assignees={assignees}
         canWrite={editorCanWrite}
         role={role}
