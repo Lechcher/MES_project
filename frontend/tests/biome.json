@@ -11,7 +11,8 @@
         "noUnusedVariables": "warn"
       },
       "suspicious": {
-        "noExplicitAny": "warn"
+        "noExplicitAny": "warn",
+        "noFocusedTests": "warn"
       }
     }
   }

@@ -9,14 +9,18 @@
 		"ignoreUnknown": false,
 		"includes": [
 			"**",
+			"frontend/tests/**",
 			"!.agents",
 			"!**/.agents",
 			"!skills-lock.json",
 			"!backend/drizzle",
 			"!**/backend/drizzle",
 			"!frontend/tests/e2e/test-results",
+			"!**/test-results",
 			"!frontend/tests/e2e/playwright-report",
-			"!frontend/.sentry"
+			"!**/playwright-report",
+			"!frontend/.sentry",
+			"!**/.sentry"
 		]
 	},
 	"formatter": {
