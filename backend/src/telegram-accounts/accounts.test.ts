@@ -60,6 +60,7 @@ function ctx(
 		viewer: viewerId === null ? null : viewer(viewerId),
 		session: null,
 		db,
+		cache: new Map<string, unknown>(),
 		request: { ipAddress: null, userAgent: "bun-test" },
 		config: loadConfig({
 			NODE_ENV: "test",
@@ -265,9 +266,9 @@ describe("listViewerTelegramAccounts", () => {
 
 		const accounts = await listViewerTelegramAccounts(ctx(db, "u2"));
 		expect(accounts).toHaveLength(0);
-		expect(
-			accounts.map((account) => account.sessionString),
-		).not.toContain("u1-secret-session");
+		expect(accounts.map((account) => account.sessionString)).not.toContain(
+			"u1-secret-session",
+		);
 	});
 });
 
@@ -353,9 +354,9 @@ describe("removeTelegramAccount", () => {
 			deviceFingerprint,
 		});
 
-		await expect(
-			removeTelegramAccount(ctx(db, "u2"), mine.id),
-		).rejects.toThrow("not linked to your account");
+		await expect(removeTelegramAccount(ctx(db, "u2"), mine.id)).rejects.toThrow(
+			"not linked to your account",
+		);
 
 		const rows = await db.select().from(telegramAccounts);
 		expect(rows).toHaveLength(1);

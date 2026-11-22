@@ -12,7 +12,7 @@ import { verifyCredentials } from "../../auth";
 import type { AppConfig } from "../../config";
 import type { DatabaseHandle } from "../../db";
 import type { BotContext } from "../bot-context";
-import { escapeHtml, renderLoginPrompt } from "../render";
+import { escapeHtml, renderHelp, renderLoginPrompt } from "../render";
 import {
 	consumeLinkCode,
 	resolveLinkedViewer,
@@ -46,6 +46,13 @@ export function registerLoginCommands(
 	});
 
 	composer.command("help", async (ctx) => {
+		const linked = await resolveLinkedViewer(db, String(ctx.from?.id ?? ""));
+		if (linked) {
+			await ctx.reply(renderHelp(linked.viewer.roleCodes), {
+				parse_mode: "HTML",
+			});
+			return;
+		}
 		await ctx.reply(renderLoginPrompt(), { parse_mode: "HTML" });
 	});
 
@@ -143,6 +150,9 @@ export function registerLoginCommands(
 			return;
 		}
 		await revokeLink(db, resolved.linkId);
-		await ctx.reply("👋 Signed out. This chat can no longer reach the system.");
+		await ctx.reply(
+			`👋 Signed out ${escapeHtml(resolved.viewer.fullName)} (${escapeHtml(resolved.viewer.userCode)}). This chat can no longer reach the system — reconnect any time with /link.`,
+			{ parse_mode: "HTML" },
+		);
 	});
 }

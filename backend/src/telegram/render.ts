@@ -86,25 +86,132 @@ export function renderLoginPrompt(): string {
 	].join("\n");
 }
 
-/** The `/help` overview: the five feature surfaces. */
-export function renderHelp(roleCodes: readonly string[]): string {
-	const canCreate = [
-		"DEPT_HEAD",
-		"HR_MANAGER",
-		"SUPER_ADMIN",
-		"TECH_LEAD",
-	].some((role) => roleCodes.includes(role));
+/** The roles that may open a ticket — the menu's one role-gated entry. */
+const TICKET_CREATOR_ROLES: readonly string[] = [
+	"DEPT_HEAD",
+	"HR_MANAGER",
+	"SUPER_ADMIN",
+	"TECH_LEAD",
+];
+
+/**
+ * The signed-in command menu, one line per command.
+ *
+ * `/newticket` is the only role-gated entry — every other command is open to
+ * any linked viewer — so the same list is exactly what `/help` and the
+ * dashboard show, each tailored to the viewer's roles.
+ */
+function commandMenu(roleCodes: readonly string[]): string[] {
 	const lines = [
-		"<b>MES bot</b> — you are signed in.",
-		"",
 		"/ask &lt;question&gt; — search the system (read-only AI agent)",
 		"/notifications — your newest notifications",
 		"/lookup — jobs, planning, performance information",
 		"/audit — recent audit entries",
 		"/status — server health",
 		"/model — list or switch the AI model",
+		"/dashboard — who you are and what is waiting on you",
+		"/profile — the account this chat is linked to",
 	];
-	if (canCreate) lines.push("/newticket — create a job ticket");
+	if (TICKET_CREATOR_ROLES.some((role) => roleCodes.includes(role))) {
+		lines.push("/newticket — create a job ticket");
+	}
 	lines.push("/logout — end this bot session");
+	return lines;
+}
+
+/** The `/help` overview: the signed-in command menu. */
+export function renderHelp(roleCodes: readonly string[]): string {
+	return [
+		"<b>MES bot</b> — you are signed in.",
+		"",
+		...commandMenu(roleCodes),
+	].join("\n");
+}
+
+/** The mark standing in for a value the viewer may not see. */
+const EM_DASH = "—";
+
+/** The dashboard's two counts, or null when a read was refused. */
+export interface DashboardCounts {
+	/** Open tickets assigned to the viewer, or null when unauthorized. */
+	readonly myOpenTickets: number | null;
+	/** The viewer's notifications, or null when unauthorized. */
+	readonly notifications: number | null;
+}
+
+/** What the dashboard shows: who the viewer is and what waits for them. */
+export interface DashboardRenderInput {
+	readonly fullName: string;
+	readonly userCode: string;
+	readonly department: string | null;
+	readonly roleCodes: readonly string[];
+	readonly counts: DashboardCounts;
+}
+
+/**
+ * Render the dashboard.
+ *
+ * Identity first, then the two counts — a dash marks a read authorization
+ * refused, never a number and never an error — then the role-appropriate
+ * command menu.
+ */
+export function renderDashboard(input: DashboardRenderInput): string {
+	const { fullName, userCode, department, roleCodes, counts } = input;
+	return [
+		`<b>${escapeHtml(fullName)}</b> <i>(${escapeHtml(userCode)})</i>`,
+		`Department: ${department ? escapeHtml(department) : EM_DASH}`,
+		"",
+		`open tickets assigned to you: ${counts.myOpenTickets ?? EM_DASH}`,
+		`notifications: ${counts.notifications ?? EM_DASH}`,
+		"",
+		...commandMenu(roleCodes),
+	].join("\n");
+}
+
+/** What the profile shows: the linked account and the link facts. */
+export interface ProfileRenderInput {
+	readonly fullName: string;
+	readonly userCode: string;
+	readonly email: string;
+	readonly department: string | null;
+	readonly roleCodes: readonly string[];
+	readonly linkedSince: string | null;
+	readonly lastSeen: string | null;
+	readonly telegramUsername: string | null;
+}
+
+/**
+ * Render the linked account.
+ *
+ * Every value belongs to the viewer themself and is escaped before it enters
+ * the message, so a crafted name or username cannot inject markup; a missing
+ * value renders as a dash. No other user's data and no secrets appear here.
+ */
+export function renderProfile(input: ProfileRenderInput): string {
+	const {
+		fullName,
+		userCode,
+		email,
+		department,
+		roleCodes,
+		linkedSince,
+		lastSeen,
+		telegramUsername,
+	} = input;
+	const roles =
+		roleCodes.length > 0 ? roleCodes.map(escapeHtml).join(", ") : EM_DASH;
+	const lines = [
+		"<b>Your MES account</b>",
+		"",
+		`name: ${escapeHtml(fullName)}`,
+		`user code: ${escapeHtml(userCode)}`,
+		`email: ${escapeHtml(email)}`,
+		`department: ${department ? escapeHtml(department) : EM_DASH}`,
+		`roles: ${roles}`,
+		`linked since: ${linkedSince ?? EM_DASH}`,
+		`last seen: ${lastSeen ?? EM_DASH}`,
+	];
+	if (telegramUsername)
+		lines.push(`telegram: @${escapeHtml(telegramUsername)}`);
 	return lines.join("\n");
 }

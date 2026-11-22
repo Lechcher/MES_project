@@ -40,7 +40,7 @@ export function registerAskCommands(
 		const question = (ctx.match ?? "").toString().trim();
 		if (question === "") {
 			await ctx.reply(
-				"Usage: /ask <question> — e.g. /ask which tickets are overdue this week?",
+				"👋 Welcome! I'm the MES search assistant — a read-only agent: I can look things up, but I never create, edit, approve, or delete anything.\n\nUsage: /ask <question> — e.g. /ask which tickets are overdue this week?",
 			);
 			return;
 		}

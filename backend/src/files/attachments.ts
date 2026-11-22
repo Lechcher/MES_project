@@ -25,6 +25,7 @@ import {
 	type ViewerContext,
 } from "../graphql/context";
 import { DomainError } from "../graphql/errors";
+import type { StoreFailureContext } from "../lib/sentry";
 import type { AttachmentStore, UploadedFile } from "../storage/s3";
 
 /** Extensions that are never accepted, whatever their declared type. */
@@ -238,6 +239,12 @@ export interface FileRouteDependencies {
 	store: AttachmentStore | null;
 	/** Creates the store from configuration; injected so tests can stub it. */
 	createStore?: () => AttachmentStore | null;
+	/**
+	 * Reports a refused object-store write, with a scrubbed record of why, so a
+	 * failing storage deployment leaves a trace instead of looking healthy.
+	 * Optional: tests that exercise the store omit it.
+	 */
+	logStoreFailure?: (record: StoreFailureContext) => void;
 }
 
 /** Re-exported so callers and tests can build a file's shape without the store. */
@@ -381,7 +388,17 @@ export async function uploadAttachments(
 		const key = `tasks/${taskId}/${crypto.randomUUID()}-${sanitizeFileName(file.name)}`;
 		try {
 			await store.write(key, await file.arrayBuffer());
-		} catch {
+		} catch (cause) {
+			// The caller already sees a per-file failure; report the store's own
+			// error — the only evidence of *why* — through the scrubbed record,
+			// so a failing storage deployment no longer looks healthy.
+			deps.logStoreFailure?.({
+				taskId,
+				key,
+				fileName: file.name,
+				errorName: cause instanceof Error ? cause.name : "Error",
+				message: cause instanceof Error ? cause.message : String(cause),
+			});
 			failures.push({
 				fileName: file.name,
 				code: "STORE_FAILED",

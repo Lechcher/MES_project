@@ -13,11 +13,7 @@
  * session in any weaker form.
  */
 
-import {
-	createCipheriv,
-	createDecipheriv,
-	randomFillSync,
-} from "node:crypto";
+import { createCipheriv, createDecipheriv, randomFillSync } from "node:crypto";
 import { ConfigurationError } from "../config";
 
 /** Environment variable that carries the key, named in every failure. */
@@ -26,8 +22,6 @@ export const TELEGRAM_KEY_ENV_NAME = "TELEGRAM_ENCRYPTION_KEY";
 const ALGORITHM = "aes-256-gcm";
 const KEY_BYTES = 32;
 const IV_BYTES = 12;
-/** GCM's authentication tag: the tamper evidence kept beside the ciphertext. */
-const AUTH_TAG_BYTES = 16;
 
 /** A stored session, split so the migration's three columns stay independent. */
 export interface EncryptedSession {
@@ -65,8 +59,8 @@ export function requireTelegramKey(key: string | null): string {
 	return key;
 }
 
-function keyBuffer(key: string): Buffer {
-	return Buffer.from(key, "hex");
+function keyBuffer(key: string): Uint8Array {
+	return Uint8Array.from(Buffer.from(key, "hex"));
 }
 
 /**
@@ -79,15 +73,15 @@ export function encryptSession(
 	key: string,
 	plaintext: string,
 ): EncryptedSession {
-	const iv = randomFillSync(Buffer.alloc(IV_BYTES));
+	const iv = randomFillSync(new Uint8Array(IV_BYTES));
 	const cipher = createCipheriv(ALGORITHM, keyBuffer(key), iv);
 	const ciphertext = Buffer.concat([
-		cipher.update(plaintext, "utf8"),
-		cipher.final(),
+		Uint8Array.from(cipher.update(plaintext, "utf8")),
+		Uint8Array.from(cipher.final()),
 	]);
 	return {
 		ciphertext: ciphertext.toString("hex"),
-		iv: iv.toString("hex"),
+		iv: Buffer.from(iv).toString("hex"),
 		authTag: cipher.getAuthTag().toString("hex"),
 	};
 }
@@ -98,20 +92,21 @@ export function encryptSession(
  * A modified ciphertext or tag fails the tag check and raises — the caller
  * treats that as a corrupted record, never as a session to use.
  */
-export function decryptSession(
-	key: string,
-	session: EncryptedSession,
-): string {
+export function decryptSession(key: string, session: EncryptedSession): string {
 	try {
 		const decipher = createDecipheriv(
 			ALGORITHM,
 			keyBuffer(key),
-			Buffer.from(session.iv, "hex"),
+			Uint8Array.from(Buffer.from(session.iv, "hex")),
 		);
-		decipher.setAuthTag(Buffer.from(session.authTag, "hex"));
+		decipher.setAuthTag(Uint8Array.from(Buffer.from(session.authTag, "hex")));
 		return Buffer.concat([
-			decipher.update(Buffer.from(session.ciphertext, "hex")),
-			decipher.final(),
+			Uint8Array.from(
+				decipher.update(
+					Uint8Array.from(Buffer.from(session.ciphertext, "hex")),
+				),
+			),
+			Uint8Array.from(decipher.final()),
 		]).toString("utf8");
 	} catch {
 		throw new ConfigurationError(
