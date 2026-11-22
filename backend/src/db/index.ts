@@ -1,41 +1,35 @@
 /**
- * SQLite connection factory.
+ * PostgreSQL connection factory.
  *
- * Foreign-key enforcement is on by default (SQLite disables it per connection),
- * and the parent directory of the database file is created when missing so a
- * fresh checkout can migrate without manual setup.
+ * The connection URL points at the configured database (see `MES_DATABASE_URL`
+ * in `config.ts`). The per-connection PRAGMAs of the SQLite era are gone:
+ * PostgreSQL enforces foreign keys per database and manages its own
+ * write-ahead logging.
  */
 
-import { Database } from "bun:sqlite";
-import { mkdirSync } from "node:fs";
-import { dirname, isAbsolute, resolve } from "node:path";
-import type { BunSQLiteDatabase } from "drizzle-orm/bun-sqlite";
-import { drizzle } from "drizzle-orm/bun-sqlite";
+import type { NodePgDatabase } from "drizzle-orm/node-postgres";
+import { drizzle } from "drizzle-orm/node-postgres";
+import { Pool } from "pg";
 import * as schema from "./schema";
 
-export type DatabaseHandle = BunSQLiteDatabase<typeof schema> & {
-	$client: Database;
+export type DatabaseHandle = NodePgDatabase<typeof schema> & {
+	$client: Pool;
 };
 
-export function resolveDatabasePath(
-	path: string,
-	baseDir = process.cwd(),
-): string {
-	return isAbsolute(path) ? path : resolve(baseDir, path);
+/** Pool ceiling; one backend process serves the whole API. */
+export const DEFAULT_POOL_MAX = 10;
+
+export function createDatabase(url: string): DatabaseHandle {
+	const pool = new Pool({
+		connectionString: url,
+		max: DEFAULT_POOL_MAX,
+	});
+	return drizzle(pool, { schema }) as DatabaseHandle;
 }
 
-export function createDatabase(path: string): DatabaseHandle {
-	const absolutePath = resolveDatabasePath(path);
-
-	if (absolutePath !== ":memory:") {
-		mkdirSync(dirname(absolutePath), { recursive: true });
-	}
-
-	const client = new Database(absolutePath, { create: true });
-	client.exec("PRAGMA journal_mode = WAL;");
-	client.exec("PRAGMA foreign_keys = ON;");
-
-	return drizzle(client, { schema }) as DatabaseHandle;
+/** Drain the pool on process exit so the service stops cleanly. */
+export async function closeDatabase(db: DatabaseHandle): Promise<void> {
+	await db.$client.end();
 }
 
 export { schema };

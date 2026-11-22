@@ -24,12 +24,15 @@ import { eq } from "drizzle-orm";
 import { Elysia, t } from "elysia";
 import { type Auth, createAuth } from "./auth";
 import { type AppConfig, assertConfig, loadConfig } from "./config";
-import { createDatabase, type DatabaseHandle } from "./db";
+import { closeDatabase, createDatabase, type DatabaseHandle } from "./db";
+import { pruneExpiredSessions } from "./db/maintenance";
 import { runMigrations } from "./db/migrate";
 import { exportArtifacts } from "./db/schema";
-import { startTelegramBot } from "./telegram/bot";
 import { type ChangeBus, createChangeBus } from "./events/event-bus";
-import { createEventStreamResponse } from "./events/stream";
+import {
+	createEventStreamResponse,
+	SERVER_IDLE_TIMEOUT_SECONDS,
+} from "./events/stream";
 import {
 	downloadAttachment,
 	type FileRouteDependencies,
@@ -38,11 +41,13 @@ import {
 import { executeGraphQL } from "./graphql";
 import {
 	initSentry,
+	sentryCaptureStoreFailure,
 	sentryOnError,
 	sentryOnRequest,
 	sentrySpan,
 } from "./lib/sentry";
 import { type AttachmentStore, createS3Store } from "./storage/s3";
+import { startTelegramBot } from "./telegram/bot";
 
 export interface ServiceDependencies {
 	db: DatabaseHandle;
@@ -88,6 +93,16 @@ export function createService(deps: ServiceDependencies) {
 				: config.storage
 					? createS3Store(config.storage)
 					: null,
+		// A refused store write is reported to the caller per file, but the
+		// store's own error — the only evidence of *why* — used to be discarded
+		// here, so a failing deployment looked exactly like a healthy one. The
+		// record is scrubbed before it reaches either sink.
+		logStoreFailure: (record) => {
+			console.error(
+				`[mes] attachment store refused a write: task=${record.taskId} key=${record.key} file=${record.fileName} ${record.errorName}: ${record.message}`,
+			);
+			sentryCaptureStoreFailure(record);
+		},
 	};
 
 	return new Elysia({ name: "mes-backend" })
@@ -271,16 +286,16 @@ export function createService(deps: ServiceDependencies) {
 		});
 }
 
-export function bootstrap(): {
+export async function bootstrap(): Promise<{
 	app: ReturnType<typeof createService>;
 	deps: ServiceDependencies;
-} {
+}> {
 	const config = loadConfig();
 	assertConfig(config);
 
-	runMigrations({ databasePath: config.databasePath });
+	await runMigrations({ databaseUrl: config.databaseUrl });
 
-	const db = createDatabase(config.databasePath);
+	const db = createDatabase(config.databaseUrl);
 	const auth = createAuth(db, config);
 	const events = createChangeBus();
 
@@ -291,8 +306,15 @@ export function bootstrap(): {
 }
 
 if (import.meta.main) {
-	const { app, deps } = bootstrap();
-	app.listen(deps.config.port);
+	const { app, deps } = await bootstrap();
+	// Keep the high-churn session table bounded; runs on startup, not per request.
+	await pruneExpiredSessions(deps.db);
+	// The idle timeout must comfortably exceed the SSE heartbeat interval, or
+	// Bun closes change-free streams mid-life (see events/stream.ts).
+	app.listen({
+		port: deps.config.port,
+		idleTimeout: SERVER_IDLE_TIMEOUT_SECONDS,
+	});
 	console.log(
 		`MES backend listening on http://localhost:${deps.config.port} (${deps.config.env})`,
 	);
@@ -300,9 +322,10 @@ if (import.meta.main) {
 	// the API serves identically either way, and a polling failure is logged
 	// here instead of taking the service down.
 	const bot = await startTelegramBot(deps);
-	if (bot) {
-		process.once("beforeExit", () => {
-			void bot.stop();
-		});
-	}
+	process.once("beforeExit", () => {
+		// Drain the pool before the process exits so the container stops
+		// cleanly and the database releases the connections immediately.
+		void closeDatabase(deps.db);
+		if (bot) void bot.stop();
+	});
 }

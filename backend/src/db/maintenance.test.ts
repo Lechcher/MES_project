@@ -2,17 +2,13 @@
  * Session pruning tests (bounded storage growth).
  */
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
-import { existsSync, rmSync } from "node:fs";
-import { join } from "node:path";
 import { eq } from "drizzle-orm";
-import { createDatabase, type DatabaseHandle } from "./index";
-import { runMigrations } from "./migrate";
-import { departments, session, user } from "./schema";
+import type { DatabaseHandle } from "./index";
 import { pruneExpiredSessions } from "./maintenance";
+import { departments, session, user } from "./schema";
+import { createTestDatabase, type TestDatabase } from "./test-db";
 
-const TMP_ROOT =
-	"/private/var/folders/xg/lnbqz3fs2w74l46y045jdxmh0000gn/T/opencode";
-const dbPath = join(TMP_ROOT, `mes-maintenance-${crypto.randomUUID()}.db`);
+let testDb: TestDatabase;
 
 let db: DatabaseHandle;
 const departmentId = crypto.randomUUID();
@@ -20,15 +16,13 @@ const userId = crypto.randomUUID();
 const activeToken = "token-active";
 const expiredToken = "token-expired";
 
-afterAll(() => {
-	for (const suffix of ["", "-wal", "-shm"]) {
-		if (existsSync(`${dbPath}${suffix}`)) rmSync(`${dbPath}${suffix}`);
-	}
+afterAll(async () => {
+	await testDb.close();
 });
 
 beforeAll(async () => {
-	runMigrations({ databasePath: dbPath });
-	db = createDatabase(dbPath);
+	testDb = await createTestDatabase();
+	db = testDb.db;
 	await db.insert(departments).values({
 		id: departmentId,
 		code: "ENG",

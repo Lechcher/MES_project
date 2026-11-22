@@ -1,18 +1,18 @@
 import { defineConfig } from "drizzle-kit";
 
 /**
- * Drizzle Kit configuration for the MES SQLite database.
+ * Drizzle Kit configuration for the MES PostgreSQL database.
  *
- * The database file is resolved from the same environment variable the runtime
- * service uses (`MES_DATABASE_PATH`), so `db:generate` / `db:migrate` operate on
+ * The database URL is resolved from the same environment variable the runtime
+ * service uses (`MES_DATABASE_URL`), so `db:generate` / `db:migrate` operate on
  * the configured database rather than a hard-coded path.
  */
 export default defineConfig({
 	schema: "./src/db/schema.ts",
 	out: "./drizzle",
-	dialect: "sqlite",
+	dialect: "postgresql",
 	dbCredentials: {
-		url: process.env.MES_DATABASE_PATH ?? "./data/mes.db",
+		url: process.env.MES_DATABASE_URL ?? "postgres://mes:mes@localhost:5432/mes",
 	},
 	strict: true,
 	verbose: true,

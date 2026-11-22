@@ -21,11 +21,11 @@
 --       broader index coverage, and idempotent seed data
 --
 -- Scope
---   Reference schema only. PostgreSQL dialect. The running prototype stores
---   the same model in SQLite through Drizzle ORM; the Drizzle schema in
---   backend/src/db/schema.ts is authoritative at runtime. Session and
---   password-reset token tables belong to the auth library and are not
---   modelled here. Idempotent: safe to re-run
+--   Reference schema. PostgreSQL dialect — the dialect the running system now
+--   uses: the prototype stores the same model through Drizzle ORM, and the
+--   Drizzle schema in backend/src/db/schema.ts is authoritative at runtime.
+--   Session and password-reset token tables belong to the auth library and are
+--   not modelled here. Idempotent: safe to re-run
 --   (CREATE ... IF NOT EXISTS / OR REPLACE, and ON CONFLICT DO NOTHING seeds).
 --   Planned modules (Recruitment, Payroll, Assets) are represented by the
 --   `modules` registry extension point only; their domain tables are out of scope.

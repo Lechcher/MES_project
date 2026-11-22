@@ -1,12 +1,13 @@
 /**
- * Drizzle schema for the MES SQLite database.
+ * Drizzle schema for the MES PostgreSQL database.
  *
  * This file is the source of truth for `backend/drizzle/*` migrations. It
- * adapts `DATABASE_SCHEMA_EXAMPLE_OPTIMIZED.sql` (PostgreSQL) to SQLite:
- * enum-like codes become constrained text, ids are application-generated UUID
- * strings, timestamps are Unix milliseconds, `DATE` values are `YYYY-MM-DD`
- * text, and JSON is stored as text. Foreign keys, uniqueness, checks and query
- * indexes are preserved.
+ * implements the model documented in `DATABASE_SCHEMA_EXAMPLE_OPTIMIZED.sql`
+ * (the PostgreSQL reference schema): enum-like codes remain constrained text,
+ * ids are application-generated UUID strings, timestamps are timezone-aware
+ * (`timestamptz`) values, `DATE` values are `YYYY-MM-DD` text, and JSON is
+ * stored as text. Foreign keys, uniqueness, checks and query indexes are
+ * preserved.
  *
  * Better Auth owns the `user`, `session`, `account`, and `verification` tables.
  * The MES profile shares the Better Auth user id (one identity, not two), so
@@ -15,43 +16,41 @@
 
 import { sql } from "drizzle-orm";
 import {
+	boolean,
 	check,
+	doublePrecision,
 	index,
 	integer,
-	real,
-	sqliteTable,
+	pgTable,
 	text,
+	timestamp,
 	uniqueIndex,
-} from "drizzle-orm/sqlite-core";
+} from "drizzle-orm/pg-core";
 
-const timestampMs = (name: string) => integer(name, { mode: "timestamp_ms" });
+const timestampMs = (name: string) =>
+	timestamp(name, { mode: "date", precision: 3, withTimezone: true });
 
-/** `DEFAULT (unixepoch() * 1000)` — Unix milliseconds. */
-const nowMs = sql`(unixepoch() * 1000)`;
-
-const createdAt = () => timestampMs("created_at").default(nowMs).notNull();
-const updatedAt = () => timestampMs("updated_at").default(nowMs).notNull();
+const createdAt = () => timestampMs("created_at").defaultNow().notNull();
+const updatedAt = () => timestampMs("updated_at").defaultNow().notNull();
 
 /* ------------------------------------------------------------------ */
 /* Better Auth                                                         */
 /* ------------------------------------------------------------------ */
 
-export const user = sqliteTable(
+export const user = pgTable(
 	"user",
 	{
 		id: text("id").primaryKey(),
 		name: text("name").notNull(),
 		email: text("email").notNull().unique(),
-		emailVerified: integer("email_verified", { mode: "boolean" })
-			.default(false)
-			.notNull(),
+		emailVerified: boolean("email_verified").default(false).notNull(),
 		image: text("image"),
 		/** MES profile identity, unique across the directory. */
 		userCode: text("user_code").notNull().unique(),
 		departmentId: text("department_id").references(() => departments.id, {
 			onDelete: "set null",
 		}),
-		isActive: integer("is_active", { mode: "boolean" }).default(true).notNull(),
+		isActive: boolean("is_active").default(true).notNull(),
 		deletedAt: timestampMs("deleted_at"),
 		createdAt: createdAt(),
 		updatedAt: updatedAt(),
@@ -62,7 +61,7 @@ export const user = sqliteTable(
 	],
 );
 
-export const session = sqliteTable(
+export const session = pgTable(
 	"session",
 	{
 		id: text("id").primaryKey(),
@@ -80,7 +79,7 @@ export const session = sqliteTable(
 	(table) => [index("idx_session_user").on(table.userId)],
 );
 
-export const account = sqliteTable(
+export const account = pgTable(
 	"account",
 	{
 		id: text("id").primaryKey(),
@@ -103,7 +102,7 @@ export const account = sqliteTable(
 	(table) => [index("idx_account_user").on(table.userId)],
 );
 
-export const verification = sqliteTable(
+export const verification = pgTable(
 	"verification",
 	{
 		id: text("id").primaryKey(),
@@ -121,7 +120,7 @@ export const verification = sqliteTable(
 /* Organization, identity, RBAC                                        */
 /* ------------------------------------------------------------------ */
 
-export const departments = sqliteTable(
+export const departments = pgTable(
 	"departments",
 	{
 		id: text("id").primaryKey(),
@@ -130,10 +129,8 @@ export const departments = sqliteTable(
 		departmentType: text("department_type").default("DEPARTMENT").notNull(),
 		parentId: text("parent_id"),
 		managerId: text("manager_id"),
-		autoForkingEnabled: integer("auto_forking_enabled", { mode: "boolean" })
-			.default(true)
-			.notNull(),
-		isActive: integer("is_active", { mode: "boolean" }).default(true).notNull(),
+		autoForkingEnabled: boolean("auto_forking_enabled").default(true).notNull(),
+		isActive: boolean("is_active").default(true).notNull(),
 		deletedAt: timestampMs("deleted_at"),
 		createdAt: createdAt(),
 		updatedAt: updatedAt(),
@@ -150,7 +147,7 @@ export const departments = sqliteTable(
 	],
 );
 
-export const roles = sqliteTable(
+export const roles = pgTable(
 	"roles",
 	{
 		id: text("id").primaryKey(),
@@ -168,7 +165,7 @@ export const roles = sqliteTable(
 	],
 );
 
-export const permissions = sqliteTable(
+export const permissions = pgTable(
 	"permissions",
 	{
 		id: text("id").primaryKey(),
@@ -187,7 +184,7 @@ export const permissions = sqliteTable(
 	],
 );
 
-export const userRoles = sqliteTable(
+export const userRoles = pgTable(
 	"user_roles",
 	{
 		id: text("id").primaryKey(),
@@ -197,7 +194,7 @@ export const userRoles = sqliteTable(
 		roleId: text("role_id")
 			.notNull()
 			.references(() => roles.id, { onDelete: "cascade" }),
-		assignedAt: timestampMs("assigned_at").default(nowMs).notNull(),
+		assignedAt: timestampMs("assigned_at").defaultNow().notNull(),
 	},
 	(table) => [
 		uniqueIndex("uq_user_roles").on(table.userId, table.roleId),
@@ -205,7 +202,7 @@ export const userRoles = sqliteTable(
 	],
 );
 
-export const rolePermissions = sqliteTable(
+export const rolePermissions = pgTable(
 	"role_permissions",
 	{
 		id: text("id").primaryKey(),
@@ -215,7 +212,7 @@ export const rolePermissions = sqliteTable(
 		permissionId: text("permission_id")
 			.notNull()
 			.references(() => permissions.id, { onDelete: "cascade" }),
-		grantedAt: timestampMs("granted_at").default(nowMs).notNull(),
+		grantedAt: timestampMs("granted_at").defaultNow().notNull(),
 	},
 	(table) => [
 		uniqueIndex("uq_role_permissions").on(table.roleId, table.permissionId),
@@ -227,15 +224,13 @@ export const rolePermissions = sqliteTable(
 /* Code registries                                                     */
 /* ------------------------------------------------------------------ */
 
-export const modules = sqliteTable(
+export const modules = pgTable(
 	"modules",
 	{
 		code: text("code").primaryKey(),
 		name: text("name").notNull(),
 		description: text("description"),
-		isEnabled: integer("is_enabled", { mode: "boolean" })
-			.default(true)
-			.notNull(),
+		isEnabled: boolean("is_enabled").default(true).notNull(),
 		sortOrder: integer("sort_order").default(0).notNull(),
 		createdAt: createdAt(),
 		updatedAt: updatedAt(),
@@ -248,16 +243,14 @@ export const modules = sqliteTable(
 	],
 );
 
-export const ticketStates = sqliteTable(
+export const ticketStates = pgTable(
 	"ticket_states",
 	{
 		code: text("code").primaryKey(),
 		name: text("name").notNull(),
 		color: text("color").notNull(),
 		description: text("description"),
-		isTerminal: integer("is_terminal", { mode: "boolean" })
-			.default(false)
-			.notNull(),
+		isTerminal: boolean("is_terminal").default(false).notNull(),
 		sortOrder: integer("sort_order").default(0).notNull(),
 		createdAt: createdAt(),
 		updatedAt: updatedAt(),
@@ -270,23 +263,17 @@ export const ticketStates = sqliteTable(
 	],
 );
 
-export const leaveCodes = sqliteTable(
+export const leaveCodes = pgTable(
 	"leave_codes",
 	{
 		code: text("code").primaryKey(),
 		name: text("name").notNull(),
 		category: text("category").notNull(),
-		isPaid: integer("is_paid", { mode: "boolean" }).default(false).notNull(),
+		isPaid: boolean("is_paid").default(false).notNull(),
 		payrollRule: text("payroll_rule").notNull(),
-		deductsWage: integer("deducts_wage", { mode: "boolean" })
-			.default(false)
-			.notNull(),
-		isPenalty: integer("is_penalty", { mode: "boolean" })
-			.default(false)
-			.notNull(),
-		isBalanceTracked: integer("is_balance_tracked", { mode: "boolean" })
-			.default(false)
-			.notNull(),
+		deductsWage: boolean("deducts_wage").default(false).notNull(),
+		isPenalty: boolean("is_penalty").default(false).notNull(),
+		isBalanceTracked: boolean("is_balance_tracked").default(false).notNull(),
 		sortOrder: integer("sort_order").default(0).notNull(),
 		createdAt: createdAt(),
 		updatedAt: updatedAt(),
@@ -307,7 +294,7 @@ export const leaveCodes = sqliteTable(
 /* Audit trail                                                         */
 /* ------------------------------------------------------------------ */
 
-export const systemAuditLogs = sqliteTable(
+export const systemAuditLogs = pgTable(
 	"system_audit_logs",
 	{
 		id: text("id").primaryKey(),
@@ -339,7 +326,7 @@ export const systemAuditLogs = sqliteTable(
 /* Jobs & Projects                                                     */
 /* ------------------------------------------------------------------ */
 
-export const projects = sqliteTable(
+export const projects = pgTable(
 	"projects",
 	{
 		id: text("id").primaryKey(),
@@ -349,7 +336,7 @@ export const projects = sqliteTable(
 		departmentId: text("department_id").references(() => departments.id, {
 			onDelete: "set null",
 		}),
-		isActive: integer("is_active", { mode: "boolean" }).default(true).notNull(),
+		isActive: boolean("is_active").default(true).notNull(),
 		deletedAt: timestampMs("deleted_at"),
 		createdAt: createdAt(),
 		updatedAt: updatedAt(),
@@ -357,7 +344,7 @@ export const projects = sqliteTable(
 	(table) => [index("idx_projects_department").on(table.departmentId)],
 );
 
-export const tasks = sqliteTable(
+export const tasks = pgTable(
 	"tasks",
 	{
 		id: text("id").primaryKey(),
@@ -385,18 +372,12 @@ export const tasks = sqliteTable(
 		progressPercentage: integer("progress_percentage").default(0).notNull(),
 		/** `MULTI_DAY` only: how many stages the assignee expects the job to take. */
 		plannedStageCount: integer("planned_stage_count"),
-		isUrgentHourly: integer("is_urgent_hourly", { mode: "boolean" })
+		isUrgentHourly: boolean("is_urgent_hourly").default(false).notNull(),
+		isExtensionRequested: boolean("is_extension_requested")
 			.default(false)
 			.notNull(),
-		isExtensionRequested: integer("is_extension_requested", { mode: "boolean" })
-			.default(false)
-			.notNull(),
-		isOverdue: integer("is_overdue", { mode: "boolean" })
-			.default(false)
-			.notNull(),
-		isLateSubmission: integer("is_late_submission", { mode: "boolean" })
-			.default(false)
-			.notNull(),
+		isOverdue: boolean("is_overdue").default(false).notNull(),
+		isLateSubmission: boolean("is_late_submission").default(false).notNull(),
 		approvedBy: text("approved_by").references(() => user.id, {
 			onDelete: "set null",
 		}),
@@ -432,7 +413,7 @@ export const tasks = sqliteTable(
 	],
 );
 
-export const taskStateTransitions = sqliteTable(
+export const taskStateTransitions = pgTable(
 	"task_state_transitions",
 	{
 		id: text("id").primaryKey(),
@@ -461,7 +442,7 @@ export const taskStateTransitions = sqliteTable(
 	],
 );
 
-export const taskProgressLogs = sqliteTable(
+export const taskProgressLogs = pgTable(
 	"task_progress_logs",
 	{
 		id: text("id").primaryKey(),
@@ -474,7 +455,7 @@ export const taskProgressLogs = sqliteTable(
 		previousPercentage: integer("previous_percentage").default(0).notNull(),
 		newPercentage: integer("new_percentage").notNull(),
 		logComment: text("log_comment"),
-		isVerifiedByManager: integer("is_verified_by_manager", { mode: "boolean" })
+		isVerifiedByManager: boolean("is_verified_by_manager")
 			.default(false)
 			.notNull(),
 		createdAt: createdAt(),
@@ -489,7 +470,7 @@ export const taskProgressLogs = sqliteTable(
 	],
 );
 
-export const taskRequests = sqliteTable(
+export const taskRequests = pgTable(
 	"task_requests",
 	{
 		id: text("id").primaryKey(),
@@ -533,7 +514,7 @@ export const taskRequests = sqliteTable(
  * ticket's own terminal decision. `state` reuses the ticket codes, so `PEN`
  * means "awaiting review", `APP` "approved" and `REJ` "sent back".
  */
-export const taskCompletionRequests = sqliteTable(
+export const taskCompletionRequests = pgTable(
 	"task_completion_requests",
 	{
 		id: text("id").primaryKey(),
@@ -582,7 +563,7 @@ export const taskCompletionRequests = sqliteTable(
 	],
 );
 
-export const attachments = sqliteTable(
+export const attachments = pgTable(
 	"attachments",
 	{
 		id: text("id").primaryKey(),
@@ -606,7 +587,7 @@ export const attachments = sqliteTable(
 /* Planning, attendance & leave funds                                  */
 /* ------------------------------------------------------------------ */
 
-export const leaveRequests = sqliteTable(
+export const leaveRequests = pgTable(
 	"leave_requests",
 	{
 		id: text("id").primaryKey(),
@@ -618,7 +599,7 @@ export const leaveRequests = sqliteTable(
 		startDate: text("start_date").notNull(),
 		/** `YYYY-MM-DD`. */
 		endDate: text("end_date").notNull(),
-		totalDays: real("total_days").notNull(),
+		totalDays: doublePrecision("total_days").notNull(),
 		reason: text("reason").notNull(),
 		handoverUserId: text("handover_user_id").references(() => user.id, {
 			onDelete: "set null",
@@ -648,7 +629,7 @@ export const leaveRequests = sqliteTable(
 	],
 );
 
-export const attendanceRecords = sqliteTable(
+export const attendanceRecords = pgTable(
 	"attendance_records",
 	{
 		id: text("id").primaryKey(),
@@ -659,12 +640,10 @@ export const attendanceRecords = sqliteTable(
 		workDate: text("work_date").notNull(),
 		checkIn: timestampMs("check_in"),
 		checkOut: timestampMs("check_out"),
-		isLate: integer("is_late", { mode: "boolean" }).default(false).notNull(),
-		isEarlyLeave: integer("is_early_leave", { mode: "boolean" })
-			.default(false)
-			.notNull(),
+		isLate: boolean("is_late").default(false).notNull(),
+		isEarlyLeave: boolean("is_early_leave").default(false).notNull(),
 		leaveCode: text("leave_code"),
-		workingHours: real("working_hours").default(0).notNull(),
+		workingHours: doublePrecision("working_hours").default(0).notNull(),
 		note: text("note"),
 		createdAt: createdAt(),
 		updatedAt: updatedAt(),
@@ -680,7 +659,7 @@ export const attendanceRecords = sqliteTable(
 	],
 );
 
-export const leaveBalanceEntries = sqliteTable(
+export const leaveBalanceEntries = pgTable(
 	"leave_balance_entries",
 	{
 		id: text("id").primaryKey(),
@@ -689,7 +668,7 @@ export const leaveBalanceEntries = sqliteTable(
 			.references(() => user.id, { onDelete: "cascade" }),
 		leaveCode: text("leave_code").notNull(),
 		entryType: text("entry_type").notNull(),
-		deltaDays: real("delta_days").notNull(),
+		deltaDays: doublePrecision("delta_days").notNull(),
 		periodYear: integer("period_year").notNull(),
 		referenceType: text("reference_type"),
 		referenceId: text("reference_id"),
@@ -714,7 +693,7 @@ export const leaveBalanceEntries = sqliteTable(
 	],
 );
 
-export const overtimeRecords = sqliteTable(
+export const overtimeRecords = pgTable(
 	"overtime_records",
 	{
 		id: text("id").primaryKey(),
@@ -723,10 +702,8 @@ export const overtimeRecords = sqliteTable(
 			.references(() => user.id, { onDelete: "cascade" }),
 		/** `YYYY-MM-DD`. */
 		workDate: text("work_date").notNull(),
-		hours: real("hours").notNull(),
-		isApproved: integer("is_approved", { mode: "boolean" })
-			.default(false)
-			.notNull(),
+		hours: doublePrecision("hours").notNull(),
+		isApproved: boolean("is_approved").default(false).notNull(),
 		approvedBy: text("approved_by").references(() => user.id, {
 			onDelete: "set null",
 		}),
@@ -745,18 +722,18 @@ export const overtimeRecords = sqliteTable(
 /* Performance & KPI                                                   */
 /* ------------------------------------------------------------------ */
 
-export const kpiPointRules = sqliteTable("kpi_point_rules", {
+export const kpiPointRules = pgTable("kpi_point_rules", {
 	code: text("code").primaryKey(),
 	event: text("event").notNull(),
 	points: integer("points").notNull(),
 	description: text("description"),
-	isActive: integer("is_active", { mode: "boolean" }).default(true).notNull(),
+	isActive: boolean("is_active").default(true).notNull(),
 	sortOrder: integer("sort_order").default(0).notNull(),
 	createdAt: createdAt(),
 	updatedAt: updatedAt(),
 });
 
-export const kpiScoreEvents = sqliteTable(
+export const kpiScoreEvents = pgTable(
 	"kpi_score_events",
 	{
 		id: text("id").primaryKey(),
@@ -772,7 +749,7 @@ export const kpiScoreEvents = sqliteTable(
 		points: integer("points").notNull(),
 		periodYear: integer("period_year").notNull(),
 		periodMonth: integer("period_month").notNull(),
-		occurredAt: timestampMs("occurred_at").default(nowMs).notNull(),
+		occurredAt: timestampMs("occurred_at").defaultNow().notNull(),
 		note: text("note"),
 	},
 	(table) => [
@@ -786,7 +763,7 @@ export const kpiScoreEvents = sqliteTable(
 	],
 );
 
-export const kpiMonthlySummaries = sqliteTable(
+export const kpiMonthlySummaries = pgTable(
 	"kpi_monthly_summaries",
 	{
 		id: text("id").primaryKey(),
@@ -806,7 +783,7 @@ export const kpiMonthlySummaries = sqliteTable(
 		extensionRequestsCount: integer("extension_requests_count")
 			.default(0)
 			.notNull(),
-		attendanceRate: real("attendance_rate").default(100).notNull(),
+		attendanceRate: doublePrecision("attendance_rate").default(100).notNull(),
 		perfectAttendanceBonus: integer("perfect_attendance_bonus")
 			.default(0)
 			.notNull(),
@@ -833,16 +810,14 @@ export const kpiMonthlySummaries = sqliteTable(
 /* Platform settings, notifications, exports                           */
 /* ------------------------------------------------------------------ */
 
-export const appSettings = sqliteTable(
+export const appSettings = pgTable(
 	"app_settings",
 	{
 		id: text("id").primaryKey(),
 		moduleCode: text("module_code").notNull(),
 		key: text("key").notNull(),
 		value: text("value"),
-		isSecret: integer("is_secret", { mode: "boolean" })
-			.default(false)
-			.notNull(),
+		isSecret: boolean("is_secret").default(false).notNull(),
 		description: text("description"),
 		createdAt: createdAt(),
 		updatedAt: updatedAt(),
@@ -857,19 +832,17 @@ export const appSettings = sqliteTable(
 	],
 );
 
-export const telegramWebhookConfig = sqliteTable("telegram_webhook_config", {
+export const telegramWebhookConfig = pgTable("telegram_webhook_config", {
 	id: text("id").primaryKey(),
 	botToken: text("bot_token"),
 	alertGroupChatId: text("alert_group_chat_id"),
 	webhookUrl: text("webhook_url"),
-	isEnabled: integer("is_enabled", { mode: "boolean" })
-		.default(false)
-		.notNull(),
+	isEnabled: boolean("is_enabled").default(false).notNull(),
 	createdAt: createdAt(),
 	updatedAt: updatedAt(),
 });
 
-export const notifications = sqliteTable(
+export const notifications = pgTable(
 	"notifications",
 	{
 		id: text("id").primaryKey(),
@@ -897,7 +870,7 @@ export const notifications = sqliteTable(
 	],
 );
 
-export const exportArtifacts = sqliteTable(
+export const exportArtifacts = pgTable(
 	"export_artifacts",
 	{
 		id: text("id").primaryKey(),
@@ -927,18 +900,14 @@ export const exportArtifacts = sqliteTable(
  * `telegram_webhook_config.bot_token` remains the fallback token source for
  * deployments that already configured the outbound webhook.
  */
-export const telegramBotSettings = sqliteTable("telegram_bot_settings", {
+export const telegramBotSettings = pgTable("telegram_bot_settings", {
 	id: text("id").primaryKey(),
 	botToken: text("bot_token"),
-	isEnabled: integer("is_enabled", { mode: "boolean" })
-		.default(false)
-		.notNull(),
+	isEnabled: boolean("is_enabled").default(false).notNull(),
 	aiBaseUrl: text("ai_base_url"),
 	aiApiKey: text("ai_api_key"),
 	aiDefaultModel: text("ai_default_model"),
-	pushAlertsEnabled: integer("push_alerts_enabled", { mode: "boolean" })
-		.default(false)
-		.notNull(),
+	pushAlertsEnabled: boolean("push_alerts_enabled").default(false).notNull(),
 	createdAt: createdAt(),
 	updatedAt: updatedAt(),
 });
@@ -951,7 +920,7 @@ export const telegramBotSettings = sqliteTable("telegram_bot_settings", {
  * deactivated or deleted (the viewer lookup rejects inactive accounts, so a
  * revoked or deactivated user behaves exactly like an unlinked identity).
  */
-export const telegramLinks = sqliteTable(
+export const telegramLinks = pgTable(
 	"telegram_links",
 	{
 		id: text("id").primaryKey(),
@@ -961,7 +930,7 @@ export const telegramLinks = sqliteTable(
 			.references(() => user.id, { onDelete: "cascade" }),
 		telegramChatId: text("telegram_chat_id").notNull(),
 		telegramUsername: text("telegram_username"),
-		isActive: integer("is_active", { mode: "boolean" }).default(true).notNull(),
+		isActive: boolean("is_active").default(true).notNull(),
 		lastSeenAt: timestampMs("last_seen_at"),
 		createdAt: createdAt(),
 		updatedAt: updatedAt(),
@@ -978,7 +947,7 @@ export const telegramLinks = sqliteTable(
  * Only the code's hash is stored — a leaked table must not be enough to take
  * over a link. Expiry and consumption are enforced on lookup, not by a sweep.
  */
-export const telegramLinkCodes = sqliteTable(
+export const telegramLinkCodes = pgTable(
 	"telegram_link_codes",
 	{
 		codeHash: text("code_hash").primaryKey(),
@@ -1001,7 +970,7 @@ export const telegramLinkCodes = sqliteTable(
  * A failed refresh keeps the previous rows: a temporarily unreachable
  * endpoint must not leave users without a model list.
  */
-export const telegramAiModels = sqliteTable(
+export const telegramAiModels = pgTable(
 	"telegram_ai_models",
 	{
 		modelId: text("model_id").primaryKey(),
@@ -1020,7 +989,7 @@ export const telegramAiModels = sqliteTable(
  * and the count used inside it. Persisted so the budget survives restarts and
  * across processes; an in-memory counter would reset on every deploy.
  */
-export const telegramAiUsage = sqliteTable("telegram_ai_usage", {
+export const telegramAiUsage = pgTable("telegram_ai_usage", {
 	userId: text("user_id")
 		.primaryKey()
 		.references(() => user.id, { onDelete: "cascade" }),
@@ -1031,7 +1000,7 @@ export const telegramAiUsage = sqliteTable("telegram_ai_usage", {
 });
 
 /** Per-user preference overrides for the bot (currently the AI model). */
-export const telegramUserPrefs = sqliteTable("telegram_user_prefs", {
+export const telegramUserPrefs = pgTable("telegram_user_prefs", {
 	userId: text("user_id")
 		.primaryKey()
 		.references(() => user.id, { onDelete: "cascade" }),

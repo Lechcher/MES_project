@@ -47,6 +47,14 @@ export const DEFAULT_MAX_FILE_BYTES = 25 * 1024 * 1024;
 /** Default number of files one bulk upload request may carry. */
 export const DEFAULT_MAX_FILES_PER_REQUEST = 20;
 
+/**
+ * Local development PostgreSQL endpoint.
+ *
+ * The credentials match the documented local Docker run command, so a fresh
+ * checkout works against a container without any configuration.
+ */
+export const DEFAULT_DATABASE_URL = "postgres://mes:mes@localhost:5432/mes";
+
 export interface AppConfig {
 	readonly env: ServiceEnv;
 	readonly isProduction: boolean;
@@ -56,8 +64,8 @@ export interface AppConfig {
 	readonly authSecret: string;
 	/** Base URL of this service, used by Better Auth for callback links. */
 	readonly authUrl: string;
-	/** Absolute or backend-relative path to the SQLite database file. */
-	readonly databasePath: string;
+	/** PostgreSQL connection URL, e.g. `postgres://user:password@host:5432/db`. */
+	readonly databaseUrl: string;
 	readonly port: number;
 	/** Browser origin allowed by CORS. */
 	readonly webOrigin: string;
@@ -202,6 +210,53 @@ function resolveStorage(env: Env): {
 }
 
 /**
+ * Read and validate the PostgreSQL connection URL.
+ *
+ * The scheme must be postgres/postgresql so a typo surfaces at startup as an
+ * actionable message rather than a driver error on the first query. An unset
+ * value falls back to the documented local default. The password is redacted
+ * before the value is echoed into any error message.
+ */
+function resolveDatabaseUrl(env: Env): string {
+	const raw = env.MES_DATABASE_URL?.trim() || DEFAULT_DATABASE_URL;
+
+	let parsed: URL;
+	try {
+		parsed = new URL(raw);
+	} catch {
+		throw new ConfigurationError(
+			"MES_DATABASE_URL must be a connection URL such as " +
+				"postgres://user:password@localhost:5432/mes " +
+				`(received "${redactDatabaseUrl(raw)}").`,
+			["MES_DATABASE_URL"],
+		);
+	}
+
+	if (parsed.protocol !== "postgres:" && parsed.protocol !== "postgresql:") {
+		throw new ConfigurationError(
+			"MES_DATABASE_URL must use the postgres:// or postgresql:// scheme " +
+				`(received "${parsed.protocol}//...").`,
+			["MES_DATABASE_URL"],
+		);
+	}
+
+	if (parsed.hostname === "") {
+		throw new ConfigurationError(
+			"MES_DATABASE_URL must include a host " +
+				`(received "${redactDatabaseUrl(raw)}").`,
+			["MES_DATABASE_URL"],
+		);
+	}
+
+	return raw;
+}
+
+/** Mask the password in a database URL for diagnostics. */
+export function redactDatabaseUrl(raw: string): string {
+	return raw.replace(/^([a-zA-Z][a-zA-Z0-9+.-]*:\/\/)[^/]*@/, "$1***:***@");
+}
+
+/**
  * Read the Telegram session-encryption key.
  *
  * The key is 32 bytes as 64 hex characters. Unset leaves linking disabled
@@ -267,7 +322,7 @@ export function loadConfig(
 		isTest,
 		authSecret: authSecret || "test-secret-not-for-production",
 		authUrl: authUrl || "http://localhost:3001",
-		databasePath: env.MES_DATABASE_PATH?.trim() || "./data/mes.db",
+		databaseUrl: resolveDatabaseUrl(env),
 		port: resolvePort(env),
 		webOrigin: env.MES_WEB_ORIGIN?.trim() || "http://localhost:3000",
 		exportDir: env.MES_EXPORT_DIR?.trim() || "./data/exports",

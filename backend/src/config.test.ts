@@ -28,14 +28,16 @@ describe("loadConfig", () => {
 			NODE_ENV: "production",
 			BETTER_AUTH_SECRET: "a-real-secret",
 			BETTER_AUTH_URL: "https://mes.example.com",
-			MES_DATABASE_PATH: "/var/lib/mes/mes.db",
+			MES_DATABASE_URL: "postgres://mes:secret@db.example.com:5432/mes",
 			MES_API_PORT: "8080",
 		});
 
 		expect(config.isProduction).toBe(true);
 		expect(config.authSecret).toBe("a-real-secret");
 		expect(config.authUrl).toBe("https://mes.example.com");
-		expect(config.databasePath).toBe("/var/lib/mes/mes.db");
+		expect(config.databaseUrl).toBe(
+			"postgres://mes:secret@db.example.com:5432/mes",
+		);
 		expect(config.port).toBe(8080);
 	});
 
@@ -52,7 +54,7 @@ describe("loadConfig", () => {
 			BETTER_AUTH_URL: "http://localhost:3001",
 		});
 		expect(config.port).toBe(3001);
-		expect(config.databasePath).toBe("./data/mes.db");
+		expect(config.databaseUrl).toBe("postgres://mes:mes@localhost:5432/mes");
 		expect(config.exportDir).toBe("./data/exports");
 		expect(config.webOrigin).toBe("http://localhost:3000");
 		expect(config.smtpUrl).toBeNull();

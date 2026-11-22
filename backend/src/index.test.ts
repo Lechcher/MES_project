@@ -7,21 +7,21 @@
  */
 
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
-import { existsSync, rmSync } from "node:fs";
+import { rmSync } from "node:fs";
+import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { eq } from "drizzle-orm";
 import { type Auth, createAuth } from "./auth";
 import { type AppConfig, loadConfig } from "./config";
-import { createDatabase, type DatabaseHandle } from "./db";
-import { runMigrations } from "./db/migrate";
+import type { DatabaseHandle } from "./db";
 import { exportArtifacts, roles, session, tasks, user } from "./db/schema";
+import { createTestDatabase, type TestDatabase } from "./db/test-db";
 import { type ChangeBus, createChangeBus } from "./events/event-bus";
 import { createService } from "./index";
 import { createMemoryStore } from "./storage/s3";
 
-const TMP_ROOT =
-	"/private/var/folders/xg/lnbqz3fs2w74l46y045jdxmh0000gn/T/opencode";
-const dbPath = join(TMP_ROOT, `mes-service-${crypto.randomUUID()}.db`);
+const TMP_ROOT = join(tmpdir(), "mes-service-tests");
+let testDb: TestDatabase;
 
 let app: ReturnType<typeof createService>;
 let db: DatabaseHandle;
@@ -46,13 +46,13 @@ function post(
 }
 
 beforeAll(async () => {
-	runMigrations({ databasePath: dbPath });
+	testDb = await createTestDatabase();
 	config = loadConfig({
 		NODE_ENV: "test",
-		MES_DATABASE_PATH: dbPath,
+		MES_DATABASE_URL: testDb.connectionString,
 		MES_WEB_ORIGIN: "http://localhost:3000",
 	});
-	db = createDatabase(dbPath);
+	db = testDb.db;
 	await db
 		.insert(roles)
 		.values([{ id: "role-EMPLOYEE", code: "EMPLOYEE", name: "Employee" }]);
@@ -61,11 +61,8 @@ beforeAll(async () => {
 	app = createService({ db, auth, config, events, attachmentStore });
 });
 
-afterAll(() => {
-	for (const suffix of ["", "-wal", "-shm"]) {
-		const path = `${dbPath}${suffix}`;
-		if (existsSync(path)) rmSync(path);
-	}
+afterAll(async () => {
+	await testDb.close();
 });
 
 describe("health check", () => {
