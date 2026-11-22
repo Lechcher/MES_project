@@ -1,12 +1,12 @@
-# Spec Delta
+# frontend/project-configuration Specification
 
 ## Purpose
+Defines where the frontend application declares its project root, so the
+development server and the production build resolve the application's own
+modules and trace output from the application directory instead of guessing from
+the surrounding repository layout.
 
-Defines where the frontend application declares its project root, and which
-origins may request its development server, so the development experience runs
-without framework diagnostics caused by the surrounding repository layout.
-
-## ADDED Requirements
+## Requirements
 
 ### Requirement: Declared project root for the frontend application
 
@@ -19,8 +19,8 @@ report no ambiguity about the inferred workspace root.
 #### Scenario: Development server starts without an inferred-root warning
 
 - **WHEN** the development server starts from the application directory
-- **THEN** it reports that the server is ready and reports no warning that it
-  inferred the workspace root or detected multiple lockfiles
+- **THEN** it reports that the application is ready and reports no warning that
+  it inferred the workspace root or detected multiple lockfiles
 
 #### Scenario: Production build and server report no inferred-root warning
 
@@ -30,8 +30,8 @@ report no ambiguity about the inferred workspace root.
 
 #### Scenario: The application resolves its own modules
 
-- **WHEN** the application builds and serves any screen after the project root
-  is declared
+- **WHEN** the application builds and serves any screen after the project root is
+  declared
 - **THEN** every module the application imports resolves and the screens render
   as they did before the root was declared
 

@@ -7,10 +7,14 @@ The frame around every screen: demo sign-in offering one account per role, the r
 ## Requirements
 
 ### Requirement: Authenticated sign-in and session
-The system SHALL authenticate users with their email and password, establish a session for the authenticated viewer, protect app routes, and clear the viewer on sign-out.
+The system SHALL authenticate users with their email and password or their user code and password, establish a session for the authenticated viewer, protect app routes, and clear the viewer on sign-out.
 
 #### Scenario: Successful sign-in
 - **WHEN** a user submits valid credentials
+- **THEN** the authenticated viewer is established and the role-aware dashboard opens
+
+#### Scenario: Sign in with a user code
+- **WHEN** a user submits a valid user code and password
 - **THEN** the authenticated viewer is established and the role-aware dashboard opens
 
 #### Scenario: Protected route without a session
@@ -20,6 +24,10 @@ The system SHALL authenticate users with their email and password, establish a s
 #### Scenario: Sign out
 - **WHEN** the viewer signs out
 - **THEN** the session is ended and the sign-in page opens
+
+#### Scenario: Unknown identifier fails neutrally
+- **WHEN** a user submits an identifier that is neither a known email nor a known user code
+- **THEN** the sign-in fails with the same invalid-credentials error a wrong password produces
 
 ### Requirement: Home Page Dashboard app launcher
 The dashboard SHALL render Jobs, Planning, and Performance for every role; Settings for `SUPER_ADMIN` and `TECH_LEAD` with all menus and for `HR_MANAGER` with User Directory only; and Audit Log only for `SUPER_ADMIN` and `TECH_LEAD`.
@@ -37,15 +45,15 @@ The dashboard SHALL render Jobs, Planning, and Performance for every role; Setti
 - **THEN** all five apps appear, including Audit Log
 
 ### Requirement: Global layout applies the DESIGN.md theme
-Every screen SHALL follow the light IBM Carbon direction in `DESIGN.md`: white surfaces, charcoal ink, a single IBM Blue `#0f62fe` accent, flat-square corners, hairline borders, and IBM Plex Sans typography. Shared layout and semantic state colors SHALL remain consistent across apps, and where `AGENTS.md` still summarises the theme as dark, `DESIGN.md` is authoritative.
+Every screen SHALL follow the IBM Carbon direction in `DESIGN.md`: light theme by default — white surfaces, charcoal ink, a single IBM Blue `#0f62fe` accent, flat-square corners, hairline borders, and IBM Plex Sans typography — and the IBM Carbon Gray 100 dark theme when the viewer's theme preference selects dark. Shared layout and semantic state colors SHALL remain consistent across apps in both themes, and where `AGENTS.md` still summarises the theme as dark, `DESIGN.md` is authoritative.
 
 #### Scenario: Theme conformance
-- **WHEN** any screen renders
-- **THEN** the screen uses the white canvas, charcoal ink, IBM Blue accents, flat-square corners, and IBM Plex Sans typography defined in `DESIGN.md`
+- **WHEN** any screen renders in either theme
+- **THEN** the screen uses that theme's canvas and ink from `DESIGN.md` — white canvas and charcoal ink under light, the Carbon Gray 100 values under dark — with IBM Blue accents, flat-square corners, and IBM Plex Sans typography
 
 #### Scenario: Footer inversion
-- **WHEN** the footer renders on any screen
-- **THEN** it uses an inverse charcoal surface with inverse ink while remaining distinguishable from the light page canvas
+- **WHEN** the footer renders on any screen in either theme
+- **THEN** it uses an inverse charcoal surface with inverse ink while remaining distinguishable from the page canvas of the active theme
 
 ### Requirement: Top navigation with app switcher and user menu
 The top navigation SHALL list the dashboard and only apps the viewer's role may access, show the viewer's name, role, and department, and offer sign-out.
@@ -68,3 +76,14 @@ Each app SHALL render an app header with the app name and its tabs and action bu
 #### Scenario: Role-hidden tab
 - **WHEN** an `EMPLOYEE` opens the Planning app
 - **THEN** the Approval Board tab is not rendered
+
+### Requirement: The user dropdown trigger names the viewer's code
+The navigation's user dropdown trigger SHALL show the viewer's user code beside their name, so the account in use is identifiable at a glance.
+
+#### Scenario: Code beside the name
+- **WHEN** a signed-in viewer sees the navigation's user dropdown trigger
+- **THEN** their user code is shown beside their full name
+
+#### Scenario: Every role sees their own code
+- **WHEN** a viewer of any role signs in
+- **THEN** the trigger shows that viewer's own code

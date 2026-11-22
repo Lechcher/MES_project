@@ -22,7 +22,7 @@
 | Backend | Bun + Elysia |
 | API Runtime | graphql (GraphQL.js) — schema execution for the versioned endpoint |
 | Authentication | better-auth |
-| ORM / Database | Drizzle ORM (SQLite via `bun:sqlite`) |
+| ORM / Database | Drizzle ORM (PostgreSQL via `node-postgres`) |
 | API Contract | GraphQL (see [`API_CONTACT_SPECIFICATION.md`](API_CONTACT_SPECIFICATION.md)) |
 | Report generation | exceljs (XLSX/CSV), pdf-lib (PDF) |
 | Email delivery | nodemailer (SMTP: hosted provider or local mail server) |
@@ -103,6 +103,7 @@ This repository uses a single-branch workflow on `main`. All changes are committ
 
 - Run unit tests before every commit; all tests must pass.
 - Playwright e2e tests require dev servers (frontend:3000, backend:3001) to be running.
+- The whole system also runs as containers from `docker/` (frontend, backend, bundled Garage S3, Mailpit, Caddy); see [`docs/DEVELOPMENT.md`](docs/DEVELOPMENT.md) §14 for the one-command workflow.
 - Sentry errors are captured automatically when `SENTRY_DSN`/`NEXT_PUBLIC_SENTRY_DSN` are configured.
 - Check Sentry for new issues after triggering errors: `make-and-change` org → `mes_project` project.
 
