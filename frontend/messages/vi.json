@@ -38,7 +38,8 @@
       "settings": {
         "short": "Cài đặt",
         "description": "IAM, RBAC và cấu hình hệ thống.",
-        "userDirectoryOnly": "Chỉ Danh mục người dùng."
+        "userDirectoryOnly": "Danh mục người dùng và tài khoản của bạn.",
+        "accountOnly": "Email và mật khẩu của bạn."
       },
       "audit-log": {
         "short": "Nhật ký hệ thống",
@@ -64,11 +65,17 @@
       "offline": "Ngoại tuyến",
       "offlineTitle": "Cập nhật trực tiếp ngoại tuyến — hiển thị dữ liệu đã biết gần nhất; hãy tải lại thủ công",
       "srSummary": "Kênh trực tiếp: {label}. {title}"
+    },
+    "theme": {
+      "switchTheme": "Chủ đề",
+      "system": "Theo hệ thống",
+      "light": "Sáng",
+      "dark": "Tối"
     }
   },
   "auth": {
     "signInTitle": "Đăng nhập vào MES Prototype",
-    "signInHint": "Sử dụng email và mật khẩu tài khoản MES của bạn.",
+    "signInHint": "Sử dụng địa chỉ email hoặc mã người dùng cùng với mật khẩu của bạn.",
     "email": "Email",
     "emailPlaceholder": "you@company.com",
     "password": "Mật khẩu",
@@ -90,14 +97,23 @@
     "saving": "Đang lưu…",
     "passwordChanged": "Mật khẩu của bạn đã được thay đổi.",
     "requestNewLink": "Yêu cầu liên kết mới",
+    "confirmEmailTitle": "Xác minh địa chỉ email mới",
+    "confirmEmailIntro": "Mở link này để đặt địa chỉ mới làm địa chỉ đăng nhập của bạn. Link đã được gửi tới địa chỉ bạn yêu cầu sử dụng.",
+    "confirmEmailSubmit": "Xác minh đổi email",
+    "confirming": "Đang xác minh…",
+    "emailChangeConfirmed": "Địa chỉ email của bạn đã được đổi. Từ nay hãy đăng nhập bằng địa chỉ này.",
+    "backToAccount": "Về tài khoản của bạn",
+    "missingConfirmationToken": "Link này thiếu token xác minh. Hãy bắt đầu lại việc đổi email từ tab Tài khoản.",
+    "invalidConfirmationToken": "Link xác minh này không hợp lệ hoặc đã hết hạn. Hãy bắt đầu lại việc đổi email từ tab Tài khoản.",
     "missingToken": "Liên kết này thiếu mã đặt lại. Hãy yêu cầu liên kết mới để tiếp tục.",
-    "invalidToken": "Liên kết đặt lại này không hợp lệ hoặc đã hết hạn. Hãy yêu cầu liên kết mới để tiếp tục."
+    "invalidToken": "Liên kết đặt lại này không hợp lệ hoặc đã hết hạn. Hãy yêu cầu liên kết mới để tiếp tục.",
+    "identifier": "Email hoặc mã người dùng",
+    "identifierPlaceholder": "you@company.com hoặc V0000001"
   },
   "jobs": {
     "list": {
       "title": "Danh sách phiếu việc",
       "roleScoped": "Phiếu việc theo vai trò ({role}). Phạm vi dữ liệu của người xem do API áp dụng.",
-      "quickAdd": "Thêm nhanh hằng ngày",
       "exportXlsx": "Xuất .xlsx",
       "exportCsv": "Xuất .csv",
       "createNew": "Tạo phiếu việc mới",
@@ -134,18 +150,6 @@
       "colDeadline": "Hạn chót",
       "overdueMark": "Quá hạn",
       "generalOperations": "Vận hành chung"
-    },
-    "quickAdd": {
-      "title": "Thêm nhanh hằng ngày",
-      "description": "Xác nhận phiếu việc của ngày trước mốc chốt kế hoạch {cutoff}. Phiếu chưa xác nhận vẫn ở trạng thái REQ.",
-      "backToList": "Quay lại danh sách",
-      "loading": "Đang tải phiếu REQ của hôm nay…",
-      "emptyTitle": "Không có phiếu REQ nào chưa xác nhận hôm nay",
-      "emptyDescription": "Mọi phiếu việc cho hôm nay đã được nhận hoặc chưa có phiếu nào được lên lịch.",
-      "colAction": "Hành động",
-      "accept": "Nhận",
-      "accepting": "Đang nhận…",
-      "accepted": "Đã nhận phiếu việc (REQ → ACT)."
     },
     "detail": {
       "backToList": "Quay lại danh sách",
@@ -210,7 +214,7 @@
     "create": {
       "title": "Tạo phiếu việc mới",
       "forbidden": "Bạn không có quyền tạo phiếu việc. Nhân viên không thể tạo phiếu việc (FORBIDDEN).",
-      "description": "Phiếu việc mới bắt đầu ở trạng thái REQ. Hạn chót phụ thuộc loại công việc; Auto-forking nhân bản tới các thành viên đang hoạt động của phòng ban khi được bật.",
+      "description": "Phiếu mới bắt đầu ở trạng thái REQ. Mỗi người thực hiện được chọn sẽ có một phiêu riêng. Thời hạn theo loại công việc.",
       "needRange": "Công việc nhiều ngày cần ngày bắt đầu và ngày kết thúc.",
       "invalidRange": "Các ngày không phù hợp với loại công việc: công việc trong ngày chỉ một ngày, công việc gấp trong giờ nằm trong một ngày.",
       "created": "Đã tạo phiếu việc ở trạng thái REQ.",
@@ -221,8 +225,11 @@
       "projectLabel": "Dự án",
       "departmentLabel": "Phòng ban",
       "selectDepartment": "Chọn một phòng ban",
-      "assigneeLabel": "Người nhận",
-      "self": "{name} (chính mình)",
+      "assigneeLabel": "Người thực hiện",
+      "assigneePlaceholder": "Tìm nhân viên…",
+      "assigneeEmpty": "Không có nhân viên phù hợp.",
+      "assigneeRequired": "Chọn ít nhất một người thực hiện.",
+      "assigneeHint": "Mỗi nhân viên được chọn sẽ có một phiếu riêng.",
       "descriptionLabel": "Mô tả",
       "deadlineCard": "Hạn chót",
       "hourlySlot": "Khung giờ",
@@ -232,11 +239,6 @@
       "urgentHourly": "Khung giờ gấp (duyệt đúng hạn được +20 KPI)",
       "deadlinePreview": "Hạn chót: {preview}",
       "selectStartEnd": "Hãy chọn ngày bắt đầu và ngày kết thúc",
-      "autoForking": "Auto-forking",
-      "autoForkingEnabled": "Đã bật cho {name} — phiếu việc được nhân bản thành phiếu REQ cho từng thành viên đang hoạt động.",
-      "autoForkingDisabled": "Đã tắt cho {name} — không thực hiện Auto-forking.",
-      "autoForkingPick": "Hãy chọn một phòng ban để xem thiết lập Auto-forking của phòng.",
-      "autoForkingNote": "Thiết lập này được quản lý trong Cài đặt → Cơ cấu tổ chức.",
       "loadingOptions": "Đang tải các tùy chọn của biểu mẫu…",
       "submit": "Tạo phiếu việc",
       "submitting": "Đang tạo…"
@@ -302,6 +304,7 @@
       "scopeLabel": "Yêu cầu này hoàn thành",
       "scopeMilestone": "Hoàn thành giai đoạn",
       "scopeFullJob": "Hoàn thành công việc",
+      "completionAttachmentsUnresolved": "{name} chưa được lưu. Hãy tải lên hoặc xóa trước khi gửi.",
       "completionTitleLabel": "Tiêu đề yêu cầu",
       "completionDescriptionLabel": "Kết quả công việc",
       "completionProgressLabel": "Tiến độ ước tính sau giai đoạn này (%)",
@@ -322,7 +325,9 @@
       "attached": "Đã đính kèm {count}",
       "unknownFormat": "tệp",
       "tooManyFiles": "Mỗi lần gửi tối đa {limit} tệp.",
-      "uploadFailed": "Không tải lên được các tệp. Vui lòng thử lại."
+      "uploadFailed": "Không tải lên được các tệp. Vui lòng thử lại.",
+      "retry": "Thử lại",
+      "unresolvedSubmit": "{name} chưa được lưu. Hãy tải lên, hoặc xóa, trước khi gửi."
     }
   },
   "planning": {
@@ -349,11 +354,9 @@
         "YEAR": "Năm"
       },
       "range": {
-        "from": "Từ",
-        "to": "Đến",
-        "placeholder": "DD/MM/YYYY",
-        "apply": "Áp dụng",
-        "invalidDate": "Nhập ngày theo định dạng DD/MM/YYYY.",
+        "label": "Khoảng thời gian",
+        "placeholder": "Chọn khoảng thời gian",
+        "invalidDate": "Khoảng thời gian được chọn chưa đầy đủ.",
         "endBeforeStart": "Ngày kết thúc trước ngày bắt đầu.",
         "tooLong": "Khoảng thời gian tối đa là 366 ngày."
       },
@@ -677,16 +680,36 @@
   "settings": {
     "view": {
       "title": "Quản trị",
-      "hiddenDescription": "Ứng dụng này bị ẩn với Nhân viên và Trưởng phòng/ban.",
+      "hiddenDescription": "Mọi người dùng đã đăng nhập đều quản lý tài khoản của mình tại đây.",
       "noAccessTitle": "Không có quyền truy cập Cài đặt",
-      "noAccessDescription": "Cài đặt & IAM bị ẩn hoàn toàn với Nhân viên và Trưởng phòng/ban. Quản lý nhân sự chỉ thấy Danh mục người dùng.",
-      "hrDescription": "Quản lý nhân sự chỉ thấy Danh mục người dùng.",
+      "noAccessDescription": "Tài khoản của bạn không có menu Cài đặt nào.",
+      "hrDescription": "Quản lý nhân sự thấy Danh mục người dùng và tài khoản của mình.",
       "fullDescription": "Toàn bộ menu kỹ thuật cho {role}.",
       "menuUsers": "Danh mục người dùng",
       "menuOrg": "Cơ cấu tổ chức",
       "menuRbac": "RBAC",
       "menuTelegram": "Webhook Telegram",
-      "menuAudit": "Nhật ký hệ thống"
+      "menuAudit": "Nhật ký hệ thống",
+      "menuAccount": "Tài khoản"
+    },
+    "account": {
+      "title": "Tài khoản",
+      "description": "Đổi email và mật khẩu bạn dùng để đăng nhập. Cả hai chỉ tác động lên tài khoản của bạn.",
+      "passwordChanged": "Mật khẩu của bạn đã được đổi. Các phiên đăng nhập khác đã được đăng xuất.",
+      "emailVerificationSent": "Đã gửi link xác minh tới {email}. Mở link để hoàn tất — địa chỉ email của bạn vẫn giữ nguyên cho đến khi đó.",
+      "passwordTitle": "Mật khẩu",
+      "passwordDescription": "Đổi mật khẩu sẽ đăng xuất mọi phiên khác; phiên hiện tại vẫn được giữ.",
+      "passwordCurrent": "Mật khẩu hiện tại",
+      "passwordNew": "Mật khẩu mới",
+      "passwordSave": "Đổi mật khẩu",
+      "passwordSaving": "Đang đổi…",
+      "emailTitle": "Địa chỉ email",
+      "emailDescription": "Một link xác minh sẽ được gửi tới địa chỉ mới; việc đổi chỉ có hiệu lực sau khi bạn mở link.",
+      "emailCurrent": "Địa chỉ hiện tại: {email}",
+      "emailCurrentPassword": "Mật khẩu của bạn",
+      "emailNew": "Địa chỉ email mới",
+      "emailSave": "Bắt đầu đổi email",
+      "emailSaving": "Đang gửi link…"
     },
     "users": {
       "title": "Danh mục người dùng",
@@ -707,6 +730,7 @@
       "emptyTitle": "Không có người dùng nào khớp bộ lọc",
       "emptyDescription": "Hãy điều chỉnh bộ lọc tìm kiếm, phòng ban, vai trò hoặc trạng thái hoạt động.",
       "colName": "Tên",
+      "colUserCode": "Mã người dùng",
       "colEmail": "Email",
       "colDepartment": "Phòng ban",
       "colRole": "Vai trò",
@@ -745,7 +769,7 @@
     },
     "org": {
       "title": "Cơ cấu tổ chức",
-      "description": "Phân cấp phòng ban/khối và thiết lập Auto-forking theo từng phòng ban dùng khi tạo phiếu việc.",
+      "description": "Hệ thống phòng ban/đơn vị: tạo, sửa và sắp xếp cơ cấu tổ chức.",
       "create": "Tạo phòng ban",
       "loading": "Đang tải phòng ban…",
       "emptyTitle": "Không có phòng ban",
@@ -756,18 +780,12 @@
       "colParent": "Cấp trên",
       "colManager": "Quản lý",
       "colActive": "Hoạt động",
-      "colAutoForking": "Auto-forking",
       "colEdit": "Sửa",
       "yes": "Có",
       "no": "Không",
-      "enabled": "Đã bật",
-      "disabled": "Đã tắt",
-      "autoForkingAria": "Auto-forking cho {name}",
       "edit": "Sửa",
       "created": "Đã tạo phòng ban.",
       "updated": "Đã cập nhật phòng ban.",
-      "autoForkingEnabledMsg": "Auto-forking đã bật cho {name}.",
-      "autoForkingDisabledMsg": "Auto-forking đã tắt cho {name}.",
       "fieldCode": "Mã",
       "fieldName": "Tên",
       "fieldType": "Loại",
@@ -775,7 +793,6 @@
       "noParent": "Không có cấp trên",
       "fieldManager": "Quản lý",
       "noManager": "Không có quản lý",
-      "fieldAutoForking": "Bật Auto-forking",
       "fieldActive": "Đang hoạt động",
       "createTitle": "Tạo phòng ban",
       "createDescription": "Khối và phòng ban dùng chung một phân cấp.",
@@ -1021,9 +1038,7 @@
       "loading": "Đang mở các tài khoản Telegram của bạn…",
       "loadFailed": "Không tải được tài khoản Telegram của bạn.",
       "retry": "Thử lại",
-      "emptyTitle": "Chưa có tài khoản Telegram",
-      "emptyDescription": "Liên kết một tài khoản để xem cuộc trò chuyện tại đây. Phiên đăng nhập được lưu mã hóa trên máy chủ và tự khôi phục mỗi lần đăng nhập.",
-      "addFirst": "Liên kết tài khoản đầu tiên",
+      "linkHint": "Đăng nhập Telegram trong client bên dưới. Các tài khoản đã liên kết được lưu mã hóa trên máy chủ và tự khôi phục mỗi lần đăng nhập.",
       "relinkHint": "Phiên của tài khoản này cần đăng nhập lại — hãy dùng chức năng đăng nhập của Telegram trong không gian làm việc.",
       "frameLabel": "Trò chuyện Telegram"
     }

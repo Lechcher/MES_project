@@ -38,7 +38,8 @@
       "settings": {
         "short": "Settings",
         "description": "IAM, RBAC, and system configuration.",
-        "userDirectoryOnly": "User Directory only."
+        "userDirectoryOnly": "User Directory and your account.",
+        "accountOnly": "Your own email and password."
       },
       "audit-log": {
         "short": "Audit Log",
@@ -64,11 +65,17 @@
       "offline": "Offline",
       "offlineTitle": "Live updates offline — last-known data shown; refresh manually",
       "srSummary": "Live channel: {label}. {title}"
+    },
+    "theme": {
+      "switchTheme": "Theme",
+      "system": "Follow system",
+      "light": "Light",
+      "dark": "Dark"
     }
   },
   "auth": {
     "signInTitle": "Sign in to MES Prototype",
-    "signInHint": "Use your MES account email and password.",
+    "signInHint": "Use your email address or user code with your password.",
     "email": "Email",
     "emailPlaceholder": "you@company.com",
     "password": "Password",
@@ -90,14 +97,23 @@
     "saving": "Saving…",
     "passwordChanged": "Your password has been changed.",
     "requestNewLink": "Request a new link",
+    "confirmEmailTitle": "Confirm your new email address",
+    "confirmEmailIntro": "Open this link to make the new address the one you sign in with. The link was sent to the address you asked to use.",
+    "confirmEmailSubmit": "Confirm email change",
+    "confirming": "Confirming…",
+    "emailChangeConfirmed": "Your email address has been changed. Sign in with it from now on.",
+    "backToAccount": "Back to your account",
+    "missingConfirmationToken": "This link is missing its confirmation token. Start the email change again from the Account tab.",
+    "invalidConfirmationToken": "This confirmation link is invalid or has expired. Start the email change again from the Account tab.",
     "missingToken": "This link is missing its reset token. Request a new link to continue.",
-    "invalidToken": "This reset link is invalid or has expired. Request a new link to continue."
+    "invalidToken": "This reset link is invalid or has expired. Request a new link to continue.",
+    "identifier": "Email or user code",
+    "identifierPlaceholder": "you@company.com or V0000001"
   },
   "jobs": {
     "list": {
       "title": "Ticket list",
       "roleScoped": "Role-scoped tickets ({role}). The viewer's data scope is applied by the API.",
-      "quickAdd": "Daily Quick-add",
       "exportXlsx": "Export .xlsx",
       "exportCsv": "Export .csv",
       "createNew": "Create New Ticket",
@@ -134,18 +150,6 @@
       "colDeadline": "Deadline",
       "overdueMark": "Overdue",
       "generalOperations": "General Operations"
-    },
-    "quickAdd": {
-      "title": "Daily Quick-add",
-      "description": "Confirm the day's tickets before the {cutoff} planning cutoff. Unconfirmed tickets stay REQ.",
-      "backToList": "Back to list",
-      "loading": "Loading today's REQ tickets…",
-      "emptyTitle": "No unconfirmed REQ tickets today",
-      "emptyDescription": "Every ticket for today has been accepted or none is scheduled.",
-      "colAction": "Action",
-      "accept": "Accept",
-      "accepting": "Accepting…",
-      "accepted": "Ticket accepted (REQ → ACT)."
     },
     "detail": {
       "backToList": "Back to list",
@@ -210,7 +214,7 @@
     "create": {
       "title": "Create New Ticket",
       "forbidden": "You do not have permission to create tickets. Employees cannot create tickets (FORBIDDEN).",
-      "description": "New tickets start in REQ. Deadlines follow the task type; Auto-forking replicates to the department's active members when enabled.",
+      "description": "New tickets start in REQ. One ticket is created for each selected assignee. Deadlines follow the task type.",
       "needRange": "Multi-day tasks need a start and end date.",
       "invalidRange": "The dates do not fit this task type: a daily task is one day, and an hourly task runs inside a single day.",
       "created": "Ticket created in state REQ.",
@@ -221,8 +225,11 @@
       "projectLabel": "Project",
       "departmentLabel": "Department",
       "selectDepartment": "Select a department",
-      "assigneeLabel": "Assignee",
-      "self": "{name} (self)",
+      "assigneeLabel": "Assignees",
+      "assigneePlaceholder": "Search employees…",
+      "assigneeEmpty": "No employees match.",
+      "assigneeRequired": "Select at least one assignee.",
+      "assigneeHint": "One ticket is created for each selected employee.",
       "descriptionLabel": "Description",
       "deadlineCard": "Deadline",
       "hourlySlot": "Hourly slot",
@@ -232,11 +239,6 @@
       "urgentHourly": "Urgent hourly (on-time approval awards +20 KPI)",
       "deadlinePreview": "Deadline: {preview}",
       "selectStartEnd": "Select a start and end date",
-      "autoForking": "Auto-forking",
-      "autoForkingEnabled": "Enabled for {name} — the ticket replicates as a REQ ticket for each active member.",
-      "autoForkingDisabled": "Disabled for {name} — no Auto-forking is performed.",
-      "autoForkingPick": "Select a department to see its Auto-forking setting.",
-      "autoForkingNote": "Controlled in Settings → Org Structure.",
       "loadingOptions": "Loading form options…",
       "submit": "Create Ticket",
       "submitting": "Creating…"
@@ -302,6 +304,7 @@
       "scopeLabel": "This request completes",
       "scopeMilestone": "Complete milestone",
       "scopeFullJob": "Complete job",
+      "completionAttachmentsUnresolved": "{name} has not been stored. Upload it or remove it before submitting.",
       "completionTitleLabel": "Request title",
       "completionDescriptionLabel": "What the work delivered",
       "completionProgressLabel": "Estimated total progress after this stage (%)",
@@ -322,7 +325,9 @@
       "attached": "{count} attached",
       "unknownFormat": "file",
       "tooManyFiles": "A request may carry at most {limit} files.",
-      "uploadFailed": "The files could not be uploaded. Try again."
+      "uploadFailed": "The files could not be uploaded. Try again.",
+      "retry": "Try again",
+      "unresolvedSubmit": "{name} is not stored yet. Upload it, or remove it, before submitting."
     }
   },
   "planning": {
@@ -349,11 +354,9 @@
         "YEAR": "Year"
       },
       "range": {
-        "from": "From",
-        "to": "To",
-        "placeholder": "DD/MM/YYYY",
-        "apply": "Apply",
-        "invalidDate": "Enter dates as DD/MM/YYYY.",
+        "label": "Date range",
+        "placeholder": "Pick a date range",
+        "invalidDate": "The picked range is incomplete.",
         "endBeforeStart": "The end date is before the start date.",
         "tooLong": "A range can cover at most 366 days."
       },
@@ -677,16 +680,36 @@
   "settings": {
     "view": {
       "title": "Administration",
-      "hiddenDescription": "This app is hidden from Employee and Department Head.",
+      "hiddenDescription": "Every signed-in user manages their own account here.",
       "noAccessTitle": "No Settings access",
-      "noAccessDescription": "Settings & IAM is fully hidden from Employee and Department Head. HR Manager sees only the User Directory.",
-      "hrDescription": "HR Manager sees only the User Directory.",
+      "noAccessDescription": "Your account has no Settings menus.",
+      "hrDescription": "HR Manager sees the User Directory and their own account.",
       "fullDescription": "Full technical menus for {role}.",
       "menuUsers": "User Directory",
       "menuOrg": "Org Structure",
       "menuRbac": "RBAC",
       "menuTelegram": "Telegram Webhook",
-      "menuAudit": "System Audit Logs"
+      "menuAudit": "System Audit Logs",
+      "menuAccount": "Account"
+    },
+    "account": {
+      "title": "Account",
+      "description": "Change the email address and password you sign in with. Both act on your own account.",
+      "passwordChanged": "Your password has been changed. Other sessions were signed out.",
+      "emailVerificationSent": "A verification link was sent to {email}. Open it to finish the change — your address stays as it is until then.",
+      "passwordTitle": "Password",
+      "passwordDescription": "Changing your password signs out every other session; this one stays signed in.",
+      "passwordCurrent": "Current password",
+      "passwordNew": "New password",
+      "passwordSave": "Change password",
+      "passwordSaving": "Changing…",
+      "emailTitle": "Email address",
+      "emailDescription": "A verification link is sent to the new address; the change applies only after you open it.",
+      "emailCurrent": "Current address: {email}",
+      "emailCurrentPassword": "Your password",
+      "emailNew": "New email address",
+      "emailSave": "Start email change",
+      "emailSaving": "Sending link…"
     },
     "users": {
       "title": "User Directory",
@@ -707,6 +730,7 @@
       "emptyTitle": "No users match the filter",
       "emptyDescription": "Adjust the search, department, role, or active-status filter.",
       "colName": "Name",
+      "colUserCode": "User code",
       "colEmail": "Email",
       "colDepartment": "Department",
       "colRole": "Role",
@@ -745,7 +769,7 @@
     },
     "org": {
       "title": "Org Structure",
-      "description": "Department/division hierarchy and the per-department Auto-forking setting used by Jobs ticket creation.",
+      "description": "Department/division hierarchy: create, edit, and organize the org tree.",
       "create": "Create department",
       "loading": "Loading departments…",
       "emptyTitle": "No departments",
@@ -756,18 +780,12 @@
       "colParent": "Parent",
       "colManager": "Manager",
       "colActive": "Active",
-      "colAutoForking": "Auto-forking",
       "colEdit": "Edit",
       "yes": "Yes",
       "no": "No",
-      "enabled": "Enabled",
-      "disabled": "Disabled",
-      "autoForkingAria": "Auto-forking for {name}",
       "edit": "Edit",
       "created": "Department created.",
       "updated": "Department updated.",
-      "autoForkingEnabledMsg": "Auto-forking enabled for {name}.",
-      "autoForkingDisabledMsg": "Auto-forking disabled for {name}.",
       "fieldCode": "Code",
       "fieldName": "Name",
       "fieldType": "Type",
@@ -775,7 +793,6 @@
       "noParent": "No parent",
       "fieldManager": "Manager",
       "noManager": "No manager",
-      "fieldAutoForking": "Auto-forking enabled",
       "fieldActive": "Active",
       "createTitle": "Create department",
       "createDescription": "Divisions and departments share the same hierarchy.",
@@ -1021,9 +1038,7 @@
       "loading": "Opening your Telegram accounts…",
       "loadFailed": "Your Telegram accounts could not be loaded.",
       "retry": "Try again",
-      "emptyTitle": "No Telegram accounts yet",
-      "emptyDescription": "Link an account to see its chats here. Sessions are stored encrypted on the server and restore automatically on every sign-in.",
-      "addFirst": "Link your first account",
+      "linkHint": "Sign in to Telegram in the client below. Linked accounts are stored encrypted on the server and restore automatically on every sign-in.",
       "relinkHint": "This account's session needs a sign-in again — use Telegram's own login in the workspace.",
       "frameLabel": "Telegram chat"
     }

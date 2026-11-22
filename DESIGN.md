@@ -311,6 +311,46 @@ The system reaches for color rarely — IBM Blue marks links, primary CTAs, and 
 - **Error Red** ({colors.semantic-error}): Carbon red-60 — error states; danger button background.
 - **Info Blue** ({colors.semantic-info}): Identical to primary — informational badges.
 
+### Dark (Carbon Gray 100)
+The dark theme is IBM Carbon's **Gray 100** palette. Every value below is a Carbon token, not a hand-inverted light value — the two themes are sibling palettes that share the same semantic structure, so a surface keeps its role and only its value changes. The app implements this as a `.dark` block overriding the same semantic variables `:root` declares, at `frontend/src/app/globals.css` — no component or utility class changes between themes.
+
+| Semantic token (CSS variable) | Light | Dark (Gray 100) | Carbon reference |
+|---|---|---|---|
+| `--background` — canvas | `#ffffff` | `#161616` | gray-100 |
+| `--foreground` — primary ink | `#161616` | `#f4f4f4` | gray-10 |
+| `--card` | `#ffffff` | `#262626` | gray-90 (layer-01) |
+| `--card-foreground` | `#161616` | `#f4f4f4` | gray-10 |
+| `--popover` | `#ffffff` | `#262626` | gray-90 (layer-01) |
+| `--popover-foreground` | `#161616` | `#f4f4f4` | gray-10 |
+| `--primary` — IBM Blue accent | `#0f62fe` | `#0f62fe` | blue-60, unchanged |
+| `--primary-foreground` | `#ffffff` | `#ffffff` | unchanged |
+| `--secondary` | `#f4f4f4` | `#262626` | gray-90 |
+| `--secondary-foreground` | `#161616` | `#f4f4f4` | gray-10 |
+| `--muted` | `#f4f4f4` | `#262626` | gray-90 |
+| `--muted-foreground` — secondary ink | `#525252` | `#c6c6c6` | gray-30 |
+| `--accent` | `#f4f4f4` | `#262626` | gray-90 |
+| `--accent-foreground` | `#161616` | `#f4f4f4` | gray-10 |
+| `--destructive` — error | `#da1e28` | `#fa4d56` | red-50 |
+| `--border` — hairline | `#e0e0e0` | `#393939` | gray-80 |
+| `--input` | `#e0e0e0` | `#393939` | gray-80 |
+| `--ring` — focus | `#0f62fe` | `#0f62fe` | blue-60 |
+| `--chart-1` | `#0f62fe` | `#78a9ff` | blue-40 |
+| `--chart-2` | `#24a148` | `#42be65` | green-40 |
+| `--chart-3` | `#f1c21b` | `#f1c21b` | yellow-30, unchanged |
+| `--chart-4` | `#da1e28` | `#fa4d56` | red-50 |
+| `--chart-5` | `#525252` | `#c6c6c6` | gray-30 |
+| `--radius` and every `--radius-*` | `0` | `0` | flat-square corners — unchanged |
+| `--sidebar` | `#f4f4f4` | `#262626` | gray-90 |
+| `--sidebar-foreground` | `#161616` | `#f4f4f4` | gray-10 |
+| `--sidebar-primary` | `#0f62fe` | `#0f62fe` | blue-60 |
+| `--sidebar-primary-foreground` | `#ffffff` | `#ffffff` | unchanged |
+| `--sidebar-accent` | `#f4f4f4` | `#393939` | gray-80 |
+| `--sidebar-accent-foreground` | `#161616` | `#f4f4f4` | gray-10 |
+| `--sidebar-border` | `#e0e0e0` | `#393939` | gray-80 |
+| `--sidebar-ring` | `#0f62fe` | `#0f62fe` | blue-60 |
+
+Dark keeps IBM Blue as the single accent, `--radius` at zero, the 1px hairline as the only separator, and the footer's charcoal inversion — on a white dark canvas the footer now inverts the other way, which is the same inversion rule applied to the new canvas. Typography is unchanged: Plex Sans, the same hierarchy, and the 0.16px body tracking carry over verbatim.
+
 ## Typography
 
 ### Font Family
@@ -548,5 +588,5 @@ The brand commits to flat 0px corners. The other tokens exist for product / mobi
 
 - IBM's product surfaces (cloud-pak, watson, datacap) have richer Carbon component usage (data tables, graph cells, breadcrumbs, contextual menus) that aren't present on the marketing pages inspected — those components live in Carbon's documentation rather than in the marketing extraction.
 - Form-field error and validation styling is documented in Carbon docs; the inspected pages didn't render error states.
-- Dark mode is documented in Carbon as Gray-100 theme but isn't exposed on these marketing pages — only the footer inverts. The full dark theme is a separate Carbon palette not extracted here.
+- Dark mode is Carbon's Gray 100 theme and is now extracted above under **Colors → Dark (Carbon Gray 100)**; the marketing pages only ever inverted their footer, which is why the rest of the palette was missing.
 - The community.ibm.com sub-domain uses a different chrome (community-platform white-label) that approximates Carbon but isn't strict — the documented system applies to ibm.com proper.

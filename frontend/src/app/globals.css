@@ -89,6 +89,47 @@
   --sidebar-ring: #0f62fe;
 }
 
+/**
+ * Dark theme — IBM Carbon Gray 100. Sibling palette, not an inversion.
+ *
+ * Only colour variables are overridden; every value is a Carbon token
+ * documented in DESIGN.md → Colors → Dark (Carbon Gray 100). The `--radius`
+ * family, the focus ring, and IBM Blue are deliberately untouched.
+ */
+.dark {
+  --background: #161616;
+  --foreground: #f4f4f4;
+  --card: #262626;
+  --card-foreground: #f4f4f4;
+  --popover: #262626;
+  --popover-foreground: #f4f4f4;
+  --primary: #0f62fe;
+  --primary-foreground: #ffffff;
+  --secondary: #262626;
+  --secondary-foreground: #f4f4f4;
+  --muted: #262626;
+  --muted-foreground: #c6c6c6;
+  --accent: #262626;
+  --accent-foreground: #f4f4f4;
+  --destructive: #fa4d56;
+  --border: #393939;
+  --input: #393939;
+  --ring: #0f62fe;
+  --chart-1: #78a9ff;
+  --chart-2: #42be65;
+  --chart-3: #f1c21b;
+  --chart-4: #fa4d56;
+  --chart-5: #c6c6c6;
+  --sidebar: #262626;
+  --sidebar-foreground: #f4f4f4;
+  --sidebar-primary: #0f62fe;
+  --sidebar-primary-foreground: #ffffff;
+  --sidebar-accent: #393939;
+  --sidebar-accent-foreground: #f4f4f4;
+  --sidebar-border: #393939;
+  --sidebar-ring: #0f62fe;
+}
+
 @layer base {
   * {
     @apply border-border outline-ring/50;
