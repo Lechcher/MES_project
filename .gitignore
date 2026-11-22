@@ -25,6 +25,10 @@ npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 
+# backend run logs (backend/data/logs/ — every name ends in .log, but the
+# directory rule keeps a mis-named file from being committed by accident)
+/backend/data/logs/
+
 # local env files
 /frontend/.env
 /backend/.env

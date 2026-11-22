@@ -7,6 +7,14 @@
  * message rather than at first use.
  */
 
+import {
+	DEFAULT_LOG_FILE_NAME,
+	DEFAULT_LOG_KEEP_FILES,
+	DEFAULT_LOG_MAX_BYTES,
+	LOG_LEVELS,
+	type LogLevel,
+} from "./logging";
+
 export type ServiceEnv = "development" | "test" | "production";
 
 /**
@@ -54,6 +62,9 @@ export const DEFAULT_MAX_FILES_PER_REQUEST = 20;
  * checkout works against a container without any configuration.
  */
 export const DEFAULT_DATABASE_URL = "postgres://mes:mes@localhost:5432/mes";
+
+/** Default directory the service's log files are written to. */
+export const DEFAULT_LOG_DIR = "./data/logs";
 
 export interface AppConfig {
 	readonly env: ServiceEnv;
@@ -106,6 +117,16 @@ export interface AppConfig {
 	 * `null` or when it fails validation at startup.
 	 */
 	readonly telegramEncryptionKey: string | null;
+	/** Directory the service's log files are written to. */
+	readonly logDir: string;
+	/** Minimum severity the service records; lower events are dropped. */
+	readonly logLevel: LogLevel;
+	/** Base name of the live log file. */
+	readonly logFileName: string;
+	/** Size at which the live log file rolls. */
+	readonly logMaxBytes: number;
+	/** Rolled log files retained besides the live one. */
+	readonly logKeepFiles: number;
 }
 
 export class ConfigurationError extends Error {
@@ -207,6 +228,27 @@ function resolveStorage(env: Env): {
 					},
 		missing,
 	};
+}
+
+/**
+ * Read and validate the minimum recorded severity.
+ *
+ * Anything outside the four accepted levels is a misconfiguration — a typo
+ * would otherwise silently raise the floor to nothing, and the run would look
+ * quiet because it recorded nothing.
+ */
+function resolveLogLevel(env: Env): LogLevel {
+	const raw = env.MES_LOG_LEVEL?.trim() ?? "";
+	if (raw === "") return "info";
+
+	const level = raw.toLowerCase();
+	if (!LOG_LEVELS.includes(level as LogLevel)) {
+		throw new ConfigurationError(
+			`MES_LOG_LEVEL must be one of ${LOG_LEVELS.join(", ")} (received "${raw}").`,
+			["MES_LOG_LEVEL"],
+		);
+	}
+	return level as LogLevel;
 }
 
 /**
@@ -354,6 +396,15 @@ export function loadConfig(
 			10,
 		),
 		telegramEncryptionKey: resolveTelegramEncryptionKey(env),
+		logDir: env.MES_LOG_DIR?.trim() || DEFAULT_LOG_DIR,
+		logLevel: resolveLogLevel(env),
+		logFileName: env.MES_LOG_FILE?.trim() || DEFAULT_LOG_FILE_NAME,
+		logMaxBytes: resolveLimit(env, "MES_LOG_MAX_BYTES", DEFAULT_LOG_MAX_BYTES),
+		logKeepFiles: resolveLimit(
+			env,
+			"MES_LOG_KEEP_FILES",
+			DEFAULT_LOG_KEEP_FILES,
+		),
 	};
 }
 

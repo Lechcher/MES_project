@@ -13,7 +13,12 @@ import { type AppConfig, loadConfig } from "../config";
 import type { DatabaseHandle } from "../db";
 import { notifications, user } from "../db/schema";
 import { createTestDatabase, type TestDatabase } from "../db/test-db";
-import { createRecordingMailSender, type RecordingMailSender } from "../mail";
+import { createLogger, type Logger } from "../logging";
+import {
+	createRecordingMailSender,
+	MailDeliveryError,
+	type RecordingMailSender,
+} from "../mail";
 import {
 	type Auth,
 	createAuth,
@@ -36,6 +41,21 @@ let withoutMail: AppConfig;
 /** Build an auth instance with a recording transport. */
 function authWith(sender: RecordingMailSender): Auth {
 	return createAuth(db, config, { mailSender: sender });
+}
+
+/** An auth instance whose delivery outcomes are recorded by a test logger. */
+function authWithLogging(sender: RecordingMailSender): {
+	auth: Auth;
+	lines: string[];
+} {
+	const lines: string[] = [];
+	const logger: Logger = createLogger({
+		terminal: (line) => lines.push(line),
+	});
+	return {
+		auth: createAuth(db, config, { mailSender: sender, logging: logger }),
+		lines,
+	};
 }
 
 function tokenFrom(message: { text: string }): string {
@@ -305,5 +325,88 @@ describe("an invalid or expired token is a validation failure", () => {
 		await expect(
 			signIn(auth, db, { email, password: PASSWORD }),
 		).resolves.toBeDefined();
+	});
+});
+
+describe("the delivery outcome is recorded", () => {
+	test("a delivered reset records one sent line, free of the credential", async () => {
+		const email = "recorded-sent@example.test";
+		await createAccount(email);
+
+		const sender = createRecordingMailSender();
+		const { auth, lines } = authWithLogging(sender);
+
+		await requestPasswordReset(auth, config, {
+			email,
+			redirectTo: "http://localhost:3000/reset-password",
+		});
+
+		// One line per attempt — the notifications row is the durable record,
+		// this is the line an operator reads while watching the run.
+		expect(lines).toHaveLength(1);
+		expect(lines[0]).toContain("password reset mail delivered");
+		expect(lines[0]).not.toContain(APP_PASSWORD);
+		expect(lines[0]).not.toContain(MAIL_URL);
+	});
+
+	test("a failed reset records the reason and code on one line", async () => {
+		const email = "recorded-failed@example.test";
+		await createAccount(email);
+
+		const sender = createRecordingMailSender();
+		// A provider that echoes the connection string in its rejection.
+		sender.failNext(
+			new MailDeliveryError(`535 auth failed using ${MAIL_URL}`, "EAUTH"),
+		);
+		const { auth, lines } = authWithLogging(sender);
+
+		await expect(
+			requestPasswordReset(auth, config, {
+				email,
+				redirectTo: "http://localhost:3000/reset-password",
+			}),
+		).rejects.toThrow(/could not be delivered/);
+
+		expect(lines).toHaveLength(1);
+		expect(lines[0]).toContain("password reset mail failed");
+		expect(lines[0]).toContain("EAUTH");
+		expect(lines[0]).toContain("535");
+		// Neither the connection URL nor its credential reaches the line.
+		expect(lines[0]).not.toContain(APP_PASSWORD);
+		expect(lines[0]).not.toContain(MAIL_URL);
+		expect(lines[0]).toMatch(/\[redacted\]|\[mail endpoint\]/);
+	});
+
+	test("one record per attempt: the line is derived, not a second detection", async () => {
+		const email = "one-record@example.test";
+		await createAccount(email);
+
+		const sender = createRecordingMailSender();
+		const { auth, lines } = authWithLogging(sender);
+		const before = await mailAttempts();
+
+		await requestPasswordReset(auth, config, {
+			email,
+			redirectTo: "http://localhost:3000/reset-password",
+		});
+
+		// One logged line, and one new notifications row — the same attempt.
+		expect(lines).toHaveLength(1);
+		expect(await mailAttempts()).toBe(before + 1);
+	});
+
+	test("a request that sends nothing records no line", async () => {
+		// An address with no account stays neutral: nothing is attempted, so
+		// there is no outcome to record.
+		const sender = createRecordingMailSender();
+		const { auth, lines } = authWithLogging(sender);
+
+		await requestPasswordReset(auth, config, {
+			email: "nobody-recorded@example.test",
+			redirectTo: "http://localhost:3000/reset-password",
+		});
+
+		expect(lines).toHaveLength(0);
+		expect(sender.sent).toHaveLength(0);
 	});
 });

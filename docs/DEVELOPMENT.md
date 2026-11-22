@@ -195,6 +195,55 @@ no scheme and no port: write `127.0.2.2`, not `http://127.0.2.2:3000`. If the
 dev server advertises a different network address on your machine, read the
 `Network:` line it prints on startup and update the entry to match.
 
+### Reading the logs
+
+The backend records its own run: a line when it starts (the port, the
+environment, and the locations it depends on), a line when it stops, every
+unhandled failure with its stack trace, every GraphQL request that returned
+errors (the operation and the returned `extensions.code`), and every
+password-reset mail delivery outcome (sent, or failed with its reason and code).
+Each line carries the time it happened, its severity, and one event — and it
+goes to the terminal *and* to a file, so a run can be watched live and reviewed
+afterwards.
+
+The log files live in `backend/data/logs/` (`MES_LOG_DIR`, default
+`./data/logs`), created at startup — an unusable path fails the run with an
+actionable message rather than at the first event. `backend/data/logs/` is
+gitignored, so nothing there is ever committed.
+
+```
+2026-11-22T09:15:00.000Z INFO service listening on port 3001 env=development ...
+2026-11-22T09:16:12.480Z ERROR graphql request failed: operation=GetTicketStates status=200 codes=UNAUTHENTICATED
+```
+
+Read a run:
+
+```bash
+tail -f backend/data/logs/mes-backend.log      # follow it live
+grep ERROR backend/data/logs/mes-backend.log   # only the failures
+```
+
+Variables (see `backend/.env.example`):
+
+| Variable | Default | Purpose |
+| --- | --- | --- |
+| `MES_LOG_DIR` | `./data/logs` | Directory the log files are written to. |
+| `MES_LOG_LEVEL` | `info` | Minimum recorded severity: `debug`, `info`, `warn`, `error`. The default records lifecycle and errors only. |
+| `MES_LOG_FILE` | `mes-backend.log` | Base name of the live log file. |
+| `MES_LOG_MAX_BYTES` | `5242880` | Size at which the live file rolls (5 MB). |
+| `MES_LOG_KEEP_FILES` | `3` | Rolled files retained besides the live one. |
+
+Rotation is by size, bounded by the retained count: when the live file reaches
+`MES_LOG_MAX_BYTES` it is rolled to `mes-backend.1.log`, the existing numbered
+files shift up, and the oldest beyond `MES_LOG_KEEP_FILES` is discarded — so a
+long-running dev server cannot fill the disk, and the most recent events stay.
+Every name still ends in `.log`, which the repository's `.gitignore` covers.
+
+Credential material never reaches either sink: the mail endpoint's URL and the
+auth secret are not recorded, and the startup line carries only their
+locations. A line that would carry a connection URL's password has it masked,
+in plain and percent-encoded form.
+
 ## 7. Test and check
 
 ```bash

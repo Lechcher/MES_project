@@ -22,6 +22,7 @@ import { ROLE_CODES, type RoleCode } from "../db/enums";
 import { account, session, user, verification } from "../db/schema";
 import type { ResolvedSession, Viewer } from "../graphql/context";
 import { DomainError } from "../graphql/errors";
+import { createSilentLogger, type Logger } from "../logging";
 import {
 	CONFIRM_EMAIL_ROUTE_PATH,
 	composeEmailChangeMessage,
@@ -58,6 +59,12 @@ export interface CreateAuthOptions {
 	 * opens a socket.
 	 */
 	mailSender?: MailSender;
+	/**
+	 * Records the delivery outcomes the reset and verification sends produce.
+	 * Omitted leaves the mail path silent, which is what the automated suite
+	 * and any direct construction get.
+	 */
+	logging?: Logger;
 }
 
 export function createAuth(
@@ -71,6 +78,7 @@ export function createAuth(
 	const redact = config.mailEndpoint
 		? createCredentialScrubber(config.mailEndpoint.url)
 		: undefined;
+	const logger = options.logging ?? createSilentLogger();
 
 	return betterAuth({
 		database: drizzleAdapter(db, {
@@ -116,6 +124,7 @@ export function createAuth(
 
 				const store = resetAttempt.getStore();
 				if (store) store.outcome = outcome;
+				recordDelivery(logger, outcome);
 			},
 		},
 		// The contract carries the session as `Authorization: Bearer <token>`, so
@@ -500,6 +509,30 @@ export async function requestPasswordReset(
 	}
 
 	return true;
+}
+
+/**
+ * Record a password-reset delivery from the outcome `deliverMail` returned.
+ *
+ * The `notifications` row is the attempt's durable record; this is the line an
+ * operator reads while watching the run. It is derived from that same outcome
+ * rather than from a second detection of its own, so one attempt produces one
+ * line. The outcome's message is already scrubbed, and the logger's sink
+ * redacts again — the second line of defence, not the only one.
+ */
+function recordDelivery(logger: Logger, outcome: MailOutcome): void {
+	if (outcome.delivered) {
+		logger.info(
+			`password reset mail delivered: notification=${outcome.notificationId}`,
+		);
+		return;
+	}
+
+	logger.error(
+		`password reset mail failed: notification=${outcome.notificationId} ` +
+			`code=${outcome.errorCode ?? "UNKNOWN"} ` +
+			`reason=${outcome.errorMessage ?? "not reported"}`,
+	);
 }
 
 /** The bearer token a request carries, or `null` when it carries none. */

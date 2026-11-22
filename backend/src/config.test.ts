@@ -315,6 +315,63 @@ describe("mail endpoint validation", () => {
 	});
 });
 
+describe("run-log configuration", () => {
+	test("applies the documented defaults", () => {
+		const config = loadConfig({ NODE_ENV: "test" });
+		expect(config.logDir).toBe("./data/logs");
+		expect(config.logLevel).toBe("info");
+		expect(config.logFileName).toBe("mes-backend.log");
+		expect(config.logMaxBytes).toBe(5 * 1024 * 1024);
+		expect(config.logKeepFiles).toBe(3);
+	});
+
+	test("reads a configured log group from the environment", () => {
+		const config = loadConfig({
+			NODE_ENV: "test",
+			MES_LOG_DIR: "/tmp/mes-logs",
+			MES_LOG_LEVEL: "DEBUG",
+			MES_LOG_FILE: "api.log",
+			MES_LOG_MAX_BYTES: "1024",
+			MES_LOG_KEEP_FILES: "7",
+		});
+		expect(config.logDir).toBe("/tmp/mes-logs");
+		expect(config.logLevel).toBe("debug");
+		expect(config.logFileName).toBe("api.log");
+		expect(config.logMaxBytes).toBe(1024);
+		expect(config.logKeepFiles).toBe(7);
+	});
+
+	test("rejects a level outside the four accepted values", () => {
+		for (const value of ["verbose", "trace", "warning", "INFO!"]) {
+			expect(() =>
+				loadConfig({ NODE_ENV: "test", MES_LOG_LEVEL: value }),
+			).toThrow(ConfigurationError);
+		}
+		try {
+			loadConfig({ NODE_ENV: "test", MES_LOG_LEVEL: "verbose" });
+		} catch (error) {
+			const failure = error as ConfigurationError;
+			expect(failure.missing).toContain("MES_LOG_LEVEL");
+			expect(failure.message).toContain("MES_LOG_LEVEL");
+		}
+	});
+
+	test("rejects a non-integer or non-positive byte count and retained count", () => {
+		for (const name of ["MES_LOG_MAX_BYTES", "MES_LOG_KEEP_FILES"]) {
+			for (const value of ["0", "-1", "1.5", "five-megabytes"]) {
+				expect(() => loadConfig({ NODE_ENV: "test", [name]: value })).toThrow(
+					ConfigurationError,
+				);
+			}
+		}
+	});
+
+	test("accepts a blank byte count as the default", () => {
+		const config = loadConfig({ NODE_ENV: "test", MES_LOG_MAX_BYTES: "  " });
+		expect(config.logMaxBytes).toBe(5 * 1024 * 1024);
+	});
+});
+
 describe("assertConfig", () => {
 	test("refuses to start in production with the development secret", () => {
 		const config = loadConfig({ NODE_ENV: "test" });
