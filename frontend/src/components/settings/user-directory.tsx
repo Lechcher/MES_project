@@ -58,8 +58,14 @@ import { useMutation } from "@/lib/mes/session";
 
 const PAGE_LIMIT = 20;
 
+/**
+ * The suggested default password prefilled into the create and reset dialogs.
+ * It meets the backend's minimum length, and stays editable so any other
+ * password can be entered.
+ */
+const SUGGESTED_PASSWORD = "password";
+
 interface UserDraft {
-  userCode: string;
   fullName: string;
   email: string;
   password: string;
@@ -69,10 +75,9 @@ interface UserDraft {
 }
 
 const EMPTY_DRAFT: UserDraft = {
-  userCode: "",
   fullName: "",
   email: "",
-  password: "",
+  password: SUGGESTED_PASSWORD,
   departmentId: "",
   roleCode: "EMPLOYEE",
   isActive: true,
@@ -103,7 +108,7 @@ export function UserDirectory() {
   const [resetting, setResetting] = useState<UserRef | null>(null);
   const [deactivating, setDeactivating] = useState<UserRef | null>(null);
   const [draft, setDraft] = useState<UserDraft>(EMPTY_DRAFT);
-  const [newPassword, setNewPassword] = useState("");
+  const [newPassword, setNewPassword] = useState(SUGGESTED_PASSWORD);
   const [feedback, setFeedback] = useState<{
     tone: "error" | "success";
     message: string;
@@ -147,7 +152,6 @@ export function UserDirectory() {
 
   const openEdit = (user: UserRef) => {
     setDraft({
-      userCode: user.userCode,
       fullName: user.fullName,
       email: user.email,
       password: "",
@@ -164,7 +168,7 @@ export function UserDirectory() {
     try {
       await createUser.run({
         input: {
-          userCode: draft.userCode.trim(),
+          // No code is sent: the server assigns the next V-range code.
           fullName: draft.fullName.trim(),
           email: draft.email.trim(),
           password: draft.password,
@@ -223,7 +227,7 @@ export function UserDirectory() {
         newPassword,
       });
       setResetting(null);
-      setNewPassword("");
+      setNewPassword(SUGGESTED_PASSWORD);
       setFeedback({
         tone: "success",
         message: t("passwordReset"),
@@ -257,20 +261,6 @@ export function UserDirectory() {
 
   const draftFields = (
     <>
-      <div className="grid gap-1">
-        <Label htmlFor="user-code">{t("fieldUserCode")}</Label>
-        <Input
-          id="user-code"
-          value={draft.userCode}
-          disabled={editing !== null}
-          onChange={(event) =>
-            setDraft((current) => ({
-              ...current,
-              userCode: event.target.value,
-            }))
-          }
-        />
-      </div>
       <div className="grid gap-1">
         <Label htmlFor="user-name">{t("fieldFullName")}</Label>
         <Input
@@ -499,6 +489,7 @@ export function UserDirectory() {
             <TableHeader>
               <TableRow>
                 <TableHead>{t("colName")}</TableHead>
+                <TableHead className="w-28">{t("colUserCode")}</TableHead>
                 <TableHead>{t("colEmail")}</TableHead>
                 <TableHead className="w-40">{t("colDepartment")}</TableHead>
                 <TableHead className="w-32">{t("colRole")}</TableHead>
@@ -510,6 +501,9 @@ export function UserDirectory() {
               {users.map((user) => (
                 <TableRow key={user.id}>
                   <TableCell className="text-sm">{user.fullName}</TableCell>
+                  <TableCell className="font-mono text-xs">
+                    {user.userCode}
+                  </TableCell>
                   <TableCell className="text-xs">{user.email}</TableCell>
                   <TableCell className="text-xs">
                     {user.department?.name ?? "—"}
@@ -535,7 +529,7 @@ export function UserDirectory() {
                         size="xs"
                         variant="outline"
                         onClick={() => {
-                          setNewPassword("");
+                          setNewPassword(SUGGESTED_PASSWORD);
                           setFeedback(null);
                           setResetting(user);
                         }}
@@ -586,7 +580,6 @@ export function UserDirectory() {
             <Button
               disabled={
                 createUser.loading ||
-                !draft.userCode ||
                 !draft.fullName ||
                 !draft.email ||
                 !draft.password

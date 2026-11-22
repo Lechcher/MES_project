@@ -7,13 +7,10 @@
  */
 
 import { afterAll, describe, expect, test } from "bun:test";
-import { existsSync, rmSync } from "node:fs";
-import { join } from "node:path";
 import { eq } from "drizzle-orm";
 import { loadConfig } from "../config";
-import { createDatabase, type DatabaseHandle } from "../db";
+import type { DatabaseHandle } from "../db";
 import type { RoleCode } from "../db/enums";
-import { runMigrations } from "../db/migrate";
 import {
 	attendanceRecords,
 	departments,
@@ -21,6 +18,7 @@ import {
 	tasks,
 	user,
 } from "../db/schema";
+import { createTestDatabase, type TestDatabase } from "../db/test-db";
 import { authorize } from "../graphql/access";
 import {
 	createContext,
@@ -43,23 +41,18 @@ import {
 	recordKpiEvent,
 } from "./kpi";
 
-const TMP_ROOT =
-	"/private/var/folders/xg/lnbqz3fs2w74l46y045jdxmh0000gn/T/opencode";
-const createdPaths: string[] = [];
+const testDbs: TestDatabase[] = [];
 
-afterAll(() => {
-	for (const path of createdPaths) {
-		for (const suffix of ["", "-wal", "-shm"]) {
-			if (existsSync(`${path}${suffix}`)) rmSync(`${path}${suffix}`);
-		}
-	}
+afterAll(async () => {
+	// Closing the generated databases in parallel keeps the
+	// teardown well inside the hook timeout under a loaded server.
+	await Promise.all(testDbs.map((testDb) => testDb.close()));
 });
 
-function freshDatabase(name: string): DatabaseHandle {
-	const path = join(TMP_ROOT, `mes-kpi-${name}-${crypto.randomUUID()}.db`);
-	createdPaths.push(path);
-	runMigrations({ databasePath: path });
-	return createDatabase(path);
+async function freshDatabase(_name: string): Promise<DatabaseHandle> {
+	const testDb = await createTestDatabase();
+	testDbs.push(testDb);
+	return testDb.db;
 }
 
 function viewer(
@@ -106,7 +99,7 @@ async function seedUser(
 }
 
 describe("documented KPI point rules", () => {
-	test("carry the exact documented point values", () => {
+	test("carry the exact documented point values", async () => {
 		expect(KPI_POINTS[KPI_ON_TIME_TICKET]).toBe(10);
 		expect(KPI_POINTS[KPI_ON_TIME_URGENT]).toBe(20);
 		expect(KPI_POINTS[KPI_FIRST_TIME_APPROVAL]).toBe(5);
@@ -119,7 +112,7 @@ describe("documented KPI point rules", () => {
 	});
 
 	test("every trigger records its documented point value", async () => {
-		const db = freshDatabase("triggers");
+		const db = await freshDatabase("triggers");
 		await seedDepartment(db, "d1", "PROD");
 		await seedUser(db, "u1", "d1");
 		const ctx = context(db, viewer("u1", ["EMPLOYEE"], "d1"));
@@ -139,7 +132,7 @@ describe("documented KPI point rules", () => {
 	});
 
 	test("uses the configured point value when a rule is overridden", async () => {
-		const db = freshDatabase("override");
+		const db = await freshDatabase("override");
 		await seedDepartment(db, "d1", "PROD");
 		await seedUser(db, "u1", "d1");
 		const ctx = context(db, viewer("u1", ["EMPLOYEE"], "d1"));
@@ -162,7 +155,7 @@ describe("documented KPI point rules", () => {
 
 describe("monthly summary reproducibility", () => {
 	test("recomputing the same month twice yields identical totals", async () => {
-		const db = freshDatabase("idempotent");
+		const db = await freshDatabase("idempotent");
 		await seedDepartment(db, "d1", "PROD");
 		await seedUser(db, "u1", "d1");
 		const ctx = context(db, viewer("u1", ["EMPLOYEE"], "d1"));
@@ -191,7 +184,7 @@ describe("monthly summary reproducibility", () => {
 	});
 
 	test("accepts an occurrence date to select the month", async () => {
-		const db = freshDatabase("date-overload");
+		const db = await freshDatabase("date-overload");
 		await seedDepartment(db, "d1", "PROD");
 		await seedUser(db, "u1", "d1");
 		const ctx = context(db, viewer("u1", ["EMPLOYEE"], "d1"));
@@ -215,7 +208,7 @@ describe("monthly summary reproducibility", () => {
 	});
 
 	test("totalKpiScore equals bonuses minus penalties for a fixed fixture", async () => {
-		const db = freshDatabase("score");
+		const db = await freshDatabase("score");
 		await seedDepartment(db, "d1", "PROD");
 		await seedUser(db, "u1", "d1");
 		const ctx = context(db, viewer("u1", ["EMPLOYEE"], "d1"));
@@ -300,7 +293,7 @@ describe("monthly summary reproducibility", () => {
 	});
 
 	test("a month of perfect attendance yields the +50 bonus", async () => {
-		const db = freshDatabase("perfect");
+		const db = await freshDatabase("perfect");
 		await seedDepartment(db, "d1", "PROD");
 		await seedUser(db, "u2", "d1");
 		const ctx = context(db, viewer("u2", ["EMPLOYEE"], "d1"));
@@ -325,24 +318,24 @@ describe("monthly summary reproducibility", () => {
 });
 
 describe("KPI audit authorization", () => {
-	test("DEPT_HEAD is denied the company-wide audit levels", () => {
-		const db = freshDatabase("authz-dept-head");
+	test("DEPT_HEAD is denied the company-wide audit levels", async () => {
+		const db = await freshDatabase("authz-dept-head");
 		const ctx = context(db, viewer("dh", ["DEPT_HEAD"], "d1"));
 		expect(() => authorize(ctx, "kpiAuditLevel1Company")).toThrow();
 		expect(() => authorize(ctx, "kpiAuditLevel2Department")).toThrow();
 		expect(authorize(ctx, "kpiAuditLevel3Employee")).toBe("DEPARTMENT_ONLY");
 	});
 
-	test("HR_MANAGER is allowed the company-wide audit levels", () => {
-		const db = freshDatabase("authz-hr");
+	test("HR_MANAGER is allowed the company-wide audit levels", async () => {
+		const db = await freshDatabase("authz-hr");
 		const ctx = context(db, viewer("hr", ["HR_MANAGER"]));
 		expect(authorize(ctx, "kpiAuditLevel1Company")).toBe("COMPANY_WIDE");
 		expect(authorize(ctx, "kpiAuditLevel2Department")).toBe("COMPANY_WIDE");
 		expect(authorize(ctx, "kpiAuditLevel3Employee")).toBe("COMPANY_WIDE");
 	});
 
-	test("EMPLOYEE is denied every audit level", () => {
-		const db = freshDatabase("authz-employee");
+	test("EMPLOYEE is denied every audit level", async () => {
+		const db = await freshDatabase("authz-employee");
 		const ctx = context(db, viewer("emp", ["EMPLOYEE"], "d1"));
 		expect(() => authorize(ctx, "kpiAuditLevel1Company")).toThrow();
 		expect(() => authorize(ctx, "kpiAuditLevel2Department")).toThrow();

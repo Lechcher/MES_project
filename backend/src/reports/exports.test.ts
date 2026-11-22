@@ -10,14 +10,14 @@
 
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { existsSync, readFileSync, rmSync, statSync } from "node:fs";
+import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { inflateSync } from "node:zlib";
 import { eq } from "drizzle-orm";
 import ExcelJS from "exceljs";
 import { type AppConfig, loadConfig } from "../config";
-import { createDatabase, type DatabaseHandle } from "../db";
+import type { DatabaseHandle } from "../db";
 import type { ExportFormatValue, RoleCode } from "../db/enums";
-import { runMigrations } from "../db/migrate";
 import {
 	attendanceRecords,
 	departments,
@@ -35,6 +35,7 @@ import {
 	tasks,
 	user,
 } from "../db/schema";
+import { createTestDatabase, type TestDatabase } from "../db/test-db";
 import {
 	createContext,
 	type Viewer,
@@ -56,10 +57,8 @@ import {
 	taskImportTemplate,
 } from "./schedule";
 
-const TMP_ROOT =
-	"/private/var/folders/xg/lnbqz3fs2w74l46y045jdxmh0000gn/T/opencode";
+const TMP_ROOT = join(tmpdir(), "mes-exports-tests");
 const RUN_ID = crypto.randomUUID();
-const DB_PATH = join(TMP_ROOT, `mes-exports-${RUN_ID}.db`);
 const EXPORT_DIR = join(TMP_ROOT, `mes-exports-${RUN_ID}`);
 
 const PDF_MIME = "application/pdf";
@@ -88,16 +87,17 @@ const THREE_MONTHS_2026 = [
 	{ periodYear: 2026, periodMonth: 10 },
 ];
 
+let testDb: TestDatabase;
 let db: DatabaseHandle;
 let config: AppConfig;
 
 beforeAll(async () => {
-	runMigrations({ databasePath: DB_PATH });
-	db = createDatabase(DB_PATH);
+	testDb = await createTestDatabase();
+	db = testDb.db;
 	config = loadConfig(
 		{
 			NODE_ENV: "test",
-			MES_DATABASE_PATH: DB_PATH,
+			MES_DATABASE_URL: testDb.connectionString,
 			MES_EXPORT_DIR: EXPORT_DIR,
 		},
 		{ requireSecrets: false },
@@ -105,16 +105,8 @@ beforeAll(async () => {
 	await seed();
 });
 
-afterAll(() => {
-	try {
-		db?.$client.close();
-	} catch {
-		// The handle is already closed.
-	}
-	for (const suffix of ["", "-wal", "-shm"]) {
-		const path = `${DB_PATH}${suffix}`;
-		if (existsSync(path)) rmSync(path);
-	}
+afterAll(async () => {
+	await testDb.close();
 	if (existsSync(EXPORT_DIR)) {
 		rmSync(EXPORT_DIR, { recursive: true, force: true });
 	}

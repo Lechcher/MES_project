@@ -14,28 +14,31 @@ import {
 	createDepartment,
 	createUser,
 	deactivateUser,
+	getTelegramBotSettings,
 	getTelegramWebhookConfig,
 	getUser,
+	issueTelegramLinkCode,
 	listAppSettings,
 	listDepartments,
 	listNotifications,
 	listPermissions,
 	listRoles,
 	listSystemAuditLogs,
+	listTelegramLinks,
 	listUsers,
 	resetUserPassword,
+	revokeTelegramLinkById,
+	saveTelegramBotSettings,
 	updateAppSetting,
 	updateDepartment,
 	updateRolePermissions,
 	updateTelegramWebhookConfig,
 	updateUser,
-	getTelegramBotSettings,
-	saveTelegramBotSettings,
-	issueTelegramLinkCode,
-	listTelegramLinks,
-	revokeTelegramLinkById,
 } from "../../domain/settings";
-import { loadModelCatalog, refreshModelCatalog } from "../../telegram/ai/catalog";
+import {
+	loadModelCatalog,
+	refreshModelCatalog,
+} from "../../telegram/ai/catalog";
 import { resolveBotSettings } from "../../telegram/settings";
 import { authorize, scopedDepartmentId, scopedUserId } from "../access";
 import type { ViewerContext } from "../context";

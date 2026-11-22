@@ -124,7 +124,12 @@ export async function moduleActivity(
 		.select({
 			moduleCode: systemAuditLogs.moduleCode,
 			eventCount: count(),
-			lastActivityAt: sql<number | null>`max(${systemAuditLogs.createdAt})`,
+			// PostgreSQL's max() over a timestamptz returns the database's own text
+			// format; extracting epoch milliseconds keeps the value a number the
+			// GraphQL layer can hand to `new Date`.
+			lastActivityAt: sql<
+				number | null
+			>`EXTRACT(EPOCH FROM max(${systemAuditLogs.createdAt})) * 1000`,
 		})
 		.from(systemAuditLogs)
 		.where(where)

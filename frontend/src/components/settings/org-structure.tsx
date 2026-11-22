@@ -58,7 +58,6 @@ interface DepartmentDraft {
   departmentType: DepartmentType;
   parentId: string;
   managerId: string;
-  autoForkingEnabled: boolean;
   isActive: boolean;
 }
 
@@ -68,14 +67,12 @@ const EMPTY_DRAFT: DepartmentDraft = {
   departmentType: "DEPARTMENT",
   parentId: "",
   managerId: "",
-  autoForkingEnabled: true,
   isActive: true,
 };
 
 /**
  * Org Structure — the department/division hierarchy with create/edit and a
- * per-department Auto-forking toggle that controls whether new Jobs tickets
- * replicate to the department's active members.
+ * the department/division hierarchy with create and edit actions.
  */
 export function OrgStructure() {
   const t = useTranslations("settings.org");
@@ -122,35 +119,10 @@ export function OrgStructure() {
       departmentType: department.departmentType,
       parentId: department.parent?.id ?? "",
       managerId: department.manager?.id ?? "",
-      autoForkingEnabled: department.autoForkingEnabled,
       isActive: department.isActive,
     });
     setFeedback(null);
     setEditing(department);
-  };
-
-  const toggleAutoForking = async (
-    department: DepartmentDetail,
-    enabled: boolean,
-  ) => {
-    setFeedback(null);
-    try {
-      await updateDepartment.run({
-        input: { id: department.id, autoForkingEnabled: enabled },
-      });
-      setFeedback({
-        tone: "success",
-        message: enabled
-          ? t("autoForkingEnabledMsg", { name: department.name })
-          : t("autoForkingDisabledMsg", { name: department.name }),
-      });
-      departmentsQuery.refetch();
-    } catch (cause) {
-      setFeedback({
-        tone: "error",
-        message: errorText(cause),
-      });
-    }
   };
 
   const submitCreate = async () => {
@@ -163,7 +135,6 @@ export function OrgStructure() {
           departmentType: draft.departmentType,
           parentId: draft.parentId || undefined,
           managerId: draft.managerId || undefined,
-          autoForkingEnabled: draft.autoForkingEnabled,
         },
       });
       setCreating(false);
@@ -187,7 +158,6 @@ export function OrgStructure() {
           name: draft.name.trim(),
           parentId: draft.parentId || undefined,
           managerId: draft.managerId || undefined,
-          autoForkingEnabled: draft.autoForkingEnabled,
           isActive: draft.isActive,
         },
       });
@@ -307,16 +277,6 @@ export function OrgStructure() {
           </SelectContent>
         </Select>
       </div>
-      <div className="flex items-center gap-3">
-        <Switch
-          id="dept-autofork"
-          checked={draft.autoForkingEnabled}
-          onCheckedChange={(checked) =>
-            setDraft((current) => ({ ...current, autoForkingEnabled: checked }))
-          }
-        />
-        <Label htmlFor="dept-autofork">{t("fieldAutoForking")}</Label>
-      </div>
       {editing ? (
         <div className="flex items-center gap-3">
           <Switch
@@ -374,7 +334,6 @@ export function OrgStructure() {
               <TableHead className="w-40">{t("colParent")}</TableHead>
               <TableHead className="w-40">{t("colManager")}</TableHead>
               <TableHead className="w-20">{t("colActive")}</TableHead>
-              <TableHead className="w-48">{t("colAutoForking")}</TableHead>
               <TableHead className="w-20">{t("colEdit")}</TableHead>
             </TableRow>
           </TableHeader>
@@ -396,24 +355,6 @@ export function OrgStructure() {
                 </TableCell>
                 <TableCell className="text-xs">
                   {department.isActive ? t("yes") : t("no")}
-                </TableCell>
-                <TableCell>
-                  <div className="flex items-center gap-2">
-                    <Switch
-                      aria-label={t("autoForkingAria", {
-                        name: department.name,
-                      })}
-                      checked={department.autoForkingEnabled}
-                      onCheckedChange={(checked) =>
-                        toggleAutoForking(department, checked)
-                      }
-                    />
-                    <span className="text-xs text-muted-foreground">
-                      {department.autoForkingEnabled
-                        ? t("enabled")
-                        : t("disabled")}
-                    </span>
-                  </div>
                 </TableCell>
                 <TableCell>
                   <Button

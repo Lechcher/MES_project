@@ -27,7 +27,7 @@
 ## 5. Storage hygiene (`backend/persistence`)
 
 - [x] 5.1 Implement expired-session pruning (delete `expiresAt < now`, retain active sessions) invoked from the maintenance/startup path, not the request path. Verify: a test seeds expired and active sessions, runs prune, and asserts only expired rows are removed; `cd backend && bun test src/db` passes.
-- [ ] 5.2 Add an index-guard test that runs `EXPLAIN QUERY PLAN` for each hot read path and asserts an index is used (no full scan). Verify: the test passes on the seeded schema and fails when a named index is temporarily removed inside the test.
+- [x] 5.2 Add an index-guard test that runs `EXPLAIN QUERY PLAN` for each hot read path and asserts an index is used (no full scan). Verify: the test passes on the seeded schema and fails when a named index is temporarily removed inside the test.
 - [x] 5.3 If task 1.2 lists a hot path with a missing index, add the smallest covering index via a migration. Verify: `EXPLAIN QUERY PLAN` shows the index used after the migration and the migration applies cleanly against a copy of the dev DB.
 
 ## 6. Measure, keep, and guard (integration/verification)

@@ -54,8 +54,8 @@ import {
 	user,
 	userRoles,
 } from "../db/schema";
-import type { ViewerContext } from "../graphql/context";
 import { requireViewer } from "../graphql/access";
+import type { ViewerContext } from "../graphql/context";
 import { DomainError } from "../graphql/errors";
 import { maskSecret } from "../telegram/settings";
 import { recordAuditEvent } from "./audit";
@@ -66,6 +66,8 @@ export const SETTINGS_AUDIT_ACTIONS = {
 	USER_UPDATE: "user.update",
 	USER_RESET_PASSWORD: "user.reset_password",
 	USER_DEACTIVATE: "user.deactivate",
+	USER_EMAIL_CHANGE: "user.email_change",
+	USER_PASSWORD_CHANGE: "user.password_change",
 	DEPARTMENT_CREATE: "department.create",
 	DEPARTMENT_UPDATE: "department.update",
 	ROLE_PERMISSIONS_UPDATE: "role.permissions.update",
@@ -597,6 +599,33 @@ export async function resetUserPassword(
 		newData: { passwordReset: true },
 	});
 	return true;
+}
+
+/**
+ * Audit event for a self-service credential change.
+ *
+ * The actor is the account that changed its own credentials — also the target
+ * of the event. The payload carries addresses only: no password, token, or
+ * hash is ever recorded.
+ */
+export async function recordCredentialChangeAudit(
+	ctx: ViewerContext,
+	input: {
+		action: string;
+		userId: string;
+		oldData?: unknown;
+		newData?: unknown;
+	},
+): Promise<void> {
+	await recordAuditEvent(ctx, {
+		moduleCode: "settings",
+		action: input.action,
+		resourceType: "user",
+		resourceId: input.userId,
+		userId: input.userId,
+		...(input.oldData !== undefined ? { oldData: input.oldData } : {}),
+		...(input.newData !== undefined ? { newData: input.newData } : {}),
+	});
 }
 
 export async function deactivateUser(

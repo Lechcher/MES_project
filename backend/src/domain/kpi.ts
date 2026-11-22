@@ -14,6 +14,7 @@
  * Rule codes are domain vocabulary and must never be renamed or translated.
  */
 
+import type { Column } from "drizzle-orm";
 import {
 	and,
 	asc,
@@ -26,7 +27,6 @@ import {
 	type SQL,
 	sql,
 } from "drizzle-orm";
-import type { SQLiteColumn } from "drizzle-orm/sqlite-core";
 import { BALANCE_TRACKED_LEAVE_CODES, type KpiRuleCode } from "../db/enums";
 import type {
 	KpiMonthlySummaryRow,
@@ -262,8 +262,8 @@ export function validateMonthSelection(months: KpiMonth[]): KpiMonth[] {
  * artifact covers exactly the months the screen selected.
  */
 export function selectedMonthsCondition(
-	yearColumn: SQLiteColumn,
-	monthColumn: SQLiteColumn,
+	yearColumn: Column,
+	monthColumn: Column,
 	months: KpiMonth[],
 ): SQL {
 	const conditions = months.map((month) =>
@@ -309,7 +309,9 @@ function monthBounds(periodYear: number, periodMonth: number) {
 }
 
 function round2(value: number): number {
-	return Math.round((value + Number.EPSILON) * 100) / 100;
+	// PostgreSQL returns numeric aggregates as strings; coerce before the
+	// epsilon adjustment, which would otherwise concatenate onto the string.
+	return Math.round((Number(value) + Number.EPSILON) * 100) / 100;
 }
 
 /* ------------------------------------------------------------------ */
@@ -605,8 +607,10 @@ export async function recomputeMonthlySummary(
 		.where(
 			and(
 				eq(tasks.assignedTo, userId),
-				sql`coalesce(${tasks.endDate}, ${tasks.startDate}, ${tasks.createdAt}) >= ${startMs}`,
-				sql`coalesce(${tasks.endDate}, ${tasks.startDate}, ${tasks.createdAt}) < ${endMs}`,
+				// PostgreSQL compares the timestamptz columns against Date values; the raw
+				// epoch-millisecond numbers the SQLite dialect accepted are rejected there.
+				sql`coalesce(${tasks.endDate}, ${tasks.startDate}, ${tasks.createdAt}) >= ${new Date(startMs)}`,
+				sql`coalesce(${tasks.endDate}, ${tasks.startDate}, ${tasks.createdAt}) < ${new Date(endMs)}`,
 			),
 		);
 
@@ -760,7 +764,10 @@ async function sumEventPointsByMonth(
 		.groupBy(kpiScoreEvents.periodYear, kpiScoreEvents.periodMonth);
 
 	return new Map(
-		rows.map((row) => [monthKey(row.periodYear, row.periodMonth), row.total]),
+		rows.map((row) => [
+			monthKey(row.periodYear, row.periodMonth),
+			Number(row.total),
+		]),
 	);
 }
 
@@ -802,7 +809,9 @@ async function loadLeaveBalances(
 		.from(leaveBalanceEntries)
 		.leftJoin(leaveCodes, eq(leaveCodes.code, leaveBalanceEntries.leaveCode))
 		.where(eq(leaveBalanceEntries.userId, userId))
-		.groupBy(leaveBalanceEntries.leaveCode);
+		// PostgreSQL requires every selected non-aggregate column in the GROUP BY;
+		// `leave_codes.name` is functionally dependent on the joined code.
+		.groupBy(leaveBalanceEntries.leaveCode, leaveCodes.name);
 
 	return BALANCE_TRACKED_LEAVE_CODES.map((code) => {
 		const found = rows.find((row) => row.leaveCode === code);
@@ -1080,8 +1089,8 @@ export async function getAuditLevel2(
 			departmentId: departments.id,
 			totalEmployees: sql<number>`count(distinct ${kpiMonthlySummaries.userId})`,
 			totalTasksAssigned: sql<number>`coalesce(sum(${kpiMonthlySummaries.totalTasksAssigned}), 0)`,
-			avgAttendanceRate: sql<number>`coalesce(round(avg(${kpiMonthlySummaries.attendanceRate}), 2), 0)`,
-			avgDepartmentKpiScore: sql<number>`coalesce(round(avg(${kpiMonthlySummaries.totalKpiScore}), 2), 0)`,
+			avgAttendanceRate: sql<number>`coalesce(round(avg(${kpiMonthlySummaries.attendanceRate})::numeric, 2), 0)`,
+			avgDepartmentKpiScore: sql<number>`coalesce(round(avg(${kpiMonthlySummaries.totalKpiScore})::numeric, 2), 0)`,
 		})
 		.from(kpiMonthlySummaries)
 		.innerJoin(user, eq(user.id, kpiMonthlySummaries.userId))
@@ -1099,10 +1108,11 @@ export async function getAuditLevel2(
 			periodYear: row.periodYear,
 			periodMonth: row.periodMonth,
 			departmentId: row.departmentId,
-			totalEmployees: row.totalEmployees,
-			totalTasksAssigned: row.totalTasksAssigned,
-			avgAttendanceRate: round2(row.avgAttendanceRate),
-			avgDepartmentKpiScore: round2(row.avgDepartmentKpiScore),
+			// PostgreSQL returns bigint/numeric aggregates as strings.
+			totalEmployees: Number(row.totalEmployees),
+			totalTasksAssigned: Number(row.totalTasksAssigned),
+			avgAttendanceRate: round2(Number(row.avgAttendanceRate)),
+			avgDepartmentKpiScore: round2(Number(row.avgDepartmentKpiScore)),
 		})),
 		totalCount: rows.length,
 	};

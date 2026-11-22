@@ -8,13 +8,10 @@
  */
 
 import { afterAll, describe, expect, test } from "bun:test";
-import { existsSync, rmSync } from "node:fs";
-import { join } from "node:path";
 import { eq } from "drizzle-orm";
 import { loadConfig } from "../config";
-import { createDatabase, type DatabaseHandle } from "../db";
+import type { DatabaseHandle } from "../db";
 import type { RoleCode } from "../db/enums";
-import { runMigrations } from "../db/migrate";
 import {
 	departments,
 	roles,
@@ -23,6 +20,7 @@ import {
 	user,
 	userRoles,
 } from "../db/schema";
+import { createTestDatabase, type TestDatabase } from "../db/test-db";
 import { authorize } from "../graphql/access";
 import {
 	createContext,
@@ -44,23 +42,18 @@ import {
 	updateTelegramWebhookConfig,
 } from "./settings";
 
-const TMP_ROOT =
-	"/private/var/folders/xg/lnbqz3fs2w74l46y045jdxmh0000gn/T/opencode";
-const createdPaths: string[] = [];
+const testDbs: TestDatabase[] = [];
 
-afterAll(() => {
-	for (const path of createdPaths) {
-		for (const suffix of ["", "-wal", "-shm"]) {
-			if (existsSync(`${path}${suffix}`)) rmSync(`${path}${suffix}`);
-		}
-	}
+afterAll(async () => {
+	// Closing the generated databases in parallel keeps the
+	// teardown well inside the hook timeout under a loaded server.
+	await Promise.all(testDbs.map((testDb) => testDb.close()));
 });
 
-function freshDatabase(name: string): DatabaseHandle {
-	const path = join(TMP_ROOT, `mes-settings-${name}-${crypto.randomUUID()}.db`);
-	createdPaths.push(path);
-	runMigrations({ databasePath: path });
-	return createDatabase(path);
+async function freshDatabase(_name: string): Promise<DatabaseHandle> {
+	const testDb = await createTestDatabase();
+	testDbs.push(testDb);
+	return testDb.db;
 }
 
 function context(db: DatabaseHandle, who: Viewer): ViewerContext {
@@ -143,8 +136,8 @@ async function seedBase(db: DatabaseHandle) {
 }
 
 describe("settings authorization asymmetries", () => {
-	test("HR_MANAGER manages the directory but is denied RBAC and the webhook", () => {
-		const db = freshDatabase("rbac-hr");
+	test("HR_MANAGER manages the directory but is denied RBAC and the webhook", async () => {
+		const db = await freshDatabase("rbac-hr");
 		const hr = context(db, viewer("u-hr", ["HR_MANAGER"], "d1"));
 
 		expect(() => authorize(hr, "users")).not.toThrow();
@@ -160,8 +153,8 @@ describe("settings authorization asymmetries", () => {
 		expectForbidden(() => authorize(hr, "auditLogs"));
 	});
 
-	test("TECH_LEAD manages RBAC and the webhook but not account lifecycle", () => {
-		const db = freshDatabase("rbac-tech");
+	test("TECH_LEAD manages RBAC and the webhook but not account lifecycle", async () => {
+		const db = await freshDatabase("rbac-tech");
 		const tech = context(db, viewer("u-tech", ["TECH_LEAD"], "d1"));
 
 		expect(() => authorize(tech, "roles")).not.toThrow();
@@ -177,7 +170,7 @@ describe("settings authorization asymmetries", () => {
 
 describe("account lifecycle", () => {
 	test("HR can create a user, linking roles, through the injected credential port", async () => {
-		const db = freshDatabase("create-user");
+		const db = await freshDatabase("create-user");
 		await seedBase(db);
 		const hr = context(db, viewer("u-hr", ["HR_MANAGER"], "d1"));
 
@@ -208,7 +201,7 @@ describe("account lifecycle", () => {
 	});
 
 	test("deactivating a user soft-deletes them and records before/after audit data", async () => {
-		const db = freshDatabase("deactivate");
+		const db = await freshDatabase("deactivate");
 		await seedBase(db);
 		const hr = context(db, viewer("u-hr", ["HR_MANAGER"], "d1"));
 
@@ -226,7 +219,7 @@ describe("account lifecycle", () => {
 	});
 
 	test("records an append-only audit event with before and after values", async () => {
-		const db = freshDatabase("deactivate-audit");
+		const db = await freshDatabase("deactivate-audit");
 		await seedBase(db);
 		const hr = context(db, viewer("u-hr", ["HR_MANAGER"], "d1"));
 		await deactivateUser(hr, "u-target");
@@ -249,7 +242,7 @@ describe("account lifecycle", () => {
 
 describe("application settings", () => {
 	test("never returns an is_secret value through the shape mapper", async () => {
-		const db = freshDatabase("secret");
+		const db = await freshDatabase("secret");
 		await seedBase(db);
 		const tech = context(db, viewer("u-tech", ["TECH_LEAD"], "d1"));
 
@@ -284,7 +277,7 @@ describe("application settings", () => {
 	});
 
 	test("updates an existing setting in place (upsert by moduleCode+key)", async () => {
-		const db = freshDatabase("upsert");
+		const db = await freshDatabase("upsert");
 		await seedBase(db);
 		const tech = context(db, viewer("u-tech", ["TECH_LEAD"], "d1"));
 
@@ -311,7 +304,7 @@ describe("application settings", () => {
 
 describe("telegram webhook configuration", () => {
 	test("persists the destination and records an audit event", async () => {
-		const db = freshDatabase("webhook");
+		const db = await freshDatabase("webhook");
 		await seedBase(db);
 		const tech = context(db, viewer("u-tech", ["TECH_LEAD"], "d1"));
 
@@ -336,7 +329,7 @@ describe("telegram webhook configuration", () => {
 });
 describe("inbound telegram bot settings", () => {
 	test("reads a fresh row with every secret masked", async () => {
-		const db = freshDatabase("bot-defaults");
+		const db = await freshDatabase("bot-defaults");
 		await seedBase(db);
 		const tech = context(db, viewer("u-tech", ["TECH_LEAD"], "d1"));
 
@@ -349,7 +342,7 @@ describe("inbound telegram bot settings", () => {
 	});
 
 	test("saves the configuration and masks the secrets on read-back", async () => {
-		const db = freshDatabase("bot-save");
+		const db = await freshDatabase("bot-save");
 		await seedBase(db);
 		const tech = context(db, viewer("u-tech", ["TECH_LEAD"], "d1"));
 
@@ -378,7 +371,7 @@ describe("inbound telegram bot settings", () => {
 	});
 
 	test("clears secrets explicitly and re-applies the environment afterwards", async () => {
-		const db = freshDatabase("bot-clear");
+		const db = await freshDatabase("bot-clear");
 		await seedBase(db);
 		const tech = context(db, viewer("u-tech", ["TECH_LEAD"], "d1"));
 		await saveTelegramBotSettings(tech, {
@@ -402,7 +395,7 @@ describe("inbound telegram bot settings", () => {
 	});
 
 	test("records an audit event carrying presence flags, never secrets", async () => {
-		const db = freshDatabase("bot-audit");
+		const db = await freshDatabase("bot-audit");
 		await seedBase(db);
 		const tech = context(db, viewer("u-tech", ["TECH_LEAD"], "d1"));
 		await saveTelegramBotSettings(tech, {
@@ -426,7 +419,7 @@ describe("inbound telegram bot settings", () => {
 
 describe("telegram link codes and links", () => {
 	test("issues a code stored only as a hash, with the configured TTL", async () => {
-		const db = freshDatabase("link-issue");
+		const db = await freshDatabase("link-issue");
 		await seedBase(db);
 		const tech = context(db, viewer("u-tech", ["TECH_LEAD"], "d1"));
 
@@ -445,7 +438,7 @@ describe("telegram link codes and links", () => {
 	});
 
 	test("lists links beside the MES identity they belong to", async () => {
-		const db = freshDatabase("link-list");
+		const db = await freshDatabase("link-list");
 		await seedBase(db);
 		const tech = context(db, viewer("u-tech", ["TECH_LEAD"], "d1"));
 		const { upsertLink } = await import("../telegram/settings");
@@ -463,7 +456,7 @@ describe("telegram link codes and links", () => {
 	});
 
 	test("revokes once: the second call reports nothing to do", async () => {
-		const db = freshDatabase("link-revoke-once");
+		const db = await freshDatabase("link-revoke-once");
 		await seedBase(db);
 		const tech = context(db, viewer("u-tech", ["TECH_LEAD"], "d1"));
 		const { upsertLink } = await import("../telegram/settings");

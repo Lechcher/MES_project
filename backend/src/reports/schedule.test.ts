@@ -8,14 +8,13 @@
  */
 
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
-import { existsSync, mkdirSync, rmSync } from "node:fs";
+import { existsSync, mkdirSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
 import ExcelJS from "exceljs";
 import { type AppConfig, loadConfig } from "../config";
-import { createDatabase, type DatabaseHandle } from "../db";
-import { runMigrations } from "../db/migrate";
+import type { DatabaseHandle } from "../db";
 import { departments, tasks, user } from "../db/schema";
+import { createTestDatabase, type TestDatabase } from "../db/test-db";
 import {
 	createContext,
 	type Viewer,
@@ -28,17 +27,13 @@ import {
 	previewTaskImport,
 } from "./schedule";
 
-const PREFERRED_TMP =
-	"/private/var/folders/xg/lnbqz3fs2w74l46y045jdxmh0000gn/T/opencode";
-const RUN_ID = crypto.randomUUID();
-const DB_PATH = join(
-	existsSync(PREFERRED_TMP) ? PREFERRED_TMP : tmpdir(),
-	`mes-schedule-${RUN_ID}.db`,
-);
+const PREFERRED_TMP = tmpdir();
+const _RUN_ID = crypto.randomUUID();
 
 const DEPT_A = "dept-a";
 const DEPT_B = "dept-b";
 
+let testDb: TestDatabase;
 let db: DatabaseHandle;
 let config: AppConfig;
 let hr: ViewerContext;
@@ -48,10 +43,10 @@ beforeAll(async () => {
 	mkdirSync(existsSync(PREFERRED_TMP) ? PREFERRED_TMP : tmpdir(), {
 		recursive: true,
 	});
-	runMigrations({ databasePath: DB_PATH });
-	db = createDatabase(DB_PATH);
+	testDb = await createTestDatabase();
+	db = testDb.db;
 	config = loadConfig(
-		{ NODE_ENV: "test", MES_DATABASE_PATH: DB_PATH },
+		{ NODE_ENV: "test", MES_DATABASE_URL: testDb.connectionString },
 		{ requireSecrets: false },
 	);
 
@@ -116,16 +111,8 @@ beforeAll(async () => {
 	head = makeContext("u-head", DEPT_A, ["DEPT_HEAD"]);
 });
 
-afterAll(() => {
-	try {
-		db?.$client.close();
-	} catch {
-		// The handle is already closed.
-	}
-	for (const suffix of ["", "-wal", "-shm"]) {
-		const path = `${DB_PATH}${suffix}`;
-		if (existsSync(path)) rmSync(path);
-	}
+afterAll(async () => {
+	await testDb.close();
 });
 
 function makeContext(

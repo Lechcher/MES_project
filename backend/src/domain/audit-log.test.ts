@@ -11,10 +11,10 @@ import { existsSync, readFileSync, rmSync } from "node:fs";
 import { join } from "node:path";
 import { eq } from "drizzle-orm";
 import { loadConfig } from "../config";
-import { createDatabase, type DatabaseHandle } from "../db";
+import type { DatabaseHandle } from "../db";
 import type { RoleCode } from "../db/enums";
-import { runMigrations } from "../db/migrate";
 import { modules, roles, systemAuditLogs, user, userRoles } from "../db/schema";
+import { createTestDatabase, type TestDatabase } from "../db/test-db";
 import { authorize } from "../graphql/access";
 import {
 	createContext,
@@ -24,27 +24,23 @@ import {
 import { auditLogMutation } from "../graphql/resolvers/audit-log";
 import { listAuditLogs, moduleActivity } from "./audit-log";
 
-const TMP_ROOT =
-	"/private/var/folders/xg/lnbqz3fs2w74l46y045jdxmh0000gn/T/opencode";
-const createdPaths: string[] = [];
+const TMP_ROOT = "/tmp/opencode/mes-tests";
+const testDbs: TestDatabase[] = [];
 const exportDirs: string[] = [];
 
-afterAll(() => {
-	for (const path of createdPaths) {
-		for (const suffix of ["", "-wal", "-shm"]) {
-			if (existsSync(`${path}${suffix}`)) rmSync(`${path}${suffix}`);
-		}
-	}
+afterAll(async () => {
+	// Closing the generated databases in parallel keeps the
+	// teardown well inside the hook timeout under a loaded server.
+	await Promise.all(testDbs.map((testDb) => testDb.close()));
 	for (const dir of exportDirs) {
 		if (existsSync(dir)) rmSync(dir, { recursive: true, force: true });
 	}
 });
 
-function freshDatabase(name: string): DatabaseHandle {
-	const path = join(TMP_ROOT, `mes-audit-${name}-${crypto.randomUUID()}.db`);
-	createdPaths.push(path);
-	runMigrations({ databasePath: path });
-	return createDatabase(path);
+async function freshDatabase(_name: string): Promise<DatabaseHandle> {
+	const testDb = await createTestDatabase();
+	testDbs.push(testDb);
+	return testDb.db;
 }
 
 function context(
@@ -145,7 +141,7 @@ async function seedEvent(
 
 describe("append-only read surface", () => {
 	test("returns events newest first", async () => {
-		const db = freshDatabase("order");
+		const db = await freshDatabase("order");
 		await seedBase(db);
 		await seedEvent(db, {
 			id: "e1",
@@ -173,7 +169,7 @@ describe("append-only read surface", () => {
 	});
 
 	test("module filtering returns only that module and its summary reflects the period", async () => {
-		const db = freshDatabase("module");
+		const db = await freshDatabase("module");
 		await seedBase(db);
 		await seedEvent(db, {
 			id: "p1",
@@ -224,14 +220,14 @@ describe("append-only read surface", () => {
 		expect(jobsSummary[0]?.eventCount).toBe(1);
 	});
 
-	test("exposes no mutation that edits or deletes a recorded event", () => {
+	test("exposes no mutation that edits or deletes a recorded event", async () => {
 		expect(Object.keys(auditLogMutation)).toEqual(["exportAuditLogs"]);
 	});
 });
 
 describe("audit log access", () => {
-	test("denies EMPLOYEE and HR_MANAGER every audit operation", () => {
-		const db = freshDatabase("access");
+	test("denies EMPLOYEE and HR_MANAGER every audit operation", async () => {
+		const db = await freshDatabase("access");
 		const employee = context(db, viewer("u-emp", ["EMPLOYEE"]));
 		const hr = context(db, viewer("u-hr", ["HR_MANAGER"]));
 
@@ -245,7 +241,7 @@ describe("audit log access", () => {
 
 describe("export", () => {
 	test("generates a real CSV of exactly the filtered events and records the artifact", async () => {
-		const db = freshDatabase("export");
+		const db = await freshDatabase("export");
 		await seedBase(db);
 		await seedEvent(db, {
 			id: "p1",
@@ -299,7 +295,7 @@ describe("export", () => {
 	});
 
 	test("supports an XLSX export", async () => {
-		const db = freshDatabase("export-xlsx");
+		const db = await freshDatabase("export-xlsx");
 		await seedBase(db);
 		await seedEvent(db, {
 			id: "s1",

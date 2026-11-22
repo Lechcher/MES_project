@@ -21,19 +21,12 @@ The Settings app SHALL be fully hidden from `EMPLOYEE` and `DEPT_HEAD`. `HR_MANA
 The User Directory SHALL list users — searchable, filterable by department, role, and active status — and offer Create, Edit, Reset Password, and Deactivate (soft delete/lock) actions. Every management action SHALL append a system audit log entry.
 
 #### Scenario: Create a user
-- **WHEN** an `HR_MANAGER` creates a user with name, email, code, department, and role
-- **THEN** the user appears in the directory and an audit entry is recorded
+- **WHEN** an `HR_MANAGER` creates a user with name, email, department, and role
+- **THEN** the user appears in the directory with a server-assigned user code and an audit entry is recorded
 
 #### Scenario: Reset password
 - **WHEN** an admin resets a user's password
 - **THEN** the action is recorded in the audit trail
-
-### Requirement: Org Structure management with Auto-forking
-The Org Structure view SHALL show the department/division hierarchy (code, name, type shown as "Department" or "Division", parent, manager, active state) with create and edit actions, plus a per-department Auto-forking toggle controlling whether new tickets replicate to the department's members.
-
-#### Scenario: Toggle Auto-forking
-- **WHEN** a `SUPER_ADMIN` turns Auto-forking off for a department
-- **THEN** the setting is persisted and subsequent Jobs ticket creation does not offer or perform Auto-forking for that department
 
 ### Requirement: RBAC permission management
 The RBAC view SHALL list the five roles with their permissions grouped by module (`jobs`, `planning`, `performance`, `settings`, `audit-log`) and SHALL allow granting and revoking permissions per role. Only `TECH_LEAD` and `SUPER_ADMIN` may access it.
@@ -54,7 +47,7 @@ The webhook view SHALL expose the configured bot, alert group chat ID, webhook U
 - **THEN** the persisted config is updated, an audit entry is recorded, and subsequent notifications use the saved destination
 
 ### Requirement: Read-only System Audit Logs trail
-The System Audit Logs view SHALL list entries newest first with user, action, resource type, old and new values, timestamp, and IP address, filterable by user, action, resource type, and date range. It SHALL offer no edit or delete action anywhere — the trail is append-only.
+The System Audit Logs view SHALL list entries newest first with user, action, resource type, old and new values, timestamp, and IP address, filterable by user, action, resource type, and date range. It SHALL offer no edit or delete action anywhere — the trail is append-only. User identifiers the trail records SHALL display as readable labels (`FullName (userCode)`), never as raw hash codes.
 
 #### Scenario: Newest first
 - **WHEN** the trail opens
@@ -67,3 +60,43 @@ The System Audit Logs view SHALL list entries newest first with user, action, re
 #### Scenario: Filter by user
 - **WHEN** the trail is filtered to one user
 - **THEN** only that user's entries are listed
+
+#### Scenario: Resource identifiers read as names
+- **WHEN** an entry's resource or old/new data references a known user
+- **THEN** the view shows that user's name with their user code instead of a raw UUID
+
+### Requirement: Org Structure management
+The Org Structure view SHALL show the department/division hierarchy (code, name, type shown as "Department" or "Division", parent, manager, active state) with create and edit actions.
+
+#### Scenario: Hierarchy rows render
+- **WHEN** an admin opens the Org Structure view
+- **THEN** each department/division row shows its code, name, type, parent, manager, and active state, with an edit action
+
+### Requirement: The suggested default password is prefilled
+The Create User and Reset Password dialogs SHALL prefill the password field with the suggested default password `password`, and the field SHALL remain editable so any other password can be entered.
+
+#### Scenario: Create dialog suggests the default
+- **WHEN** an admin opens the Create User dialog
+- **THEN** the initial-password field is prefilled with `password` and can be edited
+
+#### Scenario: Reset dialog suggests the default
+- **WHEN** an admin opens the Reset Password dialog for a user
+- **THEN** the new-password field is prefilled with `password` and can be edited
+
+### Requirement: Created accounts carry an automated user code
+Accounts created through the User Directory SHALL receive a server-assigned user code in the `V0000000`–`V9999999` range — the next free slot, zero-padded to seven digits — without the admin typing one, and the dialog SHALL not ask for a code.
+
+#### Scenario: Create assigns the next code
+- **WHEN** an admin creates a user without entering a code
+- **THEN** the account is created with the next free code in the V range and the directory shows it
+
+#### Scenario: No code input in the create dialog
+- **WHEN** the Create User dialog is open
+- **THEN** it offers no user-code field
+
+### Requirement: The directory shows each user's code
+The User Directory table SHALL include a User Code column listing each user's code beside their name.
+
+#### Scenario: Code column visible
+- **WHEN** the User Directory lists users
+- **THEN** each row shows the user's code in a dedicated column

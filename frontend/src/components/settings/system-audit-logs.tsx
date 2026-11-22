@@ -2,6 +2,7 @@
 
 import { useTranslations } from "next-intl";
 import { useState } from "react";
+import { DatePicker } from "@/components/shared/date-picker";
 import { formatJson } from "@/components/shared/format";
 import { PaginationBar } from "@/components/shared/pagination-bar";
 import {
@@ -154,24 +155,22 @@ export function SystemAuditLogsPanel() {
         </div>
         <div className="grid gap-1">
           <Label htmlFor="audit-from">{t("fromLabel")}</Label>
-          <Input
+          <DatePicker
             id="audit-from"
-            type="date"
             value={fromDate}
-            onChange={(event) => {
-              setFromDate(event.target.value);
+            onChange={(value) => {
+              setFromDate(value);
               setOffset(0);
             }}
           />
         </div>
         <div className="grid gap-1">
           <Label htmlFor="audit-to">{t("toLabel")}</Label>
-          <Input
+          <DatePicker
             id="audit-to"
-            type="date"
             value={toDate}
-            onChange={(event) => {
-              setToDate(event.target.value);
+            onChange={(value) => {
+              setToDate(value);
               setOffset(0);
             }}
           />

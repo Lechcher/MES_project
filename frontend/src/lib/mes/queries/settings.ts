@@ -167,7 +167,6 @@ export const CREATE_DEPARTMENT_MUTATION = /* GraphQL */ `
       code
       name
       departmentType
-      autoForkingEnabled
       isActive
       parent {
         ${DEPARTMENT_BRIEF}
@@ -183,7 +182,6 @@ export const UPDATE_DEPARTMENT_MUTATION = /* GraphQL */ `
       code
       name
       departmentType
-      autoForkingEnabled
       isActive
       parent {
         ${DEPARTMENT_BRIEF}

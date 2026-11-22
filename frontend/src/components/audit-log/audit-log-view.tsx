@@ -2,6 +2,7 @@
 
 import { useTranslations } from "next-intl";
 import { useState } from "react";
+import { DatePicker } from "@/components/shared/date-picker";
 import { ExportButton } from "@/components/shared/export-action";
 import { formatJson } from "@/components/shared/format";
 import {
@@ -229,20 +230,18 @@ export function AuditLogView() {
         </div>
         <div className="grid gap-1">
           <Label htmlFor="al-from">{t("fromLabel")}</Label>
-          <Input
+          <DatePicker
             id="al-from"
-            type="date"
             value={filters.fromDate}
-            onChange={(event) => update({ fromDate: event.target.value })}
+            onChange={(fromDate) => update({ fromDate })}
           />
         </div>
         <div className="grid gap-1">
           <Label htmlFor="al-to">{t("toLabel")}</Label>
-          <Input
+          <DatePicker
             id="al-to"
-            type="date"
             value={filters.toDate}
-            onChange={(event) => update({ toDate: event.target.value })}
+            onChange={(toDate) => update({ toDate })}
           />
         </div>
       </section>

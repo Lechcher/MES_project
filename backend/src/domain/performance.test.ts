@@ -9,14 +9,12 @@
  */
 
 import { afterAll, describe, expect, test } from "bun:test";
-import { existsSync, rmSync } from "node:fs";
-import { join } from "node:path";
 import type { Auth } from "../auth";
 import { loadConfig } from "../config";
-import { createDatabase, type DatabaseHandle } from "../db";
+import type { DatabaseHandle } from "../db";
 import type { RoleCode } from "../db/enums";
-import { runMigrations } from "../db/migrate";
 import { departments, user } from "../db/schema";
+import { createTestDatabase, type TestDatabase } from "../db/test-db";
 import {
 	createContext,
 	type Viewer,
@@ -25,23 +23,18 @@ import {
 import { performanceQuery } from "../graphql/resolvers/performance";
 import { KPI_ON_TIME_TICKET, upsertMonthlySummary } from "./kpi";
 
-const TMP_ROOT =
-	"/private/var/folders/xg/lnbqz3fs2w74l46y045jdxmh0000gn/T/opencode";
-const createdPaths: string[] = [];
+const testDbs: TestDatabase[] = [];
 
-afterAll(() => {
-	for (const path of createdPaths) {
-		for (const suffix of ["", "-wal", "-shm"]) {
-			if (existsSync(`${path}${suffix}`)) rmSync(`${path}${suffix}`);
-		}
-	}
+afterAll(async () => {
+	// Closing the generated databases in parallel keeps the
+	// teardown well inside the hook timeout under a loaded server.
+	await Promise.all(testDbs.map((testDb) => testDb.close()));
 });
 
-function freshDatabase(name: string): DatabaseHandle {
-	const path = join(TMP_ROOT, `mes-perf-${name}-${crypto.randomUUID()}.db`);
-	createdPaths.push(path);
-	runMigrations({ databasePath: path });
-	return createDatabase(path);
+async function freshDatabase(_name: string): Promise<DatabaseHandle> {
+	const testDb = await createTestDatabase();
+	testDbs.push(testDb);
+	return testDb.db;
 }
 
 function viewer(
@@ -240,7 +233,7 @@ async function seedMultiMonthFixtures(
 
 describe("level 1 — company-wide per employee", () => {
 	test("returns the documented columns ordered by score", async () => {
-		const db = freshDatabase("level1");
+		const db = await freshDatabase("level1");
 		const hr = await seedFixtures(db);
 
 		const result = await call("kpiAuditLevel1Company", hr, {
@@ -281,7 +274,7 @@ describe("level 1 — company-wide per employee", () => {
 	});
 
 	test("filters by department and by month", async () => {
-		const db = freshDatabase("level1-filter");
+		const db = await freshDatabase("level1-filter");
 		const hr = await seedFixtures(db);
 
 		const byDepartment = await call("kpiAuditLevel1Company", hr, {
@@ -304,7 +297,7 @@ describe("level 1 — company-wide per employee", () => {
 
 describe("level 2 — aggregated by department", () => {
 	test("returns the documented aggregated columns", async () => {
-		const db = freshDatabase("level2");
+		const db = await freshDatabase("level2");
 		const hr = await seedFixtures(db);
 
 		const result = await call("kpiAuditLevel2Department", hr, {
@@ -336,7 +329,7 @@ describe("level 2 — aggregated by department", () => {
 	});
 
 	test("restricts to a filtered department", async () => {
-		const db = freshDatabase("level2-filter");
+		const db = await freshDatabase("level2-filter");
 		const hr = await seedFixtures(db);
 
 		const result = await call("kpiAuditLevel2Department", hr, {
@@ -354,7 +347,7 @@ describe("level 2 — aggregated by department", () => {
 
 describe("level 3 — per employee within a department", () => {
 	test("returns the documented columns and honours ordering", async () => {
-		const db = freshDatabase("level3");
+		const db = await freshDatabase("level3");
 		const hr = await seedFixtures(db);
 
 		const byScore = await call("kpiAuditLevel3Employee", hr, {
@@ -398,7 +391,7 @@ describe("level 3 — per employee within a department", () => {
 	});
 
 	test("restricts level 3 rows to a filtered department", async () => {
-		const db = freshDatabase("level3-filter");
+		const db = await freshDatabase("level3-filter");
 		const hr = await seedFixtures(db);
 
 		const result = await call("kpiAuditLevel3Employee", hr, {
@@ -417,7 +410,7 @@ describe("level 3 — per employee within a department", () => {
 
 describe("period selection", () => {
 	test("an audit filter names every month it selects", async () => {
-		const db = freshDatabase("multi-month-audit");
+		const db = await freshDatabase("multi-month-audit");
 		const hr = await seedMultiMonthFixtures(db);
 
 		const threeMonths = await call("kpiAuditLevel1Company", hr, {
@@ -447,7 +440,7 @@ describe("period selection", () => {
 	});
 
 	test("an empty month list is rejected", async () => {
-		const db = freshDatabase("empty-audit-selection");
+		const db = await freshDatabase("empty-audit-selection");
 		const hr = await seedFixtures(db);
 
 		await expect(
@@ -486,7 +479,7 @@ describe("personal dashboard over a selected period", () => {
 	}
 
 	test("reports the selected month", async () => {
-		const db = freshDatabase("dashboard-one-month");
+		const db = await freshDatabase("dashboard-one-month");
 		await seedMultiMonthFixtures(db);
 		const employee = context(db, viewer("u1", ["EMPLOYEE"], "prod"));
 
@@ -504,7 +497,7 @@ describe("personal dashboard over a selected period", () => {
 	});
 
 	test("aggregates the selected months", async () => {
-		const db = freshDatabase("dashboard-many-months");
+		const db = await freshDatabase("dashboard-many-months");
 		await seedMultiMonthFixtures(db);
 		const employee = context(db, viewer("u1", ["EMPLOYEE"], "prod"));
 
@@ -527,7 +520,7 @@ describe("personal dashboard over a selected period", () => {
 	});
 
 	test("a selected month with no summary contributes nothing", async () => {
-		const db = freshDatabase("dashboard-empty-month");
+		const db = await freshDatabase("dashboard-empty-month");
 		await seedMultiMonthFixtures(db);
 		const employee = context(db, viewer("u1", ["EMPLOYEE"], "prod"));
 
@@ -546,7 +539,7 @@ describe("personal dashboard over a selected period", () => {
 	});
 
 	test("an empty selection is rejected", async () => {
-		const db = freshDatabase("dashboard-empty-selection");
+		const db = await freshDatabase("dashboard-empty-selection");
 		await seedMultiMonthFixtures(db);
 		const employee = context(db, viewer("u1", ["EMPLOYEE"], "prod"));
 
@@ -558,7 +551,7 @@ describe("personal dashboard over a selected period", () => {
 
 describe("department head scope", () => {
 	test("sees only their own department in level 3", async () => {
-		const db = freshDatabase("dept-head");
+		const db = await freshDatabase("dept-head");
 		await seedFixtures(db);
 		const dh = context(db, viewer("dh", ["DEPT_HEAD"], "prod"));
 
@@ -577,7 +570,7 @@ describe("department head scope", () => {
 	});
 
 	test("cannot widen the scope with a different department filter", async () => {
-		const db = freshDatabase("dept-head-widen");
+		const db = await freshDatabase("dept-head-widen");
 		await seedFixtures(db);
 		const dh = context(db, viewer("dh", ["DEPT_HEAD"], "prod"));
 
@@ -592,7 +585,7 @@ describe("department head scope", () => {
 	});
 
 	test("is denied the company-wide levels", async () => {
-		const db = freshDatabase("dept-head-denied");
+		const db = await freshDatabase("dept-head-denied");
 		await seedFixtures(db);
 		const dh = context(db, viewer("dh", ["DEPT_HEAD"], "prod"));
 
@@ -611,7 +604,7 @@ describe("department head scope", () => {
 
 describe("score event scope", () => {
 	test("an employee only sees their own events", async () => {
-		const db = freshDatabase("events");
+		const db = await freshDatabase("events");
 		const hr = await seedFixtures(db);
 		const { recordKpiEvent } = await import("./kpi");
 
