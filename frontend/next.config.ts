@@ -5,12 +5,16 @@ import createNextIntlPlugin from "next-intl/plugin";
 
 const projectRoot = join(__dirname);
 
-const allowedDevOrigins = ["127.0.2.2"];
+const allowedDevOrigins = ["mes.localhost:3000"];
 
 const nextConfig: NextConfig = {
   allowedDevOrigins,
+  // Trace only the server files the app needs so the production image ships a
+  // self-contained `.next/standalone` bundle instead of the full node_modules.
+  output: "standalone",
   experimental: {
     agentFeedback: true,
+    agentUpgrade: "security",
   },
   cacheComponents: true,
   partialPrefetching: true,

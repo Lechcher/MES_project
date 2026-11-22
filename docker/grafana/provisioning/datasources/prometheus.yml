@@ -1,0 +1,16 @@
+# Grafana datasource provisioning (docs/DEVELOPMENT.md §14).
+#
+# Mounted read-only to /etc/grafana/provisioning/datasources/ in the grafana
+# service. The `uid` is referenced by the dashboards under
+# ../dashboards/dashboards.yml — keep the two in sync.
+
+apiVersion: 1
+
+datasources:
+  - name: Prometheus
+    type: prometheus
+    uid: prometheus
+    access: proxy
+    url: http://prometheus:9090
+    isDefault: true
+    editable: false

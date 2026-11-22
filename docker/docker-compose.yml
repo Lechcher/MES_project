@@ -1,0 +1,267 @@
+# MES container stack — production-style, one command.
+#
+#   cd docker
+#   cp .env.example .env        # then fill in the secrets
+#   docker compose up -d --build
+#   ./init-garage.sh            # one-time: bucket, key, layout
+#
+# The reverse proxy is the only published app entry point (http://localhost:8080).
+# State lives in named volumes; Garage data is bind-mounted under docker/volumes/.
+
+name: mes
+
+services:
+  # --- Application database -------------------------------------------------
+  postgres:
+    image: docker.io/library/postgres:18-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: mes
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in docker/.env}
+      POSTGRES_DB: mes
+    volumes:
+      # PostgreSQL 18+ images keep versioned data directories, so the mount is
+      # the parent /var/lib/postgresql (see docker-library/postgres#1259).
+      - pgdata:/var/lib/postgresql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U mes -d mes"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+    ports:
+      - "5432:5432" # for local tooling (psql, pgcli, etc.)
+
+  # --- Attachment object storage --------------------------------------------
+  garage:
+    image: docker.io/dxflrs/garage:v2.4.1
+    restart: unless-stopped
+    environment:
+      GARAGE_RPC_SECRET: ${GARAGE_RPC_SECRET:?set GARAGE_RPC_SECRET in docker/.env}
+      GARAGE_ADMIN_TOKEN: ${GARAGE_ADMIN_TOKEN:?set GARAGE_ADMIN_TOKEN in docker/.env}
+      GARAGE_METRICS_TOKEN: ${GARAGE_METRICS_TOKEN:-}
+    volumes:
+      - ./garage.toml:/etc/garage.toml:ro
+      - ./volumes/garage/meta:/var/lib/garage/meta
+      - ./volumes/garage/data:/var/lib/garage/data
+    ports:
+      - "3900:3900" # S3 API (host tooling: rclone, curl)
+      - "3903:3903" # admin API
+
+  # --- Local SMTP sink -------------------------------------------------------
+  mailpit:
+    image: docker.io/axllent/mailpit:latest
+    restart: unless-stopped
+    environment:
+      MP_MAX_MESSAGES: "500"
+    volumes:
+      - mailpit-data:/data
+    ports:
+      - "1025:1025" # SMTP
+      - "8025:8025" # web UI
+
+  # --- API -------------------------------------------------------------------
+  backend:
+    build:
+      context: ../backend
+      dockerfile: ../docker/backend/Dockerfile
+    restart: unless-stopped
+    environment:
+      NODE_ENV: production
+      BETTER_AUTH_SECRET: ${BETTER_AUTH_SECRET:?set BETTER_AUTH_SECRET in docker/.env}
+      BETTER_AUTH_URL: ${MES_PUBLIC_ORIGIN:-http://localhost:8080}
+      MES_WEB_ORIGIN: ${MES_PUBLIC_ORIGIN:-http://localhost:8080}
+      MES_API_PORT: "3001"
+      MES_DATABASE_URL: postgres://mes:${POSTGRES_PASSWORD}@postgres:5432/mes
+      MES_EXPORT_DIR: /app/backend/data/exports
+      S3_ENDPOINT: http://garage:3900
+      S3_REGION: garage
+      S3_BUCKET: ${S3_BUCKET:-ticket-jobs-attachment-files}
+      S3_ACCESS_KEY_ID: ${S3_ACCESS_KEY_ID:-}
+      S3_SECRET_ACCESS_KEY: ${S3_SECRET_ACCESS_KEY:-}
+      MES_SMTP_URL: ${MES_SMTP_URL:-smtp://mailpit:1025}
+      MES_RESET_EMAIL_FROM: ${MES_RESET_EMAIL_FROM:-no-reply@mes.local}
+      TELEGRAM_BOT_ENABLED: ${TELEGRAM_BOT_ENABLED:-false}
+      TELEGRAM_BOT_TOKEN: ${TELEGRAM_BOT_TOKEN:-}
+      TELEGRAM_AI_BASE_URL: ${TELEGRAM_AI_BASE_URL:-}
+      TELEGRAM_AI_API_KEY: ${TELEGRAM_AI_API_KEY:-}
+      TELEGRAM_AI_MODEL: ${TELEGRAM_AI_MODEL:-}
+    volumes:
+      # Exports are still files on disk; the database lives in PostgreSQL.
+      - backend-data:/app/backend/data/exports
+    depends_on:
+      postgres:
+        condition: service_healthy
+      garage:
+        condition: service_started
+      mailpit:
+        condition: service_started
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "bun",
+          "-e",
+          "fetch('http://127.0.0.1:3001/health').then((r)=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))",
+        ]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+      start_period: 20s
+
+  # --- Web client ------------------------------------------------------------
+  frontend:
+    build:
+      context: ../frontend
+      dockerfile: ../docker/frontend/Dockerfile
+      args:
+        NEXT_PUBLIC_SENTRY_DSN: ${NEXT_PUBLIC_SENTRY_DSN:-}
+        NEXT_PUBLIC_SENTRY_ENVIRONMENT: ${NEXT_PUBLIC_SENTRY_ENVIRONMENT:-production}
+    restart: unless-stopped
+    environment:
+      # Server-only: the same-origin route handlers call the API over the network.
+      MES_API_URL: http://backend:3001
+    depends_on:
+      backend:
+        condition: service_healthy
+
+  # --- Monitoring -------------------------------------------------------------
+  prometheus:
+    image: docker.io/prom/prometheus:v3.16.0-busybox
+    restart: unless-stopped
+    environment:
+      # Expand the Garage token referenced by docker/prometheus.yml; a
+      # defined-but-empty value keeps the expansion quiet when unset.
+      GARAGE_METRICS_TOKEN: ${GARAGE_METRICS_TOKEN:-}
+    entrypoint: /bin/sh
+    command:
+      # Write the Garage token into the container's own /tmp (a private tmpfs —
+      # the image runs as `nobody`, so /run is not writable) from the
+      # environment; prometheus.yml reads it via authorization.credentials_file.
+      # $$ is escaped for compose interpolation. entrypoint is overridden
+      # because the image's own entrypoint is the server binary and would
+      # swallow the command arguments.
+      - -c
+      - |
+        umask 077
+        printf '%s' "$$GARAGE_METRICS_TOKEN" > /tmp/garage-metrics-token
+        exec /bin/prometheus \
+          --config.file=/etc/prometheus/prometheus.yml \
+          --storage.tsdb.path=/prometheus \
+          --storage.tsdb.retention.time=15d \
+          --web.listen-address=0.0.0.0:9090
+    volumes:
+      - ./prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus-data:/prometheus
+    ports:
+      # Tooling access only: the full metrics picture stays on loopback.
+      - "127.0.0.1:9090:9090"
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "wget --spider -q http://127.0.0.1:9090/-/healthy || exit 1",
+        ]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 15s
+
+  grafana:
+    image: docker.io/grafana/grafana:13.2.6
+    restart: unless-stopped
+    environment:
+      GF_SECURITY_ADMIN_USER: ${GRAFANA_ADMIN_USER:-admin}
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD:?set GRAFANA_ADMIN_PASSWORD in docker/.env}
+      GF_AUTH_ANONYMOUS_ENABLED: "false"
+      GF_USERS_ALLOW_SIGN_UP: "false"
+      # Served behind Caddy on the single origin at /grafana (see Caddyfile):
+      # the proxy strips the prefix (handle_path) and this URL tells Grafana the
+      # public path its generated URLs must carry.
+      GF_SERVER_ROOT_URL: ${MES_PUBLIC_ORIGIN:-http://localhost:8080}/grafana
+      # HTTP port Grafana binds inside the stack. Leave at the default for
+      # compose bring-ups; in a shared-namespace (pod) bring-up the web client
+      # owns 3000, so change it there together with GRAFANA_UPSTREAM (caddy).
+      GF_SERVER_HTTP_PORT: ${GRAFANA_HTTP_PORT:-3000}
+    volumes:
+      - grafana-data:/var/lib/grafana
+      - ./grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./grafana/dashboards:/var/lib/grafana/dashboards:ro
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "wget --spider -q http://127.0.0.1:$${GF_SERVER_HTTP_PORT:-3000}/api/health || exit 1",
+        ]
+      interval: 30s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+
+  postgres_exporter:
+    image: docker.io/prometheuscommunity/postgres-exporter:v0.19.1
+    restart: unless-stopped
+    environment:
+      # Same role the backend uses; the exporter only reads pg_stat_* views.
+      DATA_SOURCE_NAME: postgresql://mes:${POSTGRES_PASSWORD}@postgres:5432/mes?sslmode=disable
+    depends_on:
+      postgres:
+        condition: service_started
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "wget --spider -q http://127.0.0.1:9187/metrics || exit 1",
+        ]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+
+  cadvisor:
+    image: gcr.io/cadvisor/cadvisor:v0.52.0
+    restart: unless-stopped
+    volumes:
+      - /:/rootfs:ro
+      - /sys:/sys:ro
+      # /var/run is deliberately not mounted: a read-only /run breaks this
+      # stack's container runtime, and cAdvisor reads the cgroup filesystem
+      # directly for container metrics.
+      - /var/lib/containers:/var/lib/containers:ro
+    # No healthcheck: the image is distroless, so there is no shell to run one.
+
+  # --- Reverse proxy: the single public origin -------------------------------
+  caddy:
+    image: docker.io/library/caddy:2
+    restart: unless-stopped
+    environment:
+      # Read by the Caddyfile's basic_auth placeholders for the /grafana route.
+      GRAFANA_BASIC_AUTH_USER: ${GRAFANA_BASIC_AUTH_USER:?set GRAFANA_BASIC_AUTH_USER in docker/.env}
+      GRAFANA_BASIC_AUTH_HASH: ${GRAFANA_BASIC_AUTH_HASH:?set GRAFANA_BASIC_AUTH_HASH in docker/.env}
+      # Read by the Caddyfile's Grafana upstream placeholder; must match the
+      # port GF_SERVER_HTTP_PORT gives Grafana (in a shared namespace the web
+      # client owns 3000 and Grafana moves — set both together).
+      GRAFANA_UPSTREAM: ${GRAFANA_UPSTREAM:-grafana:3000}
+      # Read by the Caddyfile's frontend upstream placeholder. Leave at the
+      # default for compose bring-ups; in a shared namespace the web client
+      # binds the namespace's primary address, so the runbook points this at
+      # the pod's name.
+      MES_FRONTEND_UPSTREAM: ${MES_FRONTEND_UPSTREAM:-frontend:3000}
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy-data:/data
+      - caddy-config:/config
+    ports:
+      - "8080:80"
+    depends_on:
+      backend:
+        condition: service_healthy
+      frontend:
+        condition: service_started
+
+volumes:
+  pgdata:
+  backend-data:
+  mailpit-data:
+  caddy-data:
+  caddy-config:
+  prometheus-data:
+  grafana-data:

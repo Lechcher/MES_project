@@ -1,0 +1,35 @@
+# Reverse proxy for the MES stack: the single public origin a browser needs.
+#
+# The web client's same-origin route handlers (/api/mes/*) reach the API over the
+# internal compose network, so the proxy only forwards to the frontend. Plain
+# HTTP on :80 (published as :8080); see docs/DEVELOPMENT.md for enabling TLS.
+
+{
+	auto_https off
+}
+
+:80 {
+	# Monitoring: Grafana at /grafana behind HTTP basic auth. handle_path strips
+	# the prefix — Grafana serves from its own root and GF_SERVER_ROOT_URL
+	# (set in docker-compose.yml) carries the /grafana prefix in the URLs it
+	# generates. Credentials and the upstream arrive as environment
+	# placeholders (supplied to this container by docker-compose.yml); no hash
+	# material lives in this tracked file. The upstream defaults to the compose
+	# network name and port 3000; it changes only when a shared-namespace run
+	# relocates Grafana (GRAFANA_HTTP_PORT + GRAFANA_UPSTREAM together).
+	# See docs/DEVELOPMENT.md §14.
+	handle_path /grafana* {
+		basic_auth {
+			{$GRAFANA_BASIC_AUTH_USER} {$GRAFANA_BASIC_AUTH_HASH}
+		}
+		reverse_proxy {$GRAFANA_UPSTREAM:-grafana:3000}
+	}
+
+	# Preserve the original Host header for the Next.js server. The upstream is
+	# configurable for the shared-namespace (pod) fallback: Next binds the
+	# namespace's primary address there, not loopback, so the runbook points this
+	# at the pod's name. See docs/DEVELOPMENT.md §14.
+	reverse_proxy {$MES_FRONTEND_UPSTREAM:-frontend:3000} {
+		header_up Host {host}
+	}
+}

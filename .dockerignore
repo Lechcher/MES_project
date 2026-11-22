@@ -1,0 +1,32 @@
+# Docker build context exclusions (repository root context).
+# Keep build contexts small and free of secrets. Per-package builds use the
+# `.dockerignore` inside `frontend/` and `backend/` instead.
+
+**/node_modules
+**/.next
+**/out
+**/build
+**/playwright-report
+**/test-results
+**/coverage
+**/*.tsbuildinfo
+
+# Local state, secrets, and OpenSpec planning artifacts
+docker/volumes
+docker/database
+**/.env
+**/.env.*
+!**/.env.example
+openspec
+.git
+.github
+.agents
+.trae
+.forge
+.dsh
+odoo rea
+.claude
+
+# Editor / OS noise
+.DS_Store
+*.log

@@ -151,3 +151,44 @@ export function sentrySpan<T>(name: string, operation: () => T): T {
 		return operation();
 	});
 }
+
+/** The scrubbed store-failure account the file routes record. */
+export interface StoreFailureContext {
+	readonly taskId: string;
+	readonly key: string;
+	readonly fileName: string;
+	readonly errorName: string;
+	readonly message: string;
+}
+
+/**
+ * Report a refused object-store write.
+ *
+ * A per-file store refusal is a normal outcome for the caller, so it is not
+ * thrown — but it happens during a request whose span sees success, which is why
+ * a failing storage deployment used to leave no trace at all.
+ *
+ * The event is built from the caller's scrubbed fields rather than by capturing
+ * the store's error object: that object's property graph may carry request-scoped
+ * detail, and a store refusal is only useful to an operator if the credential
+ * and signature material cannot ride along.
+ */
+export function sentryCaptureStoreFailure(record: StoreFailureContext): void {
+	if (!SENTRY_DSN) return;
+
+	const error = new Error(record.message, { cause: undefined });
+	error.name = record.errorName;
+
+	Sentry.captureException(error, {
+		level: "error",
+		contexts: {
+			attachment_store: {
+				task_id: record.taskId,
+				object_key: record.key,
+				file_name: record.fileName,
+				error_name: record.errorName,
+			},
+		},
+		fingerprint: ["backend", "attachment-store", record.errorName],
+	});
+}

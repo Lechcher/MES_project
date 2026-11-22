@@ -1,0 +1,43 @@
+# Prometheus scrape configuration for the MES stack (docs/DEVELOPMENT.md §14).
+#
+# Mounted read-only into the prometheus service. The Garage token is read from
+# /tmp/garage-metrics-token, which the service's entrypoint writes from the
+# GARAGE_METRICS_TOKEN environment variable at startup: Prometheus's
+# `authorization` block has no environment expansion (that is documented only
+# for external_labels), so credentials_file is the mechanism that keeps the
+# token out of this tracked file. The file lives in the container's own /tmp
+# (a private tmpfs — the image runs as `nobody`, so /run is not writable) and
+# never on the host or in a repository.
+
+global:
+  scrape_interval: 15s
+  scrape_timeout: 10s
+  evaluation_interval: 15s
+
+scrape_configs:
+  - job_name: prometheus
+    static_configs:
+      - targets: ["localhost:9090"]
+
+  # Container-level CPU / memory / network metrics for every service.
+  - job_name: cadvisor
+    static_configs:
+      - targets: ["cadvisor:8080"]
+
+  # PostgreSQL internals (connections, transactions, cache effectiveness).
+  - job_name: postgres
+    static_configs:
+      - targets: ["postgres_exporter:9187"]
+
+  # Garage serves Prometheus metrics on its admin port (3903). The bearer is
+  # honored when GARAGE_METRICS_TOKEN is set; with the token unset the token
+  # file is empty and the endpoint answers unauthenticated, so the job
+  # succeeds either way (see the capability spec's "skipped when not
+  # configured" scenario).
+  - job_name: garage
+    authorization:
+      type: Bearer
+      credentials_file: /tmp/garage-metrics-token
+    static_configs:
+      - targets: ["garage:3903"]
+    metrics_path: /metrics

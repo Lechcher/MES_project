@@ -1,0 +1,18 @@
+# Grafana dashboard provisioning (docs/DEVELOPMENT.md §14).
+#
+# Mounted read-only to /etc/grafana/provisioning/dashboards/ in the grafana
+# service. The `path` matches the dashboard-JSON bind mount in
+# docker-compose.yml (/var/lib/grafana/dashboards).
+
+apiVersion: 1
+
+providers:
+  - name: "MES"
+    orgId: 1
+    folder: "MES"
+    type: file
+    disableDeletion: false
+    updateIntervalSeconds: 30
+    allowUiUpdates: false
+    options:
+      path: /var/lib/grafana/dashboards

@@ -238,9 +238,52 @@ it just buffers from the start.
 | `SignatureDoesNotMatch` / `AuthorizationHeaderMalformed` | Region is not `garage` (often the default `us-east-1`) | Set `region = garage` / `S3_REGION=garage` |
 | DNS error for `ticket-jobs-attachment-files.localhost` or similar | Client uses virtual-hosted style | rclone: `force_path_style = true`. Bun: `virtualHostedStyle: false`. AWS SDK: `forcePathStyle: true` |
 | `AccessDenied` / `403` | Key has no grant on the bucket | `garage bucket allow --read --write <bucket> --key <key>` |
+| `Forbidden: Invalid signature` while `garage key info` shows the key valid with `RW` | The configured **secret** no longer matches that key — credential drift after the key was re-created, a secret pasted from a different key, or a truncated copy | Re-copy the secret: `garage key info <key> --show-secret`, update `S3_SECRET_ACCESS_KEY`, restart the backend. Never paste it into this doc, a log, or a commit |
 | `InvalidAccessKeyId` | Wrong or deleted key ID | `garage key list` |
 | `connection refused` on `garage:3900` | Client is outside the compose network | Use `localhost:3900` instead, or join the network (section 5) |
 | `connection refused` on `localhost:3900` | Stack is down | `docker compose ps`, `docker compose logs garage` |
 | rclone `BucketAlreadyExists` / 403 on copy | rclone tries to create the bucket | `no_check_bucket = true` |
+
+### Checking that the configured credential still matches
+
+An attachment upload that fails reports only `<file> could not be stored. Try
+again.`, which does not say why. Two commands settle the two credential
+questions — is the key still valid and granted, and does the configured secret
+still sign a request — before anything else is debugged. Neither prints the
+secret.
+
+```bash
+# 1. Is the configured key still valid, and does it still hold RW on the bucket?
+#    Compare the printed Key ID with S3_ACCESS_KEY_ID in backend/.env.
+garage key info <key-name>
+#   (without the alias, the same command against the container directly:
+#    docker exec <garage-container> /garage key info <key-name>)
+
+# 2. Does the configured credential sign a real request? Write and read back one
+#    key through the app's own store, using the values from backend/.env.
+#    Prints OK, or FAILED with the store's error.
+cd backend && bun -e '
+  const c = await import("./src/config");
+  const s = await import("./src/storage/s3");
+  const cfg = c.loadConfig();
+  if (!cfg.storage) { console.log("storage not configured"); process.exit(0); }
+  const store = s.createS3Store(cfg.storage);
+  try {
+    await store.write("diagnostic/ping.txt", new Uint8Array([1]));
+    const back = await store.read("diagnostic/ping.txt");
+    console.log(back ? "OK" : "FAILED — write accepted, read back nothing");
+  } catch (e) {
+    console.log("FAILED — " + String(e).slice(0, 120));
+  }
+'
+```
+
+A `FAILED — Forbidden: Invalid signature` here with step 1 showing a valid, `RW`-granted key means the secret has drifted: re-copy it with `garage key info <key-name> --show-secret`.
+
+Both commands above were verified against this deployment's stack (key
+`mes-system-s3-bucket`, container `garage_s3_bucket`): the first reports the key
+valid with `RW` on `ticket-jobs-attachment-files`, and the probe writes and reads
+back `diagnostic/ping.txt` — or reports the store's error verbatim, which is how
+the stale-secret failure above was diagnosed.
 
 > **Security note:** `garage.toml` stores `rpc_secret`, `admin_token` and `metrics_token` in plain text, and `docker-compose.yml` repeats the admin token. Do not commit these files to a public repo. If they were ever exposed, rotate the values with `openssl rand -hex 32`.

@@ -6,7 +6,7 @@ The repository has two applications:
 
 | Directory | Application | Stack |
 | --- | --- | --- |
-| `backend/` | API server implementing the GraphQL contract in `API_CONTACT_SPECIFICATION.md` | Bun + Elysia, Better Auth, Drizzle ORM, SQLite |
+| `backend/` | API server implementing the GraphQL contract in `API_CONTACT_SPECIFICATION.md` | Bun + Elysia, Better Auth, Drizzle ORM, PostgreSQL |
 | `frontend/` | Web client | Next.js 16 (App Router), React 19, Tailwind CSS v4, shadcn |
 
 ---
@@ -14,7 +14,15 @@ The repository has two applications:
 ## 1. Prerequisites
 
 - **Bun** 1.3 or newer (`bun --version`)
-- No external database server: SQLite is embedded
+- **PostgreSQL** — a running server for the backend to connect to. The stack
+  bundles one in `docker/` (§14); for local development the documented
+  one-command instance is:
+
+```bash
+docker run -d --name mes-test-pg --network host \
+  -e POSTGRES_USER=mes -e POSTGRES_PASSWORD=mes -e POSTGRES_DB=mes \
+  docker.io/library/postgres:18-alpine
+```
 
 ## 2. Install
 
@@ -39,7 +47,13 @@ Required backend values:
 | `BETTER_AUTH_SECRET` | Signs sessions. Generate with `openssl rand -base64 32` |
 | `BETTER_AUTH_URL` | Base URL of the backend, used for auth callback links |
 
-Optional backend values and their local defaults: `MES_DATABASE_PATH` (`./data/mes.db`), `MES_API_PORT` (`3001`), `MES_WEB_ORIGIN` (`http://localhost:3000`), `MES_EXPORT_DIR` (`./data/exports`), `NODE_ENV` (`development`), `MES_RESET_EMAIL_FROM`, `MES_SMTP_URL`.
+Optional backend values and their local defaults: `MES_DATABASE_URL` (`postgres://mes:mes@localhost:5432/mes`), `MES_API_PORT` (`3001`), `MES_WEB_ORIGIN` (`http://localhost:3000`), `MES_EXPORT_DIR` (`./data/exports`), `NODE_ENV` (`development`), `MES_RESET_EMAIL_FROM`, `MES_SMTP_URL`.
+
+`MES_DATABASE_URL` must use the `postgres://` or `postgresql://` scheme; a
+missing or malformed value is rejected at startup with an actionable message.
+(The prototype previously stored its data in a SQLite file through
+`MES_DATABASE_PATH`; that variable is gone — point `MES_DATABASE_URL` at the
+PostgreSQL server instead.)
 
 `MES_SMTP_URL` is deliberately optional: when it is unset, password-reset requests fail with an explicit *mail sender unavailable* error instead of reporting a false success.
 
@@ -74,6 +88,13 @@ The backend validates required configuration at startup and reports every missin
 
 ## 4. Migrate the database
 
+The database must exist before the first migration. Create it once against the
+server (the local Docker instance from §1, for example):
+
+```bash
+docker exec mes-test-pg createdb -U mes mes     # or: createdb -h localhost -U mes mes
+```
+
 ```bash
 cd backend
 bun run db:migrate     # applies every migration in backend/drizzle (idempotent)
@@ -102,15 +123,17 @@ committed file applies from scratch. The migration-set parity test
 journal entry without its file, a file without its journal entry, or journal
 timestamps that do not increase — before it can crash a boot.
 
-**Backup before migrating an existing database.** SQLite keeps the whole database in one file plus its write-ahead log:
+**Backup before migrating an existing database.** A `pg_dump` capture is the
+PostgreSQL equivalent (run it against the database named by `MES_DATABASE_URL`):
 
 ```bash
-# Stop the backend first, then copy the database and its WAL alongside it.
-cp data/mes.db data/mes.db.backup-$(date +%Y%m%d%H%M%S)
-cp -f data/mes.db-wal data/mes.db-shm data/ 2>/dev/null || true
+pg_dump -Fc -d mes > data/mes-db-$(date +%Y%m%d%H%M%S).dump
 ```
 
-To restore, stop the service and copy the backup over `data/mes.db`, then delete any stale `-wal`/`-shm` files. Restore from a backup only when migration or data-integrity verification requires it; never remove user or session data as part of a routine rollback.
+To restore, create an empty database and load the dump (`createdb` + `pg_restore
+--no-owner`). Restore from a backup only when migration or data-integrity
+verification requires it; never remove user or session data as part of a routine
+rollback.
 
 ## 5. Seed development data
 
@@ -370,6 +393,368 @@ app's — the bot reuses the same domain functions and `authorize()`.
 default) the bot stays completely inert — no token is read, no request is
 made. Guard tests and unit suites always run with the bot disabled.
 
+## 14. Run the whole stack with Docker
+
+The `docker/` directory packages the backend, frontend, a PostgreSQL database,
+a Prometheus/Grafana monitoring tier, a bundled single-node Garage S3, Mailpit
+(a local SMTP sink), and Caddy (a reverse proxy) into one production-style
+Compose stack. The reverse proxy is the
+only published app entry point, so the browser never talks to the API directly —
+the frontend's same-origin route handlers reach it over the compose network.
+
+Prerequisites: Docker (or Podman with the Compose provider) and a running engine.
+Images are built locally from the committed sources and lockfiles.
+
+### Bring the stack up
+
+```bash
+cd docker
+cp .env.example .env      # then fill in the required secrets
+docker compose up -d --build
+```
+
+`.env` is gitignored; only `.env.example` is tracked. Required values:
+
+| Variable | Purpose |
+| --- | --- |
+| `BETTER_AUTH_SECRET` | Signs sessions. `openssl rand -base64 32` |
+| `POSTGRES_PASSWORD` | Password of the `mes` PostgreSQL role. `openssl rand -base64 24` |
+| `GARAGE_RPC_SECRET` | Garage inter-node secret. `openssl rand -hex 32` |
+| `GARAGE_ADMIN_TOKEN` | Garage admin token. `openssl rand -base64 32` |
+| `GRAFANA_ADMIN_PASSWORD` | Grafana's admin sign-in. `openssl rand -base64 24` |
+| `GRAFANA_BASIC_AUTH_USER` | Basic-auth username in front of Grafana |
+| `GRAFANA_BASIC_AUTH_HASH` | Basic-auth bcrypt hash. `docker run --rm docker.io/library/caddy:2 caddy hash-password --plaintext '<password>'` |
+
+### Provision attachments (one time)
+
+The bundled Garage starts empty. Apply the node layout and create the bucket and
+access key once:
+
+```bash
+./init-garage.sh
+```
+
+It prints `S3_ACCESS_KEY_ID` and `S3_SECRET_ACCESS_KEY`; put them in `docker/.env`
+and restart the backend:
+
+```bash
+docker compose up -d backend
+```
+
+The API refuses to start in production without a complete storage group, so this
+step is required before the stack serves uploads. `init-garage.sh` is idempotent.
+
+### Open the app
+
+| Surface | URL |
+| --- | --- |
+| Web client (through the proxy) | `http://localhost:8080` |
+| Garage S3 API (host tooling) | `http://localhost:3900` |
+| Garage admin API | `http://localhost:3903` |
+| Mailpit web UI | `http://localhost:8025` |
+| Mailpit SMTP | `smtp://localhost:1025` |
+
+Use `localhost` as the origin: the frontend sets a `Secure` session cookie when
+`NODE_ENV=production`, and browsers accept it on the loopback origin over plain
+HTTP. For any other hostname, terminate TLS at Caddy and use `https://`.
+
+### Seed demo data
+
+The running service is in production posture, and the seed refuses in production.
+Load demo data with a one-off development override against the same database:
+
+```bash
+docker compose exec -e NODE_ENV=development backend bun run db:seed
+```
+
+### Stop
+
+```bash
+docker compose down          # keeps state (named volumes and docker/volumes)
+docker compose down -v       # also removes the named volumes and their data
+```
+
+State lives in named volumes (`pgdata` for the database, `backend-data` for the
+exported reports, `prometheus-data` for the metrics history, `grafana-data` for
+Grafana's state, `mailpit-data`, `caddy-data`, `caddy-config`) and, for Garage,
+in `docker/volumes/garage/`.
+
+### Backup and restore
+
+All durable state — the PostgreSQL database (`pgdata`), the exported reports
+(`backend-data`), and the attachment store (`volumes/garage/`) — is captured by
+one command:
+
+```bash
+./backup.sh
+```
+
+- Writes `docker/database/mes-backup-<timestamp>.tar.gz` (owner-only, mode 600)
+  containing `manifest.txt`, `database.dump` (a custom-format `pg_dump` of the
+  application database), `exports.tar`, `garage-meta.tar`, and
+  `garage-data.tar` (attachments). The manifest records the format version,
+  capture time, and each member's size and SHA-256.
+- The database is captured through `pg_dump`, which produces a consistent
+  snapshot of the running database, so the stack keeps serving while it is
+  dumped. The file-based state — exported reports and the Garage directories —
+  is captured only while the services that write it (`backend`, `garage`) are
+  stopped; they are started again afterwards, while `frontend`, `caddy`, and
+  `mailpit` keep serving throughout.
+- On an already-stopped stack the backup still runs: the `postgres` service is
+  started only for the dump and stopped again afterwards, and nothing else is
+  started.
+- After a success the newest `KEEP` archives are kept (default 7; `KEEP=0`
+  disables pruning). Pre-restore snapshots (`mes-pre-restore-*`) are never
+  auto-deleted.
+- `docker/database/` is gitignored and excluded from image build contexts;
+  archives are owned by whoever runs the script.
+  Archives are plain copies of application data (password hashes included) —
+  keep them with the same care as the database itself.
+- Not captured: Mailpit mail history and Caddy state (disposable), and
+  `docker/.env` (credentials — keep it together with your backups). The
+  archive does carry the Garage access-key credentials that Garage itself
+  stores in its metadata database; a restore needs them to keep attachments
+  working.
+
+Restore picks an archive and puts it back:
+
+```bash
+./restore.sh database/mes-backup-<timestamp>.tar.gz
+```
+
+- The archive is verified first (manifest present, every member's SHA-256 and
+  size match); an invalid or unrelated file is refused and nothing changes.
+- The stack stops, the current state is snapshotted to
+  `docker/database/mes-pre-restore-<timestamp>.tar.gz`, the database is
+  recreated and loaded from the archive's dump with `pg_restore`, the exports
+  and attachments are replaced, and the stack starts again — the command
+  reports success only when the API answers.
+- The snapshot makes a restore undoable:
+
+```bash
+./restore.sh database/mes-pre-restore-<timestamp>.tar.gz
+```
+
+**Fresh checkout / lost `.env`.** Clone the repo, `cd docker`, recreate
+`docker/.env` (reuse the original values so sessions and S3 keys keep working),
+build and restore:
+
+```bash
+cp .env.example .env          # fill in the original values
+docker compose up -d --build  # images only; the data still comes from the archive
+./restore.sh database/mes-backup-<timestamp>.tar.gz
+```
+
+If `docker/.env` is lost, recreate it from `.env.example` with fresh secrets,
+restore the archive, then run `./init-garage.sh`: it is idempotent and prints
+the S3 access-key secret the restored Garage already holds. A new
+`BETTER_AUTH_SECRET` invalidates existing sessions — users sign in again.
+Restore with the same or a newer checkout; migrations only run forward.
+
+**Regular backups.** Scheduling is a host choice — for example, nightly at
+03:00 in the host crontab (adjust the path):
+
+```cron
+0 3 * * * cd /path/to/MES_project/docker && ./backup.sh >> /var/log/mes-backup.log 2>&1
+```
+
+### Monitor the stack
+
+The stack ships with a small monitoring tier — `prometheus` (metrics store),
+`grafana` (dashboards), `postgres_exporter` (database metrics), and `cadvisor`
+(container CPU/memory/network) — all started by the same `docker compose up -d`.
+
+- **Open it:** <http://localhost:8080/grafana> — the same origin as the app.
+  Two credentials are asked for: Caddy's HTTP basic auth (`GRAFANA_BASIC_AUTH_USER`
+  / `GRAFANA_BASIC_AUTH_HASH` from `docker/.env`), then Grafana's admin sign-in
+  (`GRAFANA_ADMIN_USER` / `GRAFANA_ADMIN_PASSWORD`).
+- **Dashboards** (MES — Stack overview, MES — PostgreSQL) are provisioned from
+  the tracked files in `docker/grafana/` — no UI setup after a deploy. The
+  datasource points at `http://prometheus:9090`.
+- **What is measured:** every service's container CPU, memory, and network
+  traffic; PostgreSQL connection counts, transaction rate, and buffer-cache hit
+  ratio; Garage metrics when `GARAGE_METRICS_TOKEN` is set (open `docker/.env`).
+- **Retention:** 15 days in the `prometheus-data` volume. Both `prometheus-data`
+  and `grafana-data` survive `docker compose down`/`up`; only `down -v` removes
+  them.
+- **Direct access (tooling):** Prometheus's own UI at
+  <http://127.0.0.1:9090> — loopback only, so the full metrics picture never
+  leaves the machine. The exporters publish nothing.
+- **Rotate credentials:** edit the variables in `docker/.env` (regenerate the
+  basic-auth hash with `docker run --rm docker.io/library/caddy:2 caddy
+  hash-password --plaintext '<new-password>'`), then
+  `docker compose up -d grafana caddy`.
+- **Not included (by design):** alerting (no Alertmanager), log aggregation (no
+  Loki), and request-level RED metrics from the backend. Container, database,
+  and storage monitoring only — those follow-ups do not need any of this torn
+  out to add them.
+
+### Run in one shared network namespace (fallback)
+
+Use this only when the runtime cannot create bridge networks — on this machine
+netavark intermittently fails with `Netlink error: Operation not supported
+(os error 95)`, and `docker compose up -d` dies creating the project network.
+Everything then runs in a single Podman pod: one shared network namespace, with
+peers reachable on `127.0.0.1`. Service names still work, because each pod
+container gets an `/etc/hosts` entry under *its container name* — so the whole
+stack keeps working unchanged if the containers are named after the Compose
+services. A standard Docker host (working bridges) never needs this; `docker
+compose up -d` remains the standard bring-up.
+
+**1. Build the app images** (the build needs no network):
+
+```bash
+cd docker
+docker compose build backend frontend
+```
+
+**2. Source the same environment** Compose would interpolate:
+
+```bash
+set -a; . ./.env; set +a
+```
+
+**3. Reserve Grafana's port, and point the proxy at the pod.** In one namespace
+only one process can bind a given port: the web client owns 3000 and the API
+owns 3001, so Grafana moves to 3002 — set both of its variables together (they
+are the pair Caddy proxies to). The web client binds the namespace's primary
+address rather than loopback, so the frontend upstream becomes the *pod's* name:
+
+```bash
+export GRAFANA_HTTP_PORT=3002
+export GRAFANA_UPSTREAM=grafana:3002
+export MES_FRONTEND_UPSTREAM=mes:3000
+```
+
+**4. Create the pod and start every service by name.** Run from `docker/`;
+`-v "$PWD/..."` binds the tracked configs. Ports are published **on the pod**
+(pod members cannot publish their own). The volume names match Compose's
+(`mes_pgdata`, `mes_backend-data`, `mes_prometheus-data`, `mes_grafana-data`,
+`mes_mailpit-data`, `mes_caddy-data`, `mes_caddy-config`), so a later
+`docker compose up -d` — and `backup.sh`/`restore.sh` — read the same state.
+Check `ss -ltn` first: when bridge creation fails the pod can end up sharing the
+host's network namespace, in which case a container's port is the host's port.
+
+```bash
+docker pod create --name mes \
+  -p 8080:80 -p 5432:5432 -p 3900:3900 -p 3903:3903 -p 1025:1025 -p 8025:8025 \
+  -p 127.0.0.1:9090:9090
+
+# state services first
+docker run -d --pod mes --name postgres --restart unless-stopped \
+  -e POSTGRES_USER=mes -e POSTGRES_PASSWORD="$POSTGRES_PASSWORD" -e POSTGRES_DB=mes \
+  -v mes_pgdata:/var/lib/postgresql docker.io/library/postgres:18-alpine
+docker run -d --pod mes --name garage --restart unless-stopped \
+  -e GARAGE_RPC_SECRET="$GARAGE_RPC_SECRET" -e GARAGE_ADMIN_TOKEN="$GARAGE_ADMIN_TOKEN" \
+  -e GARAGE_METRICS_TOKEN="$GARAGE_METRICS_TOKEN" \
+  -v "$PWD/garage.toml:/etc/garage.toml:ro" \
+  -v "$PWD/volumes/garage/meta:/var/lib/garage/meta" \
+  -v "$PWD/volumes/garage/data:/var/lib/garage/data" \
+  docker.io/dxflrs/garage:v2.4.1
+docker run -d --pod mes --name mailpit --restart unless-stopped \
+  -e MP_MAX_MESSAGES=500 -v mes_mailpit-data:/data \
+  docker.io/axllent/mailpit:latest
+
+docker exec postgres pg_isready -U mes -d mes    # wait for "accepting connections"
+
+# application — the API restarts until its S3 keys exist (see init-garage below)
+docker run -d --pod mes --name backend --restart unless-stopped \
+  -e NODE_ENV=production -e BETTER_AUTH_SECRET="$BETTER_AUTH_SECRET" \
+  -e BETTER_AUTH_URL="$MES_PUBLIC_ORIGIN" -e MES_WEB_ORIGIN="$MES_PUBLIC_ORIGIN" \
+  -e MES_API_PORT=3001 \
+  -e MES_DATABASE_URL="postgres://mes:$POSTGRES_PASSWORD@postgres:5432/mes" \
+  -e MES_EXPORT_DIR=/app/backend/data/exports \
+  -e S3_ENDPOINT=http://garage:3900 -e S3_REGION=garage -e S3_BUCKET="$S3_BUCKET" \
+  -e S3_ACCESS_KEY_ID="$S3_ACCESS_KEY_ID" -e S3_SECRET_ACCESS_KEY="$S3_SECRET_ACCESS_KEY" \
+  -e MES_SMTP_URL="$MES_SMTP_URL" -e MES_RESET_EMAIL_FROM="$MES_RESET_EMAIL_FROM" \
+  -e TELEGRAM_BOT_ENABLED="$TELEGRAM_BOT_ENABLED" -e TELEGRAM_BOT_TOKEN="$TELEGRAM_BOT_TOKEN" \
+  -e TELEGRAM_AI_BASE_URL="$TELEGRAM_AI_BASE_URL" -e TELEGRAM_AI_API_KEY="$TELEGRAM_AI_API_KEY" \
+  -e TELEGRAM_AI_MODEL="$TELEGRAM_AI_MODEL" \
+  -v mes_backend-data:/app/backend/data/exports docker.io/library/mes-backend:latest
+docker run -d --pod mes --name frontend --restart unless-stopped \
+  -e MES_API_URL=http://backend:3001 docker.io/library/mes-frontend:latest
+
+# monitoring — Prometheus last: /etc/hosts entries appear as siblings start
+docker run -d --pod mes --name postgres_exporter --restart unless-stopped \
+  -e DATA_SOURCE_NAME="postgresql://mes:$POSTGRES_PASSWORD@postgres:5432/mes?sslmode=disable" \
+  docker.io/prometheuscommunity/postgres-exporter:v0.19.1
+docker run -d --pod mes --name cadvisor --restart unless-stopped \
+  -v /:/rootfs:ro -v /sys:/sys:ro -v /var/lib/containers:/var/lib/containers:ro \
+  gcr.io/cadvisor/cadvisor:v0.52.0
+docker run -d --pod mes --name grafana --restart unless-stopped \
+  -e GF_SECURITY_ADMIN_USER="$GRAFANA_ADMIN_USER" \
+  -e GF_SECURITY_ADMIN_PASSWORD="$GRAFANA_ADMIN_PASSWORD" \
+  -e GF_AUTH_ANONYMOUS_ENABLED=false -e GF_USERS_ALLOW_SIGN_UP=false \
+  -e GF_SERVER_ROOT_URL="$MES_PUBLIC_ORIGIN/grafana" \
+  -e GF_SERVER_HTTP_PORT="$GRAFANA_HTTP_PORT" \
+  -v mes_grafana-data:/var/lib/grafana \
+  -v "$PWD/grafana/provisioning:/etc/grafana/provisioning:ro" \
+  -v "$PWD/grafana/dashboards:/var/lib/grafana/dashboards:ro" \
+  docker.io/grafana/grafana:13.2.6
+docker run -d --pod mes --name prometheus --restart unless-stopped --entrypoint /bin/sh \
+  -e GARAGE_METRICS_TOKEN="$GARAGE_METRICS_TOKEN" \
+  -v "$PWD/prometheus.yml:/etc/prometheus/prometheus.yml:ro" -v mes_prometheus-data:/prometheus \
+  docker.io/prom/prometheus:v3.16.0-busybox \
+  -c 'umask 077; printf "%s" "$GARAGE_METRICS_TOKEN" > /tmp/garage-metrics-token; \
+     exec /bin/prometheus --config.file=/etc/prometheus/prometheus.yml \
+     --storage.tsdb.path=/prometheus --storage.tsdb.retention.time=15d \
+     --web.listen-address=0.0.0.0:9090'
+
+# the origin last
+docker run -d --pod mes --name caddy --restart unless-stopped \
+  -e GRAFANA_BASIC_AUTH_USER="$GRAFANA_BASIC_AUTH_USER" \
+  -e GRAFANA_BASIC_AUTH_HASH="$GRAFANA_BASIC_AUTH_HASH" \
+  -e GRAFANA_UPSTREAM="$GRAFANA_UPSTREAM" \
+  -e MES_FRONTEND_UPSTREAM="$MES_FRONTEND_UPSTREAM" \
+  -v "$PWD/Caddyfile:/etc/caddy/Caddyfile:ro" \
+  -v mes_caddy-data:/data -v mes_caddy-config:/config \
+  docker.io/library/caddy:2
+```
+
+Run `./init-garage.sh` once, exactly as in the Compose run — it targets the
+published `3900` and works unchanged. The API refuses to boot until its S3 keys
+exist, so run it before (or alongside) the backend, then restart the backend if
+it had already started.
+
+**5. What differs from the Compose run.** No `depends_on` — start in the order
+above and let `restart: unless-stopped` absorb a too-early backend; service
+names resolve through the pod's `/etc/hosts`, whose entries appear as containers
+start (a container that starts before its targets may need a restart — one
+`docker restart prometheus` after everything is up is enough); the web client
+binds the namespace's primary address, hence the `MES_FRONTEND_UPSTREAM` step;
+on this host's rootless runtime cadvisor reports only the root cgroup, so the
+stack-overview dashboard shows fewer per-container series (a runtime limitation,
+not a config error). Everything else — the origin, the `/grafana` basic-auth
+guard, the dashboards, the datasource, the loopback-only Prometheus publish — is
+the same.
+
+**6. Drill — confirm the stack is whole:**
+
+```bash
+curl -s -o /dev/null -w '%{http_code}\n' http://127.0.0.1:8080/                                  # 200/307, the app
+curl -s -o /dev/null -w '%{http_code}\n' http://127.0.0.1:8080/grafana/                          # 401, unauthenticated
+curl -s -o /dev/null -w '%{http_code}\n' -u "$GRAFANA_BASIC_AUTH_USER:<hash password>" \
+  http://127.0.0.1:8080/grafana/login                                                              # 200, the login page
+curl -s -c jar.txt -o login.json -w '%{http_code}\n' -u "$GRAFANA_BASIC_AUTH_USER:<hash password>" \
+  -X POST -H 'content-type: application/json' \
+  -d "{\"user\":\"$GRAFANA_ADMIN_USER\",\"password\":\"$GRAFANA_ADMIN_PASSWORD\"}" \
+  http://127.0.0.1:8080/grafana/login                                                              # 200 + {"message":"Logged in"}
+curl -s 'http://127.0.0.1:9090/api/v1/targets' | grep -o '"health":"[a-z]*"'                      # up for every job
+```
+
+The Grafana sign-in posts to `/grafana/login` — through the proxy, which strips
+the prefix to Grafana's own `/login`. Teardown is `docker pod rm -f mes` plus
+the `mes-*` volumes you want to keep — they persist and the next
+`docker compose up -d` reuses them.
+
+
+### Bundled vs external Garage
+
+This stack bundles its own Garage node. The external-network option — joining a
+separate `garagehq` deployment over `garagehq_default` — remains available and is
+documented in [`garage-s3-clients.md`](garage-s3-clients.md) §5. Do not run both
+at once on the same host: they publish the same `3900`/`3903` ports.
+
 ## 15. Multi-account Telegram web client
 
 The Telegram module (`frontend/src/app/(app)/telegram/`) lets a signed-in
@@ -379,7 +764,7 @@ switcher, add-account, and logout, so MES renders none of those — it only
 restores every linked account on open and backs their sessions up. The chat
 surface is the real Telegram Web client — telegram-tt, bundled at
 `frontend/public/telegram-web/` and served at `/telegram-web/`, embedded in an
-iframe (`/telegram-web/index.html?account=<slot>`). MES wraps it with the session
+iframe (`/telegram-web/index.html?account=<slot>&theme=<light|dark>`). MES wraps it with the session
 bridge only: it captures each account's session material from the embedded
 client, backs it up encrypted (AES-256-GCM) to the backend, and hydrates
 every account back before mounting the iframe — so every later sign-in
@@ -412,9 +797,16 @@ configuration error) rather than storing a session unencrypted.
 build of telegram-tt, committed as a build artifact (GPL-3.0-or-later — see
 [`NOTICES.md`](../NOTICES.md)). Refresh it with
 `cd frontend && bun run vendor:telegram-web` after updating the clone in
-`sample/telegram-tt`: the script rebuilds the source in the clone and copies
-`dist/` into `public/` (source maps, the bundle-size report, and home-screen
-emoji tiles excluded). Update the version note in `NOTICES.md` when you
+`sample/telegram-tt`: the script first applies the tracked MES patches from
+`frontend/scripts/telegram-tt-patches/` to the clone (the theme bridge is the
+only local modification — see NOTICES.md; a patch that no longer applies
+aborts the run instead of shipping an unpatched build), then rebuilds the
+source in the clone and copies `dist/` into `public/` (source maps, the
+bundle-size report, and home-screen emoji tiles excluded). The build needs
+the Telegram API credentials as environment variables —
+`TELEGRAM_API_ID` and `TELEGRAM_API_HASH` (never write them to a file); the
+api pair the current bundle was built with is recoverable from the committed
+worker bundle itself. Update the version note in `NOTICES.md` when you
 refresh. Verify the copy with `curl -s -o /dev/null -w '%{http_code}' http://localhost:3000/telegram-web/index.html`
 — 200 means the static path is served.
 
@@ -429,7 +821,10 @@ added there is captured and backed up the same way). Open a second browser
 sign in as the same viewer, open the module — the account restores from the
 backend's session material with no OTP/QR again. Send a text message and one
 file in a chat; from Telegram's own "Active Sessions" revoke one session and
-watch that account no longer connect while the others keep working. When a QR
+watch that account no longer connect while the others keep working. With the
+shell in dark mode, open the module and watch the client's first paint come
+up dark (no white flash); switch the shell theme and watch the client
+re-theme in place without the frame reloading. When a QR
 login is rejected on the phone with "This account is already logged in from
 this app", the account still holds an older session from this same api_id
 (its browser-UA entry in the phone's Settings → Devices): terminate that

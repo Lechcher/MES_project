@@ -1,0 +1,9 @@
+# Context: backend/
+node_modules
+data
+debug
+.env
+.env.*
+!.env.example
+*.log
+*.md

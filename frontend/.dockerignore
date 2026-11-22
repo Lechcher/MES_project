@@ -1,0 +1,15 @@
+# Context: frontend/
+node_modules
+.next
+out
+build
+debug
+playwright-report
+test-results
+coverage
+tsconfig.tsbuildinfo
+.env
+.env.*
+!.env.example
+*.log
+*.md
