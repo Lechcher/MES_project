@@ -12,7 +12,8 @@
       "!build",
       "!**/build",
       "!tests/e2e/playwright-report",
-      "!**/playwright-report"
+      "!**/playwright-report",
+      "!public/telegram-web"
     ]
   },
   "formatter": {
