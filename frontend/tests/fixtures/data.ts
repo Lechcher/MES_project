@@ -105,8 +105,7 @@ export const test = base.extend<DataFixtures>({
     await use(create);
   },
 
-  cleanup: async (_, use) => {
-    await use();
+  cleanup: async (_) => {
     // Clean up created tickets and users after the test
     for (const _id of createdTickets) {
       try {

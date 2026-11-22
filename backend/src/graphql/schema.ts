@@ -174,6 +174,11 @@ export const typeDefs = /* GraphQL */ `
     newPassword: String!
   }
 
+  input RequestEmailChangeInput {
+    currentPassword: String!
+    newEmail: String!
+  }
+
   # ---------------------------------------------------------------- #
   # Shared                                                           #
   # ---------------------------------------------------------------- #
@@ -1207,6 +1212,8 @@ export const typeDefs = /* GraphQL */ `
     requestPasswordReset(email: String!): Boolean!
     resetPassword(input: ResetPasswordInput!): Boolean!
     changePassword(input: ChangePasswordInput!): Boolean!
+    requestEmailChange(input: RequestEmailChangeInput!): Boolean!
+    confirmEmailChange(token: String!): Boolean!
 
     # Jobs & Projects
     createTask(input: CreateTaskInput!): Task!

@@ -9,10 +9,48 @@
 import { describe, expect, test } from "bun:test";
 import {
   auditScopeFor,
+  canViewSettingsApp,
   canWriteSchedule,
   isTechnicalViewer,
   ROLE_CODES,
+  settingsMenusFor,
 } from "./access";
+
+describe("settingsMenusFor", () => {
+  test("every role manages its own account", () => {
+    for (const role of ROLE_CODES) {
+      expect(settingsMenusFor(role)).toContain("account");
+    }
+  });
+
+  test("employee and department head see the Account tab alone", () => {
+    expect(settingsMenusFor("EMPLOYEE")).toEqual(["account"]);
+    expect(settingsMenusFor("DEPT_HEAD")).toEqual(["account"]);
+  });
+
+  test("HR sees the user directory and the Account tab", () => {
+    expect(settingsMenusFor("HR_MANAGER")).toEqual(["users", "account"]);
+  });
+
+  test("technical roles keep every menu and gain the Account tab", () => {
+    expect(settingsMenusFor("SUPER_ADMIN")).toEqual([
+      "users",
+      "org",
+      "rbac",
+      "telegram",
+      "audit",
+      "account",
+    ]);
+    expect(settingsMenusFor("TECH_LEAD")).toEqual(
+      settingsMenusFor("SUPER_ADMIN"),
+    );
+  });
+
+  test("any role with a menu can open the Settings app", () => {
+    expect(canViewSettingsApp("EMPLOYEE")).toBe(true);
+    expect(canViewSettingsApp(null)).toBe(false);
+  });
+});
 
 describe("isTechnicalViewer", () => {
   test("true for exactly the two technical roles", () => {

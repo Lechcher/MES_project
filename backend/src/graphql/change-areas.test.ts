@@ -161,6 +161,8 @@ describe("mapping table coverage", () => {
 			"requestPasswordReset",
 			"resetPassword",
 			"changePassword",
+			"requestEmailChange",
+			"confirmEmailChange",
 		]) {
 			expect(MUTATION_AREAS[field]).toBeNull();
 		}

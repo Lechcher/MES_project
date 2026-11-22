@@ -30,13 +30,14 @@ export const MES_MODULE_CODES = [
 
 export type MesModuleCode = (typeof MES_MODULE_CODES)[number];
 
-/** A role may reach an app at a data scope, at the user directory only, or not at all. */
+/** A role may reach an app at a data scope, at the user directory only, at its own account only, or not at all. */
 export type MesAppAccess =
   | "ALL"
   | "COMPANY_WIDE"
   | "DEPARTMENT_ONLY"
   | "PERSONAL"
   | "USER_DIRECTORY_ONLY"
+  | "ACCOUNT_ONLY"
   | "HIDDEN";
 
 /** Layer-1 app access matrix (`API_CONTACT_SPECIFICATION.md` §4.5). */
@@ -69,8 +70,10 @@ export const MES_APP_ACCESS: Record<
     SUPER_ADMIN: "ALL",
     TECH_LEAD: "ALL",
     HR_MANAGER: "USER_DIRECTORY_ONLY",
-    DEPT_HEAD: "HIDDEN",
-    EMPLOYEE: "HIDDEN",
+    // Every signed-in user manages their own credentials here; the tabs they
+    // see inside Settings are decided by `settingsMenusFor`.
+    DEPT_HEAD: "ACCOUNT_ONLY",
+    EMPLOYEE: "ACCOUNT_ONLY",
   },
   "audit-log": {
     SUPER_ADMIN: "ALL",
@@ -182,6 +185,12 @@ export function appDescriptionFor(
     appAccessFor(viewer, "settings") === "USER_DIRECTORY_ONLY"
   ) {
     return "User Directory only.";
+  }
+  if (
+    app.code === "settings" &&
+    appAccessFor(viewer, "settings") === "ACCOUNT_ONLY"
+  ) {
+    return "Your account only.";
   }
   return app.description;
 }

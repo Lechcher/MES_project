@@ -23,10 +23,13 @@ import { account, session, user, verification } from "../db/schema";
 import type { ResolvedSession, Viewer } from "../graphql/context";
 import { DomainError } from "../graphql/errors";
 import {
+	CONFIRM_EMAIL_ROUTE_PATH,
+	composeEmailChangeMessage,
 	composePasswordResetMessage,
 	createCredentialScrubber,
 	createSmtpMailSender,
 	deliverMail,
+	EMAIL_CHANGE_VERIFICATION_TEMPLATE,
 	type MailOutcome,
 	type MailSender,
 	PASSWORD_RESET_TEMPLATE,
@@ -71,7 +74,7 @@ export function createAuth(
 
 	return betterAuth({
 		database: drizzleAdapter(db, {
-			provider: "sqlite",
+			provider: "pg",
 			schema: { user, session, account, verification },
 		}),
 		secret: config.authSecret,
@@ -119,7 +122,17 @@ export function createAuth(
 		// the bearer plugin is what lets Better Auth resolve a session from a
 		// header instead of a cookie.
 		plugins: [bearer()],
+		// Self-service email change (`auth.api.changeEmail`, disabled by default).
+		// Verified against the installed better-auth 1.7.10 source: the endpoint
+		// takes no password (MES verifies it itself — see `requestEmailChange`),
+		// and the library answers a taken address with a neutral success that
+		// sends nothing (MES checks uniqueness itself instead). `url` is ignored
+		// and the message is composed here, so the link points at the web origin
+		// like the reset message does.
 		user: {
+			changeEmail: {
+				enabled: true,
+			},
 			additionalFields: {
 				// The contract's CreateUserInput requires a user code, so it is settable.
 				// Not `required` at the auth layer: accounts created without one get a
@@ -127,6 +140,39 @@ export function createAuth(
 				userCode: { type: "string", required: false, input: true },
 				departmentId: { type: "string", required: false, input: false },
 				isActive: { type: "boolean", required: false, input: false },
+			},
+		},
+		// The hook that mails the verification token. It must exist for
+		// `changeEmail` to work at all, and — because MES never calls the
+		// library's sign-up endpoint (users are created by the GraphQL
+		// `createUser` mutation) — this is the only flow that can fire it.
+		// `user.email` carries the NEW address here.
+		emailVerification: {
+			sendVerificationEmail: async (data: {
+				user: { email: string; name?: string | null; id: string };
+				url: string;
+				token: string;
+			}) => {
+				if (!mailSender) return;
+
+				const outcome = await deliverMail(
+					{ db, sender: mailSender, ...(redact ? { redact } : {}) },
+					composeEmailChangeMessage({
+						to: data.user.email,
+						recipientName: data.user.name ?? null,
+						token: data.token,
+						from: config.resetEmailFrom,
+						webOrigin: config.webOrigin,
+					}),
+					{
+						template: EMAIL_CHANGE_VERIFICATION_TEMPLATE,
+						relatedType: "USER",
+						relatedId: data.user.id,
+					},
+				);
+
+				const store = resetAttempt.getStore();
+				if (store) store.outcome = outcome;
 			},
 		},
 		databaseHooks: {
@@ -391,14 +437,26 @@ export async function changePassword(
 	headers: Headers,
 	input: { currentPassword: string; newPassword: string },
 ): Promise<boolean> {
-	await auth.api.changePassword({
-		body: {
-			currentPassword: input.currentPassword,
-			newPassword: input.newPassword,
-			revokeOtherSessions: true,
-		},
-		headers,
-	});
+	try {
+		await auth.api.changePassword({
+			body: {
+				currentPassword: input.currentPassword,
+				newPassword: input.newPassword,
+				revokeOtherSessions: true,
+			},
+			headers,
+		});
+	} catch (error) {
+		// A wrong current password is an input problem, not an internal fault,
+		// so it is reported as one instead of a generic failure.
+		if (authErrorCode(error) === "INVALID_PASSWORD") {
+			throw new DomainError(
+				"VALIDATION_FAILED",
+				"That is not your current password.",
+			);
+		}
+		throw error;
+	}
 	return true;
 }
 
@@ -442,6 +500,242 @@ export async function requestPasswordReset(
 	}
 
 	return true;
+}
+
+/** The bearer token a request carries, or `null` when it carries none. */
+function bearerToken(headers: Headers): string | null {
+	const header = headers.get("authorization");
+	if (!header) return null;
+	const [scheme, value] = header.split(" ");
+	return scheme?.toLowerCase() === "bearer" && value ? value : null;
+}
+
+/**
+ * Begin a self-service email change.
+ *
+ * The library's `changeEmail` endpoint takes no password, so the current one is
+ * verified here against the caller's own credential row first — the same check
+ * `verifyCredentials` performs. The library answers a taken address with a
+ * neutral success that sends nothing; the uniqueness check below turns that
+ * into a visible conflict instead of leaving the user waiting for a message
+ * that never arrives. Delivery failures are surfaced exactly the way
+ * `requestPasswordReset` surfaces them.
+ */
+export async function requestEmailChange(
+	auth: Auth,
+	db: DatabaseHandle,
+	config: AppConfig,
+	headers: Headers,
+	input: { currentPassword: string; newEmail: string },
+): Promise<boolean> {
+	if (!config.smtpUrl) {
+		throw new DomainError(
+			"INTERNAL",
+			"Email change is unavailable: no mail sender is configured (MES_SMTP_URL).",
+		);
+	}
+
+	const newEmail = input.newEmail.trim().toLowerCase();
+	if (newEmail === "") {
+		throw new DomainError(
+			"VALIDATION_FAILED",
+			"A new email address is required.",
+		);
+	}
+
+	const token = bearerToken(headers);
+	const session = token ? await resolveSession(db, token) : null;
+	if (!session) {
+		throw new DomainError(
+			"UNAUTHENTICATED",
+			"Sign in to change your email address.",
+		);
+	}
+
+	if (newEmail === session.viewer.email.toLowerCase()) {
+		throw new DomainError(
+			"VALIDATION_FAILED",
+			"That is already your email address.",
+		);
+	}
+
+	// The library's change-email request carries no password: the caller's
+	// current password is verified against their own credential row here.
+	const [credential] = await db
+		.select()
+		.from(account)
+		.where(
+			and(
+				eq(account.userId, session.viewer.id),
+				eq(account.providerId, "credential"),
+			),
+		)
+		.limit(1);
+
+	if (!credential?.password) {
+		throw new DomainError(
+			"VALIDATION_FAILED",
+			"This account has no password credential to verify.",
+		);
+	}
+
+	if (
+		!(await verifyPassword({
+			hash: credential.password,
+			password: input.currentPassword,
+		}))
+	) {
+		throw new DomainError(
+			"VALIDATION_FAILED",
+			"That is not your current password.",
+		);
+	}
+
+	const [taken] = await db
+		.select({ id: user.id })
+		.from(user)
+		.where(eq(user.email, newEmail))
+		.limit(1);
+	if (taken) {
+		throw new DomainError("CONFLICT", "That email is already in use.");
+	}
+
+	const store: PendingResetAttempt = { outcome: null };
+	await resetAttempt.run(store, async () => {
+		await auth.api.changeEmail({
+			body: {
+				newEmail,
+				callbackURL: `${config.webOrigin.replace(/\/+$/, "")}${CONFIRM_EMAIL_ROUTE_PATH}`,
+			},
+			headers,
+		});
+	});
+
+	if (store.outcome && !store.outcome.delivered) {
+		throw new DomainError(
+			"INTERNAL",
+			`The verification message could not be delivered: ${store.outcome.errorMessage}`,
+			{ delivery: "FAILED", notificationId: store.outcome.notificationId },
+		);
+	}
+
+	return true;
+}
+
+/** What an applied email change changed. */
+export interface EmailChangeResult {
+	/** The account whose address changed. */
+	userId: string;
+	/** The address that was in use before. */
+	from: string;
+	/** The address now in use. */
+	to: string;
+}
+
+/**
+ * Read the addresses a change-email token was issued for.
+ *
+ * The token is a JWT whose payload carries both addresses; the cryptographic
+ * check is the library's, so this only decodes. Reading it before applying the
+ * change is also the only way to know the previous address afterwards — the
+ * row no longer carries it once the change lands.
+ */
+function decodeEmailChangeToken(token: string): {
+	from: string;
+	to: string;
+} | null {
+	const parts = token.split(".");
+	if (parts.length !== 3) return null;
+	try {
+		const payload = JSON.parse(
+			Buffer.from(parts[1], "base64url").toString("utf8"),
+		) as { email?: unknown; updateTo?: unknown };
+		if (
+			typeof payload.email !== "string" ||
+			typeof payload.updateTo !== "string"
+		) {
+			return null;
+		}
+		return { from: payload.email, to: payload.updateTo };
+	} catch {
+		return null;
+	}
+}
+
+/**
+ * Apply a pending email change from its verification token.
+ *
+ * The token was issued against the requesting account, so no session is
+ * required — and none reaches the browser. A token that no longer resolves
+ * (invalid, expired, or already applied — the row no longer carries the old
+ * address) is reported as an unusable link, matching how `resetPassword`
+ * reports its own rejected tokens.
+ *
+ * Installed-library findings (better-auth 1.7.10,
+ * `dist/api/routes/email-verification.mjs`): `auth.api.verifyEmail` is a GET
+ * taking the token in `query`; a `change-email-verification` token carries
+ * `updateTo` and applying it writes the new address and consumes the token;
+ * the route creates no session. The cryptographic check is the library's —
+ * `decodeEmailChangeToken` below only reads the payload for the audit record.
+ */
+export async function confirmEmailChange(
+	auth: Auth,
+	db: DatabaseHandle,
+	input: { token: string },
+): Promise<EmailChangeResult> {
+	const addresses = decodeEmailChangeToken(input.token);
+
+	try {
+		await auth.api.verifyEmail({ query: { token: input.token } });
+	} catch (error) {
+		// A race on the unique address constraint surfaces as a driver error
+		// from the library's own write, not as a library error code. Verified
+		// against better-auth 1.7.10: drizzle wraps the pg failure in a
+		// "Failed query" message, and the violation text ("... unique
+		// constraint ...") rides on the wrapped error's `cause`.
+		if (isUniqueViolation(error) && addresses !== null) {
+			throw new DomainError("CONFLICT", "That email is already in use.");
+		}
+		throw new DomainError(
+			"VALIDATION_FAILED",
+			"This confirmation link is invalid or has expired. Request a new one to continue.",
+			{ reason: "INVALID_TOKEN" },
+		);
+	}
+
+	if (!addresses) {
+		throw new DomainError(
+			"VALIDATION_FAILED",
+			"This confirmation link is invalid or has expired. Request a new one to continue.",
+			{ reason: "INVALID_TOKEN" },
+		);
+	}
+
+	const [row] = await db
+		.select({ id: user.id })
+		.from(user)
+		.where(eq(user.email, addresses.to))
+		.limit(1);
+
+	return {
+		userId: row?.id ?? "",
+		from: addresses.from,
+		to: addresses.to,
+	};
+}
+
+/**
+ * Whether a thrown value is a unique-constraint violation, however deeply the
+ * driver wrapped it. The pg message ("duplicate key value violates unique
+ * constraint …") can sit several `cause` levels under the thrown error.
+ */
+function isUniqueViolation(error: unknown): boolean {
+	let current: unknown = error;
+	for (let depth = 0; depth < 4 && current instanceof Error; depth += 1) {
+		if (/unique/i.test(current.message)) return true;
+		current = current.cause;
+	}
+	return false;
 }
 
 /** Read the machine-readable code out of a rejected auth call. */

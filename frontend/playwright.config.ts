@@ -9,14 +9,17 @@
 import { defineConfig, devices } from "@playwright/test";
 
 export default defineConfig({
-  testDir: "./tests/e2e/tests",
+  testDir: "./tests/tests",
   fullyParallel: true,
   forbidOnly: !!process.env.CI,
   retries: process.env.CI ? 2 : 0,
   workers: process.env.CI ? undefined : 1,
   reporter: process.env.CI ? "junit" : "html",
+  globalSetup: "./tests/global-setup.ts",
+  globalTeardown: "./tests/global-teardown.ts",
   use: {
     baseURL: "http://localhost:3000",
+    storageState: "./tests/.auth/user.json",
     trace: "on-first-retry",
   },
 
@@ -36,6 +39,11 @@ export default defineConfig({
       url: "http://localhost:3001/health",
       reuseExistingServer: !process.env.CI,
       timeout: 120_000,
+      env: {
+        // The mail sink from tests/fixtures/mail-sink.ts catches the
+        // verification links the account flows mail.
+        MES_SMTP_URL: "smtp://127.0.0.1:2525",
+      },
     },
   ],
 

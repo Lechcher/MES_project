@@ -163,18 +163,22 @@ type Viewer {
 
 | Operation | Type | Input | Output | Access |
 | --- | --- | --- | --- | --- |
-| `login` | mutation | `LoginInput!` (`email`, `password`) | `AuthPayload!` | public |
+| `login` | mutation | `LoginInput!` (`email` or `userCode`, `password`) | `AuthPayload!` | public |
 | `logout` | mutation | none | `Boolean!` | any authenticated |
 | `viewer` | query | none | `Viewer` | any authenticated |
 | `requestPasswordReset` | mutation | `String!` (`email`) | `Boolean!` | public |
 | `resetPassword` | mutation | `ResetPasswordInput!` (`token`, `newPassword`) | `Boolean!` | public |
 | `changePassword` | mutation | `ChangePasswordInput!` (`currentPassword`, `newPassword`) | `Boolean!` | any authenticated |
+| `requestEmailChange` | mutation | `RequestEmailChangeInput!` (`currentPassword`, `newEmail`) | `Boolean!` | any authenticated |
+| `confirmEmailChange` | mutation | `String!` (`token`) | `Boolean!` | public (token-bound) |
 
 Input/output types:
 
 ```graphql
 input LoginInput {
-  email: String!
+  # Exactly one identifier: the account's email or its user code.
+  email: String
+  userCode: String
   password: String!
 }
 
@@ -193,12 +197,19 @@ input ChangePasswordInput {
   newPassword: String!
 }
 
+input RequestEmailChangeInput {
+  currentPassword: String!
+  newEmail: String!
+}
+
 extend type Mutation {
   login(input: LoginInput!): AuthPayload!
   logout: Boolean!
   requestPasswordReset(email: String!): Boolean!
   resetPassword(input: ResetPasswordInput!): Boolean!
   changePassword(input: ChangePasswordInput!): Boolean!
+  requestEmailChange(input: RequestEmailChangeInput!): Boolean!
+  confirmEmailChange(token: String!): Boolean!
 }
 
 extend type Query {
@@ -212,6 +223,13 @@ extend type Query {
 - For a known address, the reset message is mailed with a link to the web application's `/reset-password` route carrying the token. Each attempt is recorded in the notification log (`channel: EMAIL`).
 - A failed delivery returns `INTERNAL` with `details.delivery = "FAILED"` and the `notificationId`; it is never reported as `true`. With no mail server configured, the call fails with `INTERNAL` ("mail sender unavailable") and nothing is sent.
 - `resetPassword` rejects a bad token with `VALIDATION_FAILED` and `details.reason` = `INVALID_TOKEN` (invalid or expired) or `RESET_REJECTED`. The new password follows the same policy as the administrative `resetUserPassword`.
+
+**Self-service email-change behavior.**
+
+- `requestEmailChange` requires a valid session and the caller's current password, and mails a verification link to the **new** address. The account's email changes only after the link is confirmed; until then the previous address stays in use. A wrong current password or an unchanged address fails with `VALIDATION_FAILED`; an address already used by another account fails with `CONFLICT` and no message is sent.
+- The verification message links to the web application's `/confirm-email` route carrying the token; each attempt is recorded in the notification log (`channel: EMAIL`). A failed delivery returns `INTERNAL` with `details.delivery = "FAILED"` and the `notificationId`; it is never reported as `true`. With no mail server configured, the call fails with `INTERNAL` ("mail sender unavailable") and nothing is sent.
+- `confirmEmailChange` applies the change to the account that requested it — the token binds the change, so no session is required and no session is created — and rejects an invalid, expired, or already-consumed token with `VALIDATION_FAILED` and `details.reason` = `INVALID_TOKEN`. A duplicate address taken while the link waited fails with `CONFLICT`.
+- `changePassword` is unchanged: it revokes the caller's other sessions and keeps the current one signed in.
 
 Every operation in §6 and §7 other than the public auth operations requires an authenticated session. Administrative account flows (create/edit/reset/lock a user) live in §6.4 and require the `Settings` authorization.
 
@@ -274,7 +292,7 @@ An operation invoked by a role that lacks access returns `FORBIDDEN` (§8). A ro
 | **Jobs** | `ALL` | `ALL` | `COMPANY_WIDE` | `DEPARTMENT_ONLY` | `PERSONAL` |
 | **Planning** | `ALL` | `ALL` | `COMPANY_WIDE` | `DEPARTMENT_ONLY` | `PERSONAL` |
 | **Performance** | `ALL` | `ALL` | `COMPANY_WIDE` | `DEPARTMENT_ONLY` | `PERSONAL` |
-| **Settings & IAM** | visible | visible | user directory only | fully hidden | fully hidden |
+| **Settings & IAM** | visible | visible | user directory + own account | own account only | own account only |
 | **Audit Log** | visible | visible | fully hidden | fully hidden | fully hidden |
 
 ### 4.6 Documented asymmetries (must be preserved)
@@ -423,7 +441,6 @@ type Department {
   departmentType: DepartmentType!
   parent: Department
   manager: User
-  autoForkingEnabled: Boolean!
   isActive: Boolean!
   createdAt: DateTime!
   updatedAt: DateTime!
@@ -680,7 +697,8 @@ input CreateTaskInput {
   projectId: ID
   taskType: TaskType!
   priority: Priority!
-  assignedToId: ID
+  # One ticket is created per listed assignee; at least one is required.
+  assignedToIds: [ID!]!
   departmentId: ID
   startDate: DateTime
   endDate: DateTime
@@ -754,7 +772,7 @@ input CancelTaskInput {
 | `project` | query | `(id: ID!): Project` | SA, TL, HR, DH | as `projects` |
 | `tasks` | query | `(filter, orderBy, offset, limit): TaskConnection!` | all roles | SA/TL `ALL`; HR `COMPANY_WIDE`; DH `DEPARTMENT_ONLY`; EMP `PERSONAL` |
 | `task` | query | `(id: ID!): Task` | all roles | same scoping as `tasks` |
-| `createTask` | mutation | `(input: CreateTaskInput!): Task!` | SA, TL, HR, DH | creates `REQ`; supports the Auto-forking Engine; Employees are **denied** |
+| `createTask` | mutation | `(input: CreateTaskInput!): Task!` | SA, TL, HR, DH | creates one `REQ` ticket per assignee; Employees are **denied** |
 | `acceptTask` | mutation | `(taskId: ID!): Task!` | all roles | `REQ → ACT` |
 | `logTaskProgress` | mutation | `(input: LogTaskProgressInput!): Task!` | all roles | update multi-day `%`, appends a progress log |
 | `submitTaskReport` | mutation | `(input: SubmitTaskReportInput!): Task!` | all roles | `ACT → PEN` |
@@ -1357,7 +1375,9 @@ type NotificationConnection {
 
 ```graphql
 input CreateUserInput {
-  userCode: String!
+  # Optional: when omitted, the server assigns the next free code in the
+  # V0000000–V9999999 range.
+  userCode: String
   fullName: String!
   email: String!
   password: String!
@@ -1387,7 +1407,6 @@ input CreateDepartmentInput {
   departmentType: DepartmentType!
   parentId: ID
   managerId: ID
-  autoForkingEnabled: Boolean = true
 }
 
 input UpdateDepartmentInput {
@@ -1395,7 +1414,6 @@ input UpdateDepartmentInput {
   name: String
   parentId: ID
   managerId: ID
-  autoForkingEnabled: Boolean
   isActive: Boolean
 }
 
@@ -1449,7 +1467,7 @@ input NotificationFilter {
 | `resetUserPassword` | mutation | `(userId: ID!, newPassword: String!): Boolean!` | SA, HR | account lifecycle |
 | `deactivateUser` | mutation | `(userId: ID!): User!` | SA, HR | soft delete |
 | `createDepartment` | mutation | `(input: CreateDepartmentInput!): Department!` | SA, TL | org structure |
-| `updateDepartment` | mutation | `(input: UpdateDepartmentInput!): Department!` | SA, TL | org structure + auto-forking |
+| `updateDepartment` | mutation | `(input: UpdateDepartmentInput!): Department!` | SA, TL | org structure |
 | `updateRolePermissions` | mutation | `(input: UpdateRolePermissionsInput!): Role!` | **SA, TL only** | RBAC |
 | `systemAuditLogs` | query | `(filter: AuditLogFilter, offset, limit): SystemAuditLogConnection!` | SA, TL | audit trail |
 | `appSettings` | query | `(moduleCode: String): [AppSetting!]!` | SA, TL | configuration |

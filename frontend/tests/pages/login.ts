@@ -20,14 +20,19 @@ export class LoginPage extends BasePage {
   /**
    * Log in with the given email and password.
    *
-   * After submitting, waits for navigation away from the sign-in page.
+   * After submitting, waits for navigation away from the sign-in page. The
+   * matcher is the resolved dashboard, not "any URL" — the session cookie is
+   * set by the redirect target, so waiting on a wildcard could resolve while
+   * still on the sign-in page.
    */
   async login(email: string, password: string) {
     await this.emailInput.fill(email);
     await this.passwordInput.fill(password);
     await this.submitButton.click();
-    // Wait for navigation away from the sign-in page.
-    await this.page.waitForURL("**/*", { timeout: 10_000 });
+    await this.page.waitForURL(
+      (url) => !url.pathname.startsWith("/signin"),
+      { timeout: 30_000 },
+    );
     await this.waitForNetworkIdle();
   }
 }

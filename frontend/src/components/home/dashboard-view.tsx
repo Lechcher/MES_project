@@ -57,13 +57,15 @@ export function DashboardView() {
       <div className="mt-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         {apps.map((app) => {
           const Icon = ICONS[app.code];
-          // HR's Settings launcher is user-directory-only; the description
-          // says so in the active locale.
+          // HR's Settings launcher is user-directory-only, and an employee's
+          // is account-only; the description says so in the active locale.
+          const access = appAccessFor(viewer, "settings");
           const description =
-            app.code === "settings" &&
-            appAccessFor(viewer, "settings") === "USER_DIRECTORY_ONLY"
+            app.code === "settings" && access === "USER_DIRECTORY_ONLY"
               ? t("apps.settings.userDirectoryOnly")
-              : t(`apps.${app.code}.description`);
+              : app.code === "settings" && access === "ACCOUNT_ONLY"
+                ? t("apps.settings.accountOnly")
+                : t(`apps.${app.code}.description`);
           return (
             <Link key={app.code} href={app.href} className="block">
               <Card className="h-full transition-colors hover:bg-muted">

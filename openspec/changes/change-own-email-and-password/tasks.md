@@ -1,0 +1,49 @@
+# Tasks
+
+> **Porting method — read first.** A complete, tested implementation of this
+> change exists in the sibling worktree
+> `~/.herdr/worktrees/MES_project/change_mail_pasword` (HEAD `da8fabf`,
+> uncommitted), built on a divergent history. **Do not merge or rebase.**
+> Port per file — read the file there, then write the equivalent here against
+> this repo's current code. The implementation is **uncommitted** in that
+> worktree, so read its working tree directly
+> (`~/.herdr/worktrees/MES_project/change_mail_pasword/<path>`) — do not use
+> `git show da8fabf:<path>`, which would return the pre-change content.
+> Where the two lineages differ, this repo's code wins. This repo's state
+> already differs from the worktree's blockers: no macOS temp-path breakage in
+> backend tests, no invalid `force-dynamic` segment config, and the Playwright
+> harness (`testDir: ./tests/tests`, fixtures, page objects) is present and
+> functional — so no harness-repair work is needed here. Installed better-auth
+> is **1.7.10** here (1.7.7 in the worktree).
+
+## 1. Backend: self-service email change
+
+- [x] 1.1 Resolve the design's open question against the installed better-auth 1.7.10 package source (`backend/node_modules/better-auth/dist` type definitions): confirm the `user.changeEmail.enabled` option, `auth.api.changeEmail` body shape, which server API applies a change-email token (expected `auth.api.verifyEmail`), and whether `changeEmail` rejects a duplicate address at request time — record findings as a short comment in the code; verify the findings against at least one call site each. (Planning already confirmed the shapes — `verifyEmail({ query: { token } })` applies the `updateTo` payload; `changeEmail` takes no password and answers a taken address neutrally — the task's job is to re-confirm against 1.7.10 in code.)
+- [x] 1.2 Enable change-email and add the verification-mail hook in `backend/src/auth/index.ts`: set `user.changeEmail.enabled = true`, add an `emailVerification.sendVerificationEmail` hook, and compose a new email-change verification message in `backend/src/mail` (message + template constants beside the password-reset ones) whose link targets `${webOrigin}/confirm-email?token=<token>` and is delivered through the existing `deliverMail` pipeline with a notification-log row — verify with new unit tests asserting the composed link and the recorded delivery outcome.
+- [x] 1.3 Add `requestEmailChange` to `backend/src/auth`: verify the caller's current password against their credential row with the existing `verifyPassword` helper, then invoke `auth.api.changeEmail`; map a taken address to `DomainError("CONFLICT", …)`, other library failures to `VALIDATION_FAILED` via the existing `authErrorCode` helper, and surface a mail-delivery failure the way `requestPasswordReset` does (explicit failure, never a false success, explicit unavailable-sender error with no endpoint configured) — verify with unit tests for wrong password, duplicate address, delivery failure, and missing mail configuration.
+- [x] 1.4 Add `confirmEmailChange(token)` to `backend/src/auth`: apply the change with the library API confirmed in task 1.1 and map an invalid or expired token to `VALIDATION_FAILED` with `reason = "INVALID_TOKEN"` (same encoding as `resetPassword`), and a constraint race on the duplicate address to `CONFLICT` — verify with unit tests for a valid token (email changes), an invalid/expired token, and a reused token (no second application).
+- [x] 1.5 Add audit labels `user.email_change` and `user.password_change` to `SETTINGS_AUDIT_ACTIONS` plus a small `recordCredentialChangeAudit` helper in `backend/src/domain/settings.ts` (beside the existing `recordAuditEvent` usage), and call it on completion from the auth resolvers — verify with unit tests that each successful change records exactly one event carrying the actor/timestamp and, for email, the old → new address, with no failure recording an event and no event containing credential material.
+- [x] 1.6 Wire the GraphQL surface: add `RequestEmailChangeInput` (`currentPassword`, `newEmail`), `requestEmailChange(input: RequestEmailChangeInput!): Boolean!`, and `confirmEmailChange(token: String!): Boolean!` to `backend/src/graphql/schema.ts`, with resolvers in `backend/src/graphql/resolvers/auth.ts` (request requires a viewer; confirmation is token-bound); add both mutations as `null` areas in `backend/src/graphql/change-areas.ts` — verify with resolver/schema tests that the request rejects an unauthenticated caller with `UNAUTHENTICATED` and the confirmation applies only to the requesting account, and that the guard lists in `schema.test.ts`, `authorization.test.ts`, and `change-areas.test.ts` name the new fields.
+- [x] 1.7 Add a regression test asserting that creating a user through the API sends no verification mail (the new hook fires only for change-email) — verify the test passes.
+- [x] 1.8 Update `API_CONTACT_SPECIFICATION.md` §3.3: add the two operations to the auth-operations table and the `extend type Mutation` block, noting that `changePassword` is unchanged — verify the documented SDL matches `schema.ts` field-for-field.
+
+## 2. Frontend: Account tab and routing
+
+- [x] 2.1 Extend the gating layers: add an `ACCOUNT_ONLY` access level to `MES_APP_ACCESS` in `frontend/src/lib/mes/navigation.ts` for `EMPLOYEE`/`DEPT_HEAD` on `settings` (handled by `canViewApp`, `visibleApps`, and `appDescriptionFor` like `USER_DIRECTORY_ONLY`), and add the `"account"` menu to `SettingsMenu`/`settingsMenusFor` in `frontend/src/lib/mes/queries/access.ts` (`["account"]` for `EMPLOYEE`/`DEPT_HEAD`, `["users", "account"]` for `HR_MANAGER`, all menus + `"account"` for `TECH_LEAD`/`SUPER_ADMIN`) — update the existing navigation/access tests and verify `cd frontend && bun test src/` passes.
+- [x] 2.2 Create the Account tab component (e.g. `frontend/src/components/settings/account.tsx`) with two forms using the existing shadcn primitives and `useMutation`: password change (current + new, policy-checked client-side with the existing `passwordPolicyError`, masked, nothing written to browser storage) and email change (current password + new address, then a "check your inbox" confirmation state) — verify with unit tests for successful submit, wrong-password surface, sub-minimum password blocked locally, and masked inputs.
+- [x] 2.3 Add the mutation documents `CHANGE_PASSWORD`, `REQUEST_EMAIL_CHANGE`, and `CONFIRM_EMAIL_CHANGE` to `frontend/src/lib/mes/queries/auth.ts` (reusing `MIN_PASSWORD_LENGTH`/`passwordPolicyError` rather than new constants) — verify with unit tests that each document targets the intended operation.
+- [x] 2.4 Create the public route `frontend/src/app/confirm-email/page.tsx` with its form component (e.g. `frontend/src/components/auth/confirm-email-form.tsx`, mirroring `/reset-password`): read the token from the query, call `confirmEmailChange`, mark the form done **then** refresh the viewer, and render success, invalid, or expired outcomes distinctly with a way back to the Account tab — verify with unit tests for the invalid/expired path (extend or reuse an `isInvalid…Token`-style helper beside the existing reset one) and for the done-then-refresh ordering.
+- [x] 2.5 Render the Account tab in `frontend/src/components/settings/settings-view.tsx` for `menus.includes("account")` (new `MENU_KEYS.account` entry, first tab for `EMPLOYEE`/`DEPT_HEAD` via the existing `menus[0]` fallback) and refresh the viewer after a confirmed email change so the shell and header show the new address — verify settings-view unit tests cover all five roles' menu sets and the post-confirmation refetch.
+- [x] 2.6 Add the `settings.account` namespace to `frontend/messages/en.json` and `frontend/messages/vi.json` covering every form label, hint, and result message — flat keys (`passwordTitle`, `emailCurrentPassword`, …), not nested objects, per the design — verify both files parse as JSON and every new key exists in both locales, and that `cd frontend && bunx tsc --noEmit` reports no new type errors.
+
+## 3. Integration verification
+
+- [x] 3.1 Write and run a Playwright e2e flow on this repo's existing harness (with dev servers on :3000/:3001): port the worktree's mail-sink fixture (`frontend/tests/fixtures/mail-sink.ts`, SMTP sink on `127.0.0.1:2525` with `latestConfirmEmailLink()` decoding quoted-printable) and the account spec (password change; the full email-change loop request → capture link → confirm session-free → new address signs in; unusable link reported); point the backend at the sink via `MES_SMTP_URL=smtp://127.0.0.1:2525` — verify the account spec plus the existing auth and settings specs pass with `cd frontend && bun run test:e2e`.
+- [x] 3.2 Run formatter/linter and both unit suites (`bunx biome check --write backend/src frontend/src frontend/tests` scoped to the touched areas — repo-wide CSS lint diagnostics are pre-existing noise here — then `cd backend && bun test` and `cd frontend && bun test src/`) — verify all pass with no remaining format or lint diffs in the changed files.
+- [x] 3.3 Run `cd backend && bun run contract-diff` — verify contract parity still holds after the §3.3 documentation update.
+
+## Workflow follow-up
+
+- Run `openspec validate change-own-email-and-password --strict` before presenting the implementation for review.
+- After implementation review, archive the change so the spec deltas land in `openspec/specs/` (`openspec archive change-own-email-and-password -y`), then verify the archived specs with `openspec list --specs`.
+- Commit to `main` (single-branch, no PR): conventional message (e.g. `feat(settings): self-service email and password change from the Account tab`) with the `Co-authored-by: AI Agent <agent@local>` trailer.

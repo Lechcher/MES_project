@@ -19,6 +19,7 @@ import {
 
 export const MAIL_CHANNEL = "EMAIL";
 export const PASSWORD_RESET_TEMPLATE = "PASSWORD_RESET";
+export const EMAIL_CHANGE_VERIFICATION_TEMPLATE = "EMAIL_CHANGE_VERIFICATION";
 
 export interface MailOutcome {
 	readonly notificationId: string;

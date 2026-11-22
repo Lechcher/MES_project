@@ -9,7 +9,7 @@ import { BasePage } from "../base";
 
 export class SettingsPage extends BasePage {
   readonly orgStructureTab = this.page.getByRole("tab", {
-    name: /organization/i,
+    name: /org structure/i,
   });
   readonly rbacTab = this.page.getByRole("tab", { name: /rbac/i });
   readonly userDirectoryTab = this.page.getByRole("tab", {

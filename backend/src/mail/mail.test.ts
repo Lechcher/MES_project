@@ -7,14 +7,17 @@
  */
 
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
-import { existsSync, rmSync } from "node:fs";
-import { join } from "node:path";
 import { eq } from "drizzle-orm";
 import { type AppConfig, loadConfig } from "../config";
-import { createDatabase, type DatabaseHandle } from "../db";
-import { runMigrations } from "../db/migrate";
+import type { DatabaseHandle } from "../db";
 import { notifications } from "../db/schema";
-import { deliverMail, MAIL_CHANNEL, PASSWORD_RESET_TEMPLATE } from "./delivery";
+import { createTestDatabase, type TestDatabase } from "../db/test-db";
+import {
+	deliverMail,
+	EMAIL_CHANGE_VERIFICATION_TEMPLATE,
+	MAIL_CHANNEL,
+	PASSWORD_RESET_TEMPLATE,
+} from "./delivery";
 import {
 	buildResetUrl,
 	composePasswordResetMessage,
@@ -26,10 +29,13 @@ import {
 	createSmtpMailSender,
 	MailDeliveryError,
 } from "./sender";
+import {
+	buildConfirmEmailUrl,
+	CONFIRM_EMAIL_ROUTE_PATH,
+	composeEmailChangeMessage,
+} from "./verify-email-message";
 
-const TMP_ROOT =
-	"/private/var/folders/xg/lnbqz3fs2w74l46y045jdxmh0000gn/T/opencode";
-const dbPath = join(TMP_ROOT, `mes-mail-${crypto.randomUUID()}.db`);
+let testDb: TestDatabase;
 
 const APP_PASSWORD = "sup3r-s3cret-app-password";
 const ZOHO_TLS = `smtps://lechcher@zohomail.com:${APP_PASSWORD}@smtp.zoho.com:465`;
@@ -37,7 +43,7 @@ const ZOHO_STARTTLS = `smtp://lechcher@zohomail.com:${APP_PASSWORD}@smtp.zoho.co
 const LOCAL = "smtp://localhost:1025";
 
 let db: DatabaseHandle;
-let config: AppConfig;
+let _config: AppConfig;
 
 function endpointFor(url: string) {
 	const parsed = loadConfig({
@@ -48,22 +54,19 @@ function endpointFor(url: string) {
 	return parsed;
 }
 
-beforeAll(() => {
-	runMigrations({ databasePath: dbPath });
-	config = loadConfig({
+beforeAll(async () => {
+	testDb = await createTestDatabase();
+	db = testDb.db;
+	_config = loadConfig({
 		NODE_ENV: "test",
-		MES_DATABASE_PATH: dbPath,
+		MES_DATABASE_URL: testDb.connectionString,
 		MES_WEB_ORIGIN: "http://localhost:3000",
 		MES_RESET_EMAIL_FROM: "lechcher@zohomail.com",
 	});
-	db = createDatabase(dbPath);
 });
 
-afterAll(() => {
-	for (const suffix of ["", "-wal", "-shm"]) {
-		const path = `${dbPath}${suffix}`;
-		if (existsSync(path)) rmSync(path);
-	}
+afterAll(async () => {
+	await testDb.close();
 });
 
 describe("transport mode follows the configured endpoint", () => {
@@ -150,7 +153,81 @@ describe("reset mail links to the web application", () => {
 	});
 });
 
+describe("email-change verification mail links to the web application", () => {
+	const input = {
+		to: "new-address@mes.local",
+		recipientName: "Mina Park",
+		token: "tok_xyz789",
+		from: "lechcher@zohomail.com",
+		webOrigin: "http://localhost:3000",
+	};
+
+	test("the link uses the web origin's confirmation route and carries the token", () => {
+		const url = buildConfirmEmailUrl(input.webOrigin, input.token);
+		expect(url).toBe(
+			`http://localhost:3000${CONFIRM_EMAIL_ROUTE_PATH}?token=tok_xyz789`,
+		);
+	});
+
+	test("the link never points at the API origin", () => {
+		const message = composeEmailChangeMessage(input);
+		expect(message.text).not.toContain(":3001");
+		expect(message.html).not.toContain(":3001");
+	});
+
+	test("the message identifies the configured sender", () => {
+		expect(composeEmailChangeMessage(input).from).toBe("lechcher@zohomail.com");
+	});
+
+	test("a trailing slash on the web origin does not double up", () => {
+		expect(buildConfirmEmailUrl("http://localhost:3000/", "t")).toBe(
+			"http://localhost:3000/confirm-email?token=t",
+		);
+	});
+
+	test("the link appears in both the text and the html body", () => {
+		const message = composeEmailChangeMessage(input);
+		const url = buildConfirmEmailUrl(input.webOrigin, input.token);
+		expect(message.text).toContain(url);
+		expect(message.html).toContain(url);
+	});
+
+	test("a token needing encoding is encoded in the link", () => {
+		expect(buildConfirmEmailUrl("http://localhost:3000", "a+b/c=")).toContain(
+			"token=a%2Bb%2Fc%3D",
+		);
+	});
+});
+
 describe("every delivery attempt records its outcome", () => {
+	test("a verification delivery is recorded under its own template", async () => {
+		const sender = createRecordingMailSender();
+		const message = composeEmailChangeMessage({
+			to: "new-address@mes.local",
+			token: "tok_verify",
+			from: "lechcher@zohomail.com",
+			webOrigin: "http://localhost:3000",
+		});
+
+		const outcome = await deliverMail({ db, sender }, message, {
+			template: EMAIL_CHANGE_VERIFICATION_TEMPLATE,
+			relatedType: "USER",
+			relatedId: "user-1",
+		});
+
+		expect(outcome.status).toBe("SENT");
+		expect(outcome.delivered).toBe(true);
+
+		const [row] = await db
+			.select()
+			.from(notifications)
+			.where(eq(notifications.id, outcome.notificationId));
+		expect(row.channel).toBe(MAIL_CHANNEL);
+		expect(row.template).toBe(EMAIL_CHANGE_VERIFICATION_TEMPLATE);
+		expect(row.recipient).toBe("new-address@mes.local");
+		expect(row.status).toBe("SENT");
+	});
+
 	test("a successful delivery is recorded as sent", async () => {
 		const sender = createRecordingMailSender();
 		const message = composePasswordResetMessage({

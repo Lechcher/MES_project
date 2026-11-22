@@ -9,6 +9,7 @@ export {
 	type DeliverMailDeps,
 	type DeliverMailMeta,
 	deliverMail,
+	EMAIL_CHANGE_VERIFICATION_TEMPLATE,
 	MAIL_CHANNEL,
 	type MailOutcome,
 	PASSWORD_RESET_TEMPLATE,
@@ -30,3 +31,9 @@ export {
 	type SmtpMailSender,
 	toDeliveryError,
 } from "./sender";
+export {
+	buildConfirmEmailUrl,
+	CONFIRM_EMAIL_ROUTE_PATH,
+	composeEmailChangeMessage,
+	type EmailChangeMessageInput,
+} from "./verify-email-message";

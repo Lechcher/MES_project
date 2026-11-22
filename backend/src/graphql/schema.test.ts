@@ -61,6 +61,8 @@ const DOCUMENTED_MUTATIONS = [
 	"requestPasswordReset",
 	"resetPassword",
 	"changePassword",
+	"requestEmailChange",
+	"confirmEmailChange",
 	"createTask",
 	"acceptTask",
 	"logTaskProgress",

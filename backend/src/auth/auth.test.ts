@@ -7,13 +7,11 @@
  */
 
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
-import { existsSync, rmSync } from "node:fs";
-import { join } from "node:path";
 import { eq } from "drizzle-orm";
 import { type AppConfig, loadConfig } from "../config";
-import { createDatabase, type DatabaseHandle } from "../db";
-import { runMigrations } from "../db/migrate";
+import type { DatabaseHandle } from "../db";
 import { departments, roles, user, userRoles } from "../db/schema";
+import { createTestDatabase, type TestDatabase } from "../db/test-db";
 import {
 	type Auth,
 	createAuth,
@@ -24,9 +22,7 @@ import {
 	signOut,
 } from "./index";
 
-const TMP_ROOT =
-	"/private/var/folders/xg/lnbqz3fs2w74l46y045jdxmh0000gn/T/opencode";
-const dbPath = join(TMP_ROOT, `mes-auth-${crypto.randomUUID()}.db`);
+let testDb: TestDatabase;
 
 const PASSWORD = "dev-password-2026!";
 const NEW_PASSWORD = "changed-password-2026!";
@@ -72,9 +68,12 @@ async function createAccount(
 }
 
 beforeAll(async () => {
-	runMigrations({ databasePath: dbPath });
-	config = loadConfig({ NODE_ENV: "test", MES_DATABASE_PATH: dbPath });
-	db = createDatabase(dbPath);
+	testDb = await createTestDatabase();
+	db = testDb.db;
+	config = loadConfig({
+		NODE_ENV: "test",
+		MES_DATABASE_URL: testDb.connectionString,
+	});
 	auth = createAuth(db, config);
 
 	departmentId = crypto.randomUUID();
@@ -90,11 +89,8 @@ beforeAll(async () => {
 	});
 });
 
-afterAll(() => {
-	for (const suffix of ["", "-wal", "-shm"]) {
-		const path = `${dbPath}${suffix}`;
-		if (existsSync(path)) rmSync(path);
-	}
+afterAll(async () => {
+	await testDb.close();
 });
 
 describe("account creation", () => {

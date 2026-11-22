@@ -188,9 +188,16 @@ export function auditScopeFor(role: RoleCode | null): AuditScope {
 
 /* ──────────────────────────── Settings ──────────────────────────── */
 
-export type SettingsMenu = "users" | "org" | "rbac" | "telegram" | "audit";
+export type SettingsMenu =
+  | "account"
+  | "users"
+  | "org"
+  | "rbac"
+  | "telegram"
+  | "audit";
 
 export const SETTINGS_MENU_LABELS: Record<SettingsMenu, string> = {
+  account: "Account",
   users: "User Directory",
   org: "Org Structure",
   rbac: "RBAC",
@@ -198,12 +205,19 @@ export const SETTINGS_MENU_LABELS: Record<SettingsMenu, string> = {
   audit: "System Audit Logs",
 };
 
-/** Settings menus the role may access, in display order. */
+/**
+ * Settings menus the role may access, in display order.
+ *
+ * Every authenticated role manages its own credentials (`account`); the
+ * administrative menus stay where they were. `EMPLOYEE` and `DEPT_HEAD` reach
+ * Settings for the Account tab alone.
+ */
 export function settingsMenusFor(role: RoleCode | null): SettingsMenu[] {
   if (role === "SUPER_ADMIN" || role === "TECH_LEAD") {
-    return ["users", "org", "rbac", "telegram", "audit"];
+    return ["users", "org", "rbac", "telegram", "audit", "account"];
   }
-  if (role === "HR_MANAGER") return ["users"];
+  if (role === "HR_MANAGER") return ["users", "account"];
+  if (role === "DEPT_HEAD" || role === "EMPLOYEE") return ["account"];
   return [];
 }
 

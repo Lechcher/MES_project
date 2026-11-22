@@ -12,12 +12,18 @@ import { eq } from "drizzle-orm";
 import {
 	type Auth,
 	changePassword,
+	confirmEmailChange,
+	requestEmailChange,
 	requestPasswordReset,
 	resetPassword,
 	signIn,
 	signOut,
 } from "../../auth";
 import { session, user } from "../../db/schema";
+import {
+	recordCredentialChangeAudit,
+	SETTINGS_AUDIT_ACTIONS,
+} from "../../domain/settings";
 import { requireViewer } from "../access";
 import type { ViewerContext } from "../context";
 import { loadUser, toUser } from "../shapes";
@@ -156,11 +162,51 @@ const mutationResolvers: Record<string, Resolver> = {
 		args: { input: { currentPassword: string; newPassword: string } },
 		{ ctx, auth }: AuthContextValue,
 	) => {
-		requireViewer(ctx);
-		return changePassword(auth, headersFrom(ctx), {
+		const viewer = requireViewer(ctx);
+		const changed = await changePassword(auth, headersFrom(ctx), {
 			currentPassword: args.input.currentPassword,
 			newPassword: args.input.newPassword,
 		});
+		await recordCredentialChangeAudit(ctx, {
+			action: SETTINGS_AUDIT_ACTIONS.USER_PASSWORD_CHANGE,
+			userId: viewer.id,
+			newData: { passwordChanged: true },
+		});
+		return changed;
+	},
+
+	requestEmailChange: async (
+		_parent,
+		args: { input: { currentPassword: string; newEmail: string } },
+		{ ctx, auth }: AuthContextValue,
+	) => {
+		requireViewer(ctx);
+		return requestEmailChange(
+			auth,
+			ctx.db,
+			ctx.config,
+			headersFrom(ctx),
+			args.input,
+		);
+	},
+
+	confirmEmailChange: async (
+		_parent,
+		args: { token: string },
+		{ ctx, auth }: AuthContextValue,
+	) => {
+		const result = await confirmEmailChange(auth, ctx.db, {
+			token: args.token,
+		});
+		if (result.userId) {
+			await recordCredentialChangeAudit(ctx, {
+				action: SETTINGS_AUDIT_ACTIONS.USER_EMAIL_CHANGE,
+				userId: result.userId,
+				oldData: { email: result.from },
+				newData: { email: result.to },
+			});
+		}
+		return true;
 	},
 };
 

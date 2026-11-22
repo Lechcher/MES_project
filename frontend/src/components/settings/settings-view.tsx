@@ -2,6 +2,7 @@
 
 import { useTranslations } from "next-intl";
 import { useState } from "react";
+import { AccountPanel } from "@/components/settings/account";
 import { OrgStructure } from "@/components/settings/org-structure";
 import { RbacPanel } from "@/components/settings/rbac";
 import { SystemAuditLogsPanel } from "@/components/settings/system-audit-logs";
@@ -18,11 +19,13 @@ import { useRoleCode, useViewer } from "@/lib/mes/session";
 
 /**
  * Settings & IAM. Menu visibility is role-gated: `SUPER_ADMIN` and `TECH_LEAD`
- * see every menu; `HR_MANAGER` sees the User Directory only; `EMPLOYEE` and
- * `DEPT_HEAD` cannot open the app.
+ * see every menu plus their own Account tab; `HR_MANAGER` sees the User
+ * Directory and their own Account tab; `EMPLOYEE` and `DEPT_HEAD` see only
+ * their own Account tab.
  */
 /** Catalogue key for each settings menu. */
-const MENU_KEYS = {
+export const MENU_KEYS = {
+  account: "menuAccount",
   users: "menuUsers",
   org: "menuOrg",
   rbac: "menuRbac",
@@ -107,6 +110,11 @@ export function SettingsView() {
         {menus.includes("audit") ? (
           <TabsContent value="audit" className="mt-6">
             <SystemAuditLogsPanel />
+          </TabsContent>
+        ) : null}
+        {menus.includes("account") ? (
+          <TabsContent value="account" className="mt-6">
+            <AccountPanel />
           </TabsContent>
         ) : null}
       </Tabs>

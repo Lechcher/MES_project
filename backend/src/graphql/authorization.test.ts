@@ -34,6 +34,8 @@ const PUBLIC_OPERATIONS = new Set([
 	"requestPasswordReset",
 	"resetPassword",
 	"changePassword",
+	"requestEmailChange",
+	"confirmEmailChange",
 	"viewer",
 ]);
 

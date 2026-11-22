@@ -37,6 +37,8 @@ export const MUTATION_AREAS: Record<string, ChangeArea | null> = {
 	requestPasswordReset: null,
 	resetPassword: null,
 	changePassword: null,
+	requestEmailChange: null,
+	confirmEmailChange: null,
 
 	// Jobs & Projects.
 	createTask: "tickets",

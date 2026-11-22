@@ -1,11 +1,12 @@
 /**
  * Global test teardown for Playwright e2e tests.
  *
- * Performs any cleanup needed after all tests complete. Currently a
- * no-op placeholder; individual test fixtures handle their own cleanup.
+ * Stops the mail sink the auth flows delivered through. Individual test
+ * fixtures remain responsible for cleaning up test data they create.
  */
 
+import { stopMailSink } from "./fixtures/mail-sink";
+
 export default async function globalTeardown() {
-  // No global cleanup needed yet. Individual fixtures are responsible
-  // for cleaning up test data they create.
+  await stopMailSink();
 }
