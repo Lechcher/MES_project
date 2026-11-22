@@ -18,9 +18,10 @@
 The chat surface is **not** written by MES: it is the Telegram Web A client
 (telegram-tt, GPL-3.0-or-later, vendored at `frontend/public/telegram-web/`,
 see [`NOTICES.md`](./NOTICES.md)), embedded same-origin in an iframe at
-`/telegram-web/index.html?account=<slot>`. MES adds only the parts Telegram
-Web cannot have: the account list belongs to a MES viewer, and the sessions
-are backed up to the MES backend so they restore on any device.
+`/telegram-web/index.html?account=<slot>&theme=<light|dark>`. MES adds only
+the parts Telegram Web cannot have: the account list belongs to a MES viewer,
+the sessions are backed up to the MES backend so they restore on any device,
+and the client follows the MES shell's light/dark theme.
 
 | Layer | Where | Responsibility |
 | --- | --- | --- |
@@ -29,6 +30,7 @@ are backed up to the MES backend so they restore on any device.
 | Domain | `backend/src/telegram-accounts/accounts.ts` | Viewer-scoped list / upsert / remove; assigns the stable slot (random, unique across viewers); audit entries for link and remove carry the Telegram identity, never the session |
 | API | GraphQL on the usual endpoint (`POST /api/v1/graphql`) | `telegramAccounts`, `saveTelegramAccount`, `removeTelegramAccount`, resolved against the authenticated viewer only |
 | Session bridge | `frontend/src/lib/telegram/session-bridge.ts` | The only code that touches the embedded client's storage: hydrate `account<N>` before mount, watch it for captures, clear a slot on removal, detect the client's passcode lock |
+| Theme bridge | `frontend/src/lib/telegram/theme-sync.ts` | Hands the resolved MES theme to the client: the boot URL parameter for the first paint, a same-origin `postMessage` (re-sent on every theme change and frame load) for the live ones |
 | Slot store | `frontend/src/lib/telegram/session-store.ts` | Reads a captured blob's identity (profile for the save); allocates the temporary slot a first link runs in; the device identity MES persists |
 | Controller | `frontend/src/lib/telegram/telegram-controller.ts` | React-free state: the viewer's accounts with restore status, the mounted slot, the capture/backup and the removal (both sides) |
 | Provider | `frontend/src/lib/telegram/provider.tsx` | React bridge for the controller; wires the capture watcher to the mounted slot |

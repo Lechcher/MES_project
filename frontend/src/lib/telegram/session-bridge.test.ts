@@ -219,6 +219,45 @@ describe("watchAllSessionSlots", () => {
     expect(seen).toEqual([]);
   });
 
+  test("a blob already in storage before the session is not reported", () => {
+    // A previous MES viewer's linked account, left in a shared browser's
+    // storage: it must not be backed up against the signed-in viewer.
+    writeSessionBlob(9, "stale-blob");
+    const seen: Array<[number, string]> = [];
+    const stop = watchAllSessionSlots((slot, blob) => seen.push([slot, blob]));
+
+    announceIframeWrite("account9");
+    runTimers();
+    expect(seen).toEqual([]);
+    stop();
+  });
+
+  test("a change to a pre-session blob during the session is reported", () => {
+    // A rotation of a restored account: the module hydrated this slot at
+    // start, the client re-wrote it while the module was open.
+    writeSessionBlob(9, "stale-blob");
+    const seen: Array<[number, string]> = [];
+    const stop = watchAllSessionSlots((slot, blob) => seen.push([slot, blob]));
+
+    writeSessionBlob(9, "rotated-blob");
+    announceIframeWrite("account9");
+    expect(seen).toEqual([[9, "rotated-blob"]]);
+    stop();
+  });
+
+  test("a login during the session is reported while pre-session slots stay unseen", () => {
+    writeSessionBlob(9, "stale-blob");
+    const seen: Array<[number, string]> = [];
+    const stop = watchAllSessionSlots((slot, blob) => seen.push([slot, blob]));
+
+    // The linking flow's login, at a slot no MES account record holds yet.
+    writeSessionBlob(10, "new-login-blob");
+    announceIframeWrite("account10");
+    runTimers();
+    expect(seen).toEqual([[10, "new-login-blob"]]);
+    stop();
+  });
+
   test("a failed capture is retried by the next scan", async () => {
     const seen: Array<[number, string]> = [];
     let failures = 2;

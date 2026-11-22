@@ -162,6 +162,12 @@ export interface SessionWatchOptions {
  * never allocated. Watching all `account<N>` keys (rather than one slot) is
  * what lets the backup capture either.
  *
+ * The watcher reports the module session, not the browser: the seen-state is
+ * seeded from storage when it starts, so a blob that already predates the
+ * session — a previous MES viewer's linked account in a shared browser, for
+ * example — is never backed up against the signed-in viewer, while anything
+ * written or rotated while the module is open still is.
+ *
  * The `storage` event is the fast path (the iframe announces its own writes);
  * the poll scans every key and the catch-up read on tab hide makes sure
  * nothing is missed when events do not fire.
@@ -177,7 +183,9 @@ export function watchAllSessionSlots(
   options: SessionWatchOptions = {},
 ): () => void {
   const interval = options.pollIntervalMs ?? POLL_INTERVAL_MS;
-  const lastSeen = new Map<number, string>();
+  // The session boundary: whatever the storage holds when the watcher starts
+  // belongs to an earlier session and is never captured for this viewer.
+  const lastSeen = new Map(readAllSessionBlobs());
   const inFlight = new Set<number>();
 
   const emitChanges = () => {
