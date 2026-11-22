@@ -64,3 +64,11 @@ package-lock.json
 # upstream source clone the vendored telegram-web build is rebuilt from
 # (2.1 GB — never commit it; rebuild with `bun run vendor:telegram-web`)
 /sample/
+
+# e2e artifacts (junit output, reports, saved auth state, browser traces)
+/frontend/tests/e2e/
+/frontend/tests/.auth/
+
+# generated report exports (dev runs of the export menu)
+/backend/data/exports/
+/backend/data/*.db.backup-*
