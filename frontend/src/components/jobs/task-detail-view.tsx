@@ -404,7 +404,7 @@ function StateBadgeStatus({ status }: { status: string }) {
  */
 function stageLedgerLabel(
   task: TaskDetail,
-  t: ReturnType<typeof useTranslations>,
+  t: ReturnType<typeof useTranslations<"jobs.detail">>,
 ) {
   const approved = task.journey.filter(
     (entry) => entry.state === "APP" && entry.scope === "MILESTONE",
@@ -412,8 +412,11 @@ function stageLedgerLabel(
   const planned = task.plannedStageCount;
 
   if (approved > 0) {
+    // The values object is annotated so the translator's generic inference
+    // stays flat over the whole message catalogue.
+    const approvedCount: Record<string, number> = { approved };
     return (
-      t("progressStageLedger", { approved }) +
+      t("progressStageLedger", approvedCount) +
       (planned && planned > 0
         ? ` ${t("progressStagePlanned", { planned })}`
         : ` — ${t("progressStageOpenEnded")}`)
