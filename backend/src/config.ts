@@ -56,6 +56,27 @@ export const DEFAULT_MAX_FILE_BYTES = 25 * 1024 * 1024;
 export const DEFAULT_MAX_FILES_PER_REQUEST = 20;
 
 /**
+ * Shopify commerce module credentials.
+ *
+ * The API key/secret pair drives the OAuth handshake; the token encryption
+ * key protects every stored access token at rest (AES-256-GCM). All-or-nothing
+ * like the storage group: a half-configured pair would surface as a failed
+ * handshake or an unreadable token rather than at startup. With nothing set
+ * the module stays unconfigured (`null`) and store connections are refused
+ * with an explicit "commerce not configured" error.
+ */
+export interface ShopifySettings {
+	readonly apiKey: string;
+	readonly apiSecretKey: string;
+	/** AES-256 key material for token encryption at rest; never logged. */
+	readonly tokenEncryptionKey: string;
+	/** Absolute URL of the OAuth callback; empty composes from `authUrl`. */
+	readonly oauthCallbackUrl: string;
+	/** Comma-separated OAuth access scopes; empty suits manual-token installs. */
+	readonly scopes: string;
+}
+
+/**
  * Local development PostgreSQL endpoint.
  *
  * The credentials match the documented local Docker run command, so a fresh
@@ -98,6 +119,10 @@ export interface AppConfig {
 	readonly allowOutboundNotifications: boolean;
 	/** Inbound Telegram bot: false keeps the bot inert (tests, unconfigured dev). */
 	readonly telegramBotEnabled: boolean;
+	/** Shopify commerce credentials; `null` when the module is not configured. */
+	readonly shopify: ShopifySettings | null;
+	/** Proactive back-off point for Shopify Admin API cost-throttle points. */
+	readonly shopifyRateLimitThreshold: number;
 	/** Telegram bot token; empty when the bot is configured only on the website. */
 	readonly telegramBotToken: string;
 	/** Base URL of the OpenAI-compatible endpoint the bot's agent calls. */
@@ -231,6 +256,46 @@ function resolveStorage(env: Env): {
 }
 
 /**
+ * Read the Shopify commerce credential group.
+ *
+ * Same all-or-nothing rule as storage: any of the three values set requires
+ * the rest. With nothing set the module is simply unconfigured.
+ */
+function resolveShopify(env: Env): {
+	settings: ShopifySettings | null;
+	missing: string[];
+} {
+	const apiKey = env.SHOPIFY_API_KEY?.trim() ?? "";
+	const apiSecretKey = env.SHOPIFY_API_SECRET?.trim() ?? "";
+	const tokenEncryptionKey = env.SHOPIFY_TOKEN_ENCRYPTION_KEY?.trim() ?? "";
+	const oauthCallbackUrl = env.SHOPIFY_OAUTH_CALLBACK_URL?.trim() ?? "";
+	const scopes = env.SHOPIFY_SCOPES?.trim() ?? "";
+	const anySet =
+		apiKey !== "" || apiSecretKey !== "" || tokenEncryptionKey !== "";
+
+	if (!anySet) return { settings: null, missing: [] };
+
+	const missing: string[] = [];
+	if (apiKey === "") missing.push("SHOPIFY_API_KEY");
+	if (apiSecretKey === "") missing.push("SHOPIFY_API_SECRET");
+	if (tokenEncryptionKey === "") missing.push("SHOPIFY_TOKEN_ENCRYPTION_KEY");
+
+	return {
+		settings:
+			missing.length > 0
+				? null
+				: {
+						apiKey,
+						apiSecretKey,
+						tokenEncryptionKey,
+						oauthCallbackUrl,
+						scopes,
+					},
+		missing,
+	};
+}
+
+/**
  * Read and validate the minimum recorded severity.
  *
  * Anything outside the four accepted levels is a misconfiguration — a typo
@@ -346,6 +411,9 @@ export function loadConfig(
 	const storage = resolveStorage(env);
 	if (storage.settings === null) missing.push(...storage.missing);
 
+	const shopify = resolveShopify(env);
+	if (shopify.settings === null) missing.push(...shopify.missing);
+
 	if (missing.length > 0) {
 		throw new ConfigurationError(
 			`Missing required configuration: ${missing.join(", ")}. ` +
@@ -383,6 +451,12 @@ export function loadConfig(
 			DEFAULT_MAX_FILES_PER_REQUEST,
 		),
 		allowOutboundNotifications: serviceEnv !== "test",
+		shopify: shopify.settings,
+		shopifyRateLimitThreshold: resolveLimit(
+			env,
+			"SHOPIFY_RATE_LIMIT_THRESHOLD",
+			150,
+		),
 		telegramBotEnabled:
 			(env.TELEGRAM_BOT_ENABLED ?? "").trim().toLowerCase() === "true",
 		telegramBotToken: env.TELEGRAM_BOT_TOKEN?.trim() ?? "",

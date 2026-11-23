@@ -22,6 +22,13 @@
       "when": 1795020157246,
       "tag": "0002_mes_telegram_web_slots",
       "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1795416933733,
+      "tag": "0003_numerous_invisible_woman",
+      "breakpoints": true
     }
   ]
 }

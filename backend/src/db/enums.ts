@@ -131,6 +131,7 @@ export const MODULE_CODES = [
 	"performance",
 	"settings",
 	"audit-log",
+	"shoptify",
 ] as const;
 export type ModuleCode = (typeof MODULE_CODES)[number];
 
@@ -154,6 +155,39 @@ export const TASK_STATE_BADGES = [
 	"AWAITING_PROGRESS_VERIFICATION",
 ] as const;
 export type TaskStateBadge = (typeof TASK_STATE_BADGES)[number];
+
+/** Shopify Payments payout lifecycle states (`shoptify_payouts.payout_status`). */
+export const SHOPTIFY_PAYOUT_STATUSES = [
+	"SCHEDULED",
+	"IN_TRANSIT",
+	"PAID",
+	"FAILED",
+] as const;
+export type ShoptifyPayoutStatus = (typeof SHOPTIFY_PAYOUT_STATUSES)[number];
+
+/** Why a synced order was flagged as an exception by a reviewer. */
+export const SHOPTIFY_EXCEPTION_REASONS = [
+	"ADDRESS_INVALID",
+	"PAYMENT_HELD",
+	"OUT_OF_STOCK",
+	"FRAUD_RISK",
+	"CUSTOMER_EDIT",
+	"OTHER",
+] as const;
+export type ShoptifyExceptionReason =
+	(typeof SHOPTIFY_EXCEPTION_REASONS)[number];
+
+/** Events an automation rule may subscribe to; evaluated against the domain event. */
+export const SHOPTIFY_AUTOMATION_TRIGGERS = [
+	"ORDER_CREATED",
+	"ORDER_UPDATED",
+	"ORDER_EXCEPTION",
+	"STOCK_LOW",
+	"REFUND_CREATED",
+	"PAYOUT_FAILED",
+] as const;
+export type ShoptifyAutomationTrigger =
+	(typeof SHOPTIFY_AUTOMATION_TRIGGERS)[number];
 
 /** Urgent hourly task slots and the daily planning cutoff, in local wall time. */
 export const HOURLY_SLOTS = ["10:30", "14:00", "16:30"] as const;

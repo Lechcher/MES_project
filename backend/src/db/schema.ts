@@ -16,6 +16,7 @@
 
 import { sql } from "drizzle-orm";
 import {
+	bigint,
 	boolean,
 	check,
 	doublePrecision,
@@ -178,7 +179,7 @@ export const permissions = pgTable(
 	(table) => [
 		check(
 			"ck_permissions_module",
-			sql`module_code in ('jobs', 'planning', 'performance', 'settings', 'audit-log')`,
+			sql`module_code in ('jobs', 'planning', 'performance', 'settings', 'audit-log', 'shoptify')`,
 		),
 		index("idx_permissions_module").on(table.moduleCode),
 	],
@@ -238,7 +239,7 @@ export const modules = pgTable(
 	() => [
 		check(
 			"ck_modules_code",
-			sql`code in ('jobs', 'planning', 'performance', 'settings', 'audit-log')`,
+			sql`code in ('jobs', 'planning', 'performance', 'settings', 'audit-log', 'shoptify')`,
 		),
 	],
 );
@@ -312,7 +313,7 @@ export const systemAuditLogs = pgTable(
 	(table) => [
 		check(
 			"ck_audit_module",
-			sql`module_code is null or module_code in ('jobs', 'planning', 'performance', 'settings', 'audit-log')`,
+			sql`module_code is null or module_code in ('jobs', 'planning', 'performance', 'settings', 'audit-log', 'shoptify')`,
 		),
 		index("idx_audit_user").on(table.userId),
 		index("idx_audit_resource").on(table.resourceType, table.resourceId),
@@ -825,7 +826,7 @@ export const appSettings = pgTable(
 	(table) => [
 		check(
 			"ck_app_settings_module",
-			sql`module_code in ('jobs', 'planning', 'performance', 'settings', 'audit-log')`,
+			sql`module_code in ('jobs', 'planning', 'performance', 'settings', 'audit-log', 'shoptify')`,
 		),
 		uniqueIndex("uq_app_settings_module_key").on(table.moduleCode, table.key),
 		index("idx_app_settings_module").on(table.moduleCode),
@@ -1058,6 +1059,357 @@ export const telegramAccounts = pgTable(
 		index("idx_telegram_accounts_user").on(table.userId),
 	],
 );
+
+/* Shopify commerce module (`shoptify` app)                            */
+/* ------------------------------------------------------------------ */
+
+/**
+ * Shopify session storage — the backing table for
+ * `DrizzleSessionStoragePostgres` (`@shopify/shopify-app-session-storage-drizzle`).
+ * Column names follow the adapter's contract exactly (it reads the table's
+ * property names); `expires`/`refreshTokenExpires` are timestamps because
+ * the adapter serializes Dates itself.
+ */
+export const shoptifySessions = pgTable(
+	"shoptify_sessions",
+	{
+		id: text("id").primaryKey(),
+		shop: text("shop").notNull(),
+		state: text("state").notNull(),
+		isOnline: boolean("is_online").default(false).notNull(),
+		scope: text("scope"),
+		expires: timestampMs("expires"),
+		accessToken: text("access_token").notNull(),
+		userId: bigint("user_id", { mode: "number" }),
+		firstName: text("first_name"),
+		lastName: text("last_name"),
+		email: text("email"),
+		accountOwner: boolean("account_owner"),
+		locale: text("locale"),
+		collaborator: boolean("collaborator"),
+		emailVerified: boolean("email_verified"),
+		refreshToken: text("refresh_token"),
+		refreshTokenExpires: timestampMs("refresh_token_expires"),
+		createdAt: createdAt(),
+		updatedAt: updatedAt(),
+	},
+	(table) => [
+		uniqueIndex("uq_shoptify_sessions_shop_state").on(table.shop, table.state),
+		index("idx_shoptify_sessions_shop").on(table.shop),
+	],
+);
+
+/** A connected Shopify store. `accessToken` is AES-256-GCM encrypted at rest. */
+export const shoptifyStores = pgTable("shoptify_stores", {
+	id: text("id").primaryKey(),
+	name: text("name").notNull(),
+	shopDomain: text("shop_domain").notNull().unique(),
+	accessToken: text("access_token").notNull(),
+	webhookSecret: text("webhook_secret"),
+	/** Webhook topics registered for this store, as a JSON array in text. */
+	scopes: text("scopes"),
+	currency: text("currency").default("USD").notNull(),
+	isActive: boolean("is_active").default(true).notNull(),
+	lastSyncAt: timestampMs("last_sync_at"),
+	createdAt: createdAt(),
+	updatedAt: updatedAt(),
+});
+
+/** A synced Shopify order. Totals are integer minor units in `currency`. */
+export const shoptifyOrders = pgTable(
+	"shoptify_orders",
+	{
+		id: text("id").primaryKey(),
+		storeId: text("store_id")
+			.notNull()
+			.references(() => shoptifyStores.id, { onDelete: "cascade" }),
+		shopifyOrderId: text("shopify_order_id").notNull(),
+		orderNumber: text("order_number"),
+		customerEmail: text("customer_email"),
+		customerPhone: text("customer_phone"),
+		/** JSON object (shipping address) serialized into text. */
+		shippingAddress: text("shipping_address"),
+		financialStatus: text("financial_status"),
+		fulfillmentStatus: text("fulfillment_status"),
+		totalPrice: integer("total_price").notNull(),
+		currency: text("currency").default("USD").notNull(),
+		tags: text("tags"),
+		note: text("note"),
+		hasException: boolean("has_exception").default(false).notNull(),
+		exceptionReason: text("exception_reason"),
+		shopifyCreatedAt: timestampMs("shopify_created_at"),
+		createdAt: createdAt(),
+		updatedAt: updatedAt(),
+	},
+	(table) => [
+		check(
+			"ck_shoptify_orders_exception_reason",
+			sql`exception_reason is null or exception_reason in ('ADDRESS_INVALID', 'PAYMENT_HELD', 'OUT_OF_STOCK', 'FRAUD_RISK', 'CUSTOMER_EDIT', 'OTHER')`,
+		),
+		uniqueIndex("uq_shoptify_orders_store_shopify").on(
+			table.storeId,
+			table.shopifyOrderId,
+		),
+		index("idx_shoptify_orders_store").on(table.storeId),
+		index("idx_shoptify_orders_status").on(
+			table.storeId,
+			table.fulfillmentStatus,
+		),
+		index("idx_shoptify_orders_exception").on(table.hasException),
+	],
+);
+
+/** A fulfillment created for an order, with tracking details. */
+export const shoptifyFulfillments = pgTable(
+	"shoptify_fulfillments",
+	{
+		id: text("id").primaryKey(),
+		orderId: text("order_id")
+			.notNull()
+			.references(() => shoptifyOrders.id, { onDelete: "cascade" }),
+		shopifyFulfillmentId: text("shopify_fulfillment_id"),
+		trackingCompany: text("tracking_company"),
+		trackingNumber: text("tracking_number"),
+		trackingUrl: text("tracking_url"),
+		shipmentStatus: text("shipment_status"),
+		createdAt: createdAt(),
+		updatedAt: updatedAt(),
+	},
+	(table) => [
+		uniqueIndex("uq_shoptify_fulfillments_shopify").on(
+			table.orderId,
+			table.shopifyFulfillmentId,
+		),
+	],
+);
+
+/** A refund received from a store's refund webhooks. Amount is minor units. */
+export const shoptifyRefunds = pgTable(
+	"shoptify_refunds",
+	{
+		id: text("id").primaryKey(),
+		orderId: text("order_id")
+			.notNull()
+			.references(() => shoptifyOrders.id, { onDelete: "cascade" }),
+		shopifyRefundId: text("shopify_refund_id").notNull(),
+		amount: integer("amount").notNull(),
+		currency: text("currency").default("USD").notNull(),
+		reason: text("reason"),
+		createdAt: createdAt(),
+		updatedAt: updatedAt(),
+	},
+	(table) => [
+		uniqueIndex("uq_shoptify_refunds_order_shopify").on(
+			table.orderId,
+			table.shopifyRefundId,
+		),
+	],
+);
+
+/** A synced Shopify product. */
+export const shoptifyProducts = pgTable(
+	"shoptify_products",
+	{
+		id: text("id").primaryKey(),
+		storeId: text("store_id")
+			.notNull()
+			.references(() => shoptifyStores.id, { onDelete: "cascade" }),
+		shopifyProductId: text("shopify_product_id").notNull(),
+		title: text("title").notNull(),
+		status: text("status"),
+		createdAt: createdAt(),
+		updatedAt: updatedAt(),
+	},
+	(table) => [
+		uniqueIndex("uq_shoptify_products_store_shopify").on(
+			table.storeId,
+			table.shopifyProductId,
+		),
+	],
+);
+
+/**
+ * A synced product variant. `masterSku` maps the variant to its counterparts
+ * in other stores for cross-store inventory synchronization; `costOfGoods`
+ * feeds net-profit calculation. Prices are integer minor units.
+ */
+export const shoptifyVariants = pgTable(
+	"shoptify_variants",
+	{
+		id: text("id").primaryKey(),
+		productId: text("product_id")
+			.notNull()
+			.references(() => shoptifyProducts.id, { onDelete: "cascade" }),
+		storeId: text("store_id")
+			.notNull()
+			.references(() => shoptifyStores.id, { onDelete: "cascade" }),
+		shopifyVariantId: text("shopify_variant_id").notNull(),
+		sku: text("sku"),
+		masterSku: text("master_sku"),
+		price: integer("price"),
+		costOfGoods: integer("cost_of_goods"),
+		availableQuantity: integer("available_quantity").default(0).notNull(),
+		minStockLevel: integer("min_stock_level"),
+		createdAt: createdAt(),
+		updatedAt: updatedAt(),
+	},
+	(table) => [
+		uniqueIndex("uq_shoptify_variants_store_shopify").on(
+			table.storeId,
+			table.shopifyVariantId,
+		),
+		index("idx_shoptify_variants_master_sku").on(table.masterSku),
+		index("idx_shoptify_variants_product").on(table.productId),
+	],
+);
+
+/** A customer aggregated across stores, keyed by contact identifiers. */
+export const shoptifyCustomers = pgTable(
+	"shoptify_customers",
+	{
+		id: text("id").primaryKey(),
+		email: text("email"),
+		phone: text("phone"),
+		totalOrdersCount: integer("total_orders_count").default(0).notNull(),
+		totalSpent: integer("total_spent").default(0).notNull(),
+		isBlacklisted: boolean("is_blacklisted").default(false).notNull(),
+		isHighRisk: boolean("is_high_risk").default(false).notNull(),
+		notes: text("notes"),
+		createdAt: createdAt(),
+		updatedAt: updatedAt(),
+	},
+	(table) => [
+		check(
+			"ck_shoptify_customers_contact",
+			sql`email is not null or phone is not null`,
+		),
+		index("idx_shoptify_customers_email").on(table.email),
+		index("idx_shoptify_customers_blacklist").on(table.isBlacklisted),
+	],
+);
+
+/** A Shopify Payments payout for a store. Amount is minor units. */
+export const shoptifyPayouts = pgTable(
+	"shoptify_payouts",
+	{
+		id: text("id").primaryKey(),
+		storeId: text("store_id")
+			.notNull()
+			.references(() => shoptifyStores.id, { onDelete: "cascade" }),
+		shopifyPayoutId: text("shopify_payout_id").notNull(),
+		amount: integer("amount").notNull(),
+		currency: text("currency").default("USD").notNull(),
+		status: text("status").default("SCHEDULED").notNull(),
+		payoutDate: timestampMs("payout_date"),
+		createdAt: createdAt(),
+		updatedAt: updatedAt(),
+	},
+	(table) => [
+		check(
+			"ck_shoptify_payouts_status",
+			sql`status in ('SCHEDULED', 'IN_TRANSIT', 'PAID', 'FAILED')`,
+		),
+		uniqueIndex("uq_shoptify_payouts_store_shopify").on(
+			table.storeId,
+			table.shopifyPayoutId,
+		),
+		index("idx_shoptify_payouts_status").on(table.storeId, table.status),
+	],
+);
+
+/**
+ * Per-order net-profit inputs, all minor units. Net profit is
+ * `revenue - cogs - shipping - gatewayFee - adSpend`.
+ */
+export const shoptifyOrderExpenses = pgTable(
+	"shoptify_order_expenses",
+	{
+		id: text("id").primaryKey(),
+		orderId: text("order_id")
+			.notNull()
+			.references(() => shoptifyOrders.id, { onDelete: "cascade" }),
+		revenue: integer("revenue").notNull(),
+		cogs: integer("cogs").default(0).notNull(),
+		shipping: integer("shipping").default(0).notNull(),
+		gatewayFee: integer("gateway_fee").default(0).notNull(),
+		adSpend: integer("ad_spend").default(0).notNull(),
+		netProfit: integer("net_profit").notNull(),
+		createdAt: createdAt(),
+		updatedAt: updatedAt(),
+	},
+	(table) => [
+		uniqueIndex("uq_shoptify_order_expenses_order").on(table.orderId),
+	],
+);
+
+/** An if-condition-then-action automation rule; `storeId` null = global. */
+export const shoptifyAutomationRules = pgTable(
+	"shoptify_automation_rules",
+	{
+		id: text("id").primaryKey(),
+		name: text("name").notNull(),
+		storeId: text("store_id").references(() => shoptifyStores.id, {
+			onDelete: "cascade",
+		}),
+		triggerEvent: text("trigger_event").notNull(),
+		/** JSON predicate list on the event row, serialized into text. */
+		conditions: text("conditions"),
+		/** JSON action list; v1 supports local writes + notifications. */
+		actions: text("actions"),
+		isActive: boolean("is_active").default(true).notNull(),
+		createdAt: createdAt(),
+		updatedAt: updatedAt(),
+	},
+	(table) => [
+		check(
+			"ck_shoptify_rules_trigger",
+			sql`trigger_event in ('ORDER_CREATED', 'ORDER_UPDATED', 'ORDER_EXCEPTION', 'STOCK_LOW', 'REFUND_CREATED', 'PAYOUT_FAILED')`,
+		),
+		index("idx_shoptify_rules_trigger").on(table.triggerEvent, table.isActive),
+	],
+);
+
+/**
+ * Execution log for automation rules — the idempotency guard: a rule acts at
+ * most once per `eventKey` (e.g. `ORDER_CREATED:<shopifyOrderId>`).
+ */
+export const shoptifyAutomationLog = pgTable(
+	"shoptify_automation_log",
+	{
+		id: text("id").primaryKey(),
+		ruleId: text("rule_id")
+			.notNull()
+			.references(() => shoptifyAutomationRules.id, { onDelete: "cascade" }),
+		eventKey: text("event_key").notNull(),
+		targetType: text("target_type"),
+		targetId: text("target_id"),
+		/** JSON per-action outcome, serialized into text. */
+		actionResults: text("action_results"),
+		createdAt: createdAt(),
+	},
+	(table) => [
+		uniqueIndex("uq_shoptify_automation_log_event").on(
+			table.ruleId,
+			table.eventKey,
+		),
+	],
+);
+
+/* ------------------------------------------------------------------ */
+export type ShoptifySessionRow = typeof shoptifySessions.$inferSelect;
+export type ShoptifyStoreRow = typeof shoptifyStores.$inferSelect;
+export type ShoptifyOrderRow = typeof shoptifyOrders.$inferSelect;
+export type ShoptifyFulfillmentRow = typeof shoptifyFulfillments.$inferSelect;
+export type ShoptifyRefundRow = typeof shoptifyRefunds.$inferSelect;
+export type ShoptifyProductRow = typeof shoptifyProducts.$inferSelect;
+export type ShoptifyVariantRow = typeof shoptifyVariants.$inferSelect;
+export type ShoptifyCustomerRow = typeof shoptifyCustomers.$inferSelect;
+export type ShoptifyPayoutRow = typeof shoptifyPayouts.$inferSelect;
+export type ShoptifyOrderExpenseRow = typeof shoptifyOrderExpenses.$inferSelect;
+export type ShoptifyAutomationRuleRow =
+	typeof shoptifyAutomationRules.$inferSelect;
+export type ShoptifyAutomationLogRow =
+	typeof shoptifyAutomationLog.$inferSelect;
 
 /* ------------------------------------------------------------------ */
 /* Inferred row types                                                  */

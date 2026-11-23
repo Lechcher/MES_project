@@ -17,6 +17,10 @@
 	"dependencies": {
 		"@ai-sdk/openai-compatible": "^3.0.82",
 		"@sentry/node": "^8.40.0",
+		"@shopify/admin-api-client": "^2.0.1",
+		"@shopify/shopify-api": "^15.1.2",
+		"@shopify/shopify-app-session-storage": "^7.0.4",
+		"@shopify/shopify-app-session-storage-drizzle": "^6.0.4",
 		"ai": "^7.0.159",
 		"better-auth": "^1.7.7",
 		"bun": "^1.4.2",

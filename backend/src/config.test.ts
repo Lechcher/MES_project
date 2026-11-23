@@ -495,3 +495,84 @@ describe("attachment storage configuration", () => {
 		expect(() => assertConfig(config)).toThrow(/S3_ENDPOINT/);
 	});
 });
+
+describe("shopify commerce configuration", () => {
+	const COMPLETE_SHOPIFY = {
+		SHOPIFY_API_KEY: "api-key",
+		SHOPIFY_API_SECRET: "api-secret",
+		SHOPIFY_TOKEN_ENCRYPTION_KEY: "a".repeat(64),
+	} as const;
+
+	test("accepts a complete credentials group", () => {
+		const config = loadConfig({ NODE_ENV: "test", ...COMPLETE_SHOPIFY });
+		expect(config.shopify).toEqual({
+			apiKey: "api-key",
+			apiSecretKey: "api-secret",
+			tokenEncryptionKey: "a".repeat(64),
+			oauthCallbackUrl: "",
+			scopes: "",
+		});
+	});
+
+	test("carries configured OAuth scopes", () => {
+		const config = loadConfig({
+			NODE_ENV: "test",
+			...COMPLETE_SHOPIFY,
+			SHOPIFY_SCOPES: "read_orders,write_orders",
+		});
+		expect(config.shopify?.scopes).toBe("read_orders,write_orders");
+	});
+
+	test("keeps the module unconfigured when nothing is set", () => {
+		const config = loadConfig({ NODE_ENV: "test" });
+		expect(config.shopify).toBeNull();
+	});
+
+	test("reports every missing credential at once", () => {
+		try {
+			loadConfig({
+				NODE_ENV: "production",
+				BETTER_AUTH_SECRET: "s",
+				BETTER_AUTH_URL: "http://localhost:3001",
+				SHOPIFY_API_KEY: "api-key",
+			});
+		} catch (error) {
+			const failure = error as ConfigurationError;
+			expect(failure.missing).toContain("SHOPIFY_API_SECRET");
+			expect(failure.missing).toContain("SHOPIFY_TOKEN_ENCRYPTION_KEY");
+			expect(failure.missing).not.toContain("SHOPIFY_API_KEY");
+		}
+	});
+
+	test("defaults the rate-limit threshold and accepts an override", () => {
+		const base = loadConfig({ NODE_ENV: "test", ...COMPLETE_SHOPIFY });
+		expect(base.shopifyRateLimitThreshold).toBe(150);
+		const tuned = loadConfig({
+			NODE_ENV: "test",
+			...COMPLETE_SHOPIFY,
+			SHOPIFY_RATE_LIMIT_THRESHOLD: "250",
+		});
+		expect(tuned.shopifyRateLimitThreshold).toBe(250);
+		expect(() =>
+			loadConfig({
+				NODE_ENV: "test",
+				...COMPLETE_SHOPIFY,
+				SHOPIFY_RATE_LIMIT_THRESHOLD: "0",
+			}),
+		).toThrow(ConfigurationError);
+	});
+
+	test("never writes the encryption key into an error message", () => {
+		try {
+			loadConfig({
+				NODE_ENV: "production",
+				BETTER_AUTH_SECRET: "s",
+				BETTER_AUTH_URL: "http://localhost:3001",
+				SHOPIFY_API_KEY: "api-key",
+				SHOPIFY_API_SECRET: "api-secret",
+			});
+		} catch (error) {
+			expect((error as Error).message).not.toContain("a".repeat(64));
+		}
+	});
+});
