@@ -26,7 +26,7 @@ The system SHALL provide page object classes for the main application screens to
 
 #### Scenario: Jobs ticket list page object
 - **WHEN** a test uses the JobsTicketListPage object
-- **THEN** it can filter, sort, create tickets, and navigate to ticket details
+- **THEN** it can filter and create tickets, and navigate to ticket details (the product has no ticket-list sorting control, so no sorting interaction exists to drive)
 
 #### Scenario: Planning calendar page object
 - **WHEN** a test uses the PlanningCalendarPage object

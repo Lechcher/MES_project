@@ -14,7 +14,7 @@
 
 - [x] 2.1 Create `frontend/tests/pages/base.ts` with common utilities (waitForNetworkIdle, fillForm, clickAndWait, getByTestId) and verify it exports a usable base class
 - [x] 2.2 Create `frontend/tests/pages/login.ts` with login form interaction and verify a test can log in successfully
-- [ ] 2.3 Create `frontend/tests/pages/jobs/ticket-list.ts` with filtering, sorting, creation, and navigation; verify a test can create and find a ticket
+- [x] 2.3 Create `frontend/tests/pages/jobs/ticket-list.ts` with filtering, creation, and navigation; verify a test can create and find a ticket
 - [x] 2.4 Create `frontend/tests/pages/jobs/ticket-detail.ts` with progress log, state transitions, and completion dialog; verify a test can submit a completion request
 - [x] 2.5 Create `frontend/tests/pages/jobs/ticket-completion.ts` with completion dialog and review flow; verify a test can approve/reject a completion request
 - [x] 2.6 Create `frontend/tests/pages/planning/calendar.ts` with week navigation, task viewing, and leave board; verify a test can navigate weeks and view tasks

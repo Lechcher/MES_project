@@ -13,7 +13,7 @@
 
 ## 3. Push `main` and verify recovery
 
-- [ ] 3.1 Push `main` to remote `origin`; verify `git ls-remote origin main` matches the local `main` commit.
+- [x] 3.1 Push `main` to remote `origin`; verify `git ls-remote origin main` matches the local `main` commit.
 - [x] 3.2 Verify both commits are ancestors of `main`: `git merge-base --is-ancestor c724c1b761a3ced17fce180a74190a18f2837f76 main` and `git merge-base --is-ancestor 1efd964d8cd04e76edb5bef75c55789bb09bcb8b main` succeed.
 - [x] 3.3 Verify `openspec/changes/add-job-completion-requests/tasks.md` exists on `main` with task 7.4 marked `- [x]`; verify `openspec status --change add-job-completion-requests` reflects completion.
 
