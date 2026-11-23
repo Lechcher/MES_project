@@ -43,10 +43,10 @@ on top of main's current content.
 
 ## 6. Final gates
 
-- [ ] 6.1 Run the change's backend gate: `cd backend && MES_TEST_DATABASE_URL=<shared test url> bun test src/domain/shoptify/ src/graphql/resolvers/shoptify.test.ts src/graphql/change-areas.test.ts src/graphql/authorization.test.ts src/graphql/schema.test.ts src/config.test.ts src/db/seed.test.ts`; verify all pass and no pre-existing test regressed (main's full suite was 582/582 green before this change).
-- [ ] 6.2 Run the frontend gate: `cd frontend && bunx tsc --noEmit`, `bun test src/`, and `./node_modules/.bin/biome check` on the touched files; verify all pass with no new diagnostics and no reformatting churn in untouched files.
-- [ ] 6.3 Run the backend typecheck and lint: `cd backend && bun run typecheck` and `../frontend/node_modules/.bin/biome check src` (the repository's runnable Biome on Linux); verify typecheck exits 0 and the module's files are clean.
-- [ ] 6.4 Verify the deployment story end to end on the running stack: `bun run db:migrate && bun run db:seed` apply cleanly to the dev database (seed counts 6/30/96), the stack's backend boots with and without the `SHOPTIFY_*` group, and the shoptify app renders in the stack origin for a seeded `TECH_LEAD` viewer while staying unreachable for an `EMPLOYEE` (design P1's replay + the frontend role gate); record the operator step that applies the migration to the dev database once.
+- [x] 6.1 Run the change's backend gate: `cd backend && MES_TEST_DATABASE_URL=<shared test url> bun test src/domain/shoptify/ src/graphql/resolvers/shoptify.test.ts src/graphql/change-areas.test.ts src/graphql/authorization.test.ts src/graphql/schema.test.ts src/config.test.ts src/db/seed.test.ts`; verify all pass and no pre-existing test regressed (main's full suite was 582/582 green before this change).
+- [x] 6.2 Run the frontend gate: `cd frontend && bunx tsc --noEmit`, `bun test src/`, and `./node_modules/.bin/biome check` on the touched files; verify all pass with no new diagnostics and no reformatting churn in untouched files.
+- [x] 6.3 Run the backend typecheck and lint: `cd backend && bun run typecheck` and `../frontend/node_modules/.bin/biome check src` (the repository's runnable Biome on Linux); verify typecheck exits 0 and the module's files are clean.
+- [x] 6.4 Verify the deployment story end to end on the running stack: `bun run db:migrate && bun run db:seed` apply cleanly to the dev database (seed counts 6/30/96), the stack's backend boots with and without the `SHOPTIFY_*` group, and the shoptify app renders in the stack origin for a seeded `TECH_LEAD` viewer while staying unreachable for an `EMPLOYEE` (design P1's replay + the frontend role gate); record the operator step that applies the migration to the dev database once.
 
 ## Workflow follow-up
 

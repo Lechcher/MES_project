@@ -130,11 +130,7 @@ export function requireShopifySettings(config: AppConfig): ShopifySettings {
 		throw new ConfigurationError(
 			"Shopify commerce is not configured: set SHOPIFY_API_KEY, " +
 				"SHOPIFY_API_SECRET and SHOPIFY_TOKEN_ENCRYPTION_KEY.",
-			[
-				"SHOPIFY_API_KEY",
-				"SHOPIFY_API_SECRET",
-				"SHOPIFY_TOKEN_ENCRYPTION_KEY",
-			],
+			["SHOPIFY_API_KEY", "SHOPIFY_API_SECRET", "SHOPIFY_TOKEN_ENCRYPTION_KEY"],
 		);
 	}
 	return config.shopify;
