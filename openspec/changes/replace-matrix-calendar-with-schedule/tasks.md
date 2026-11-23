@@ -32,5 +32,5 @@
 
 ## 6. Integration
 
-- [ ] 6.1 Run `bun run lint` and `bun test` in `frontend/` and `backend/`, and `bun run build` in `frontend/`; verify all pass
+- [x] 6.1 Run `bun run lint` and `bun test` in `frontend/` and `backend/`, and `bun run build` in `frontend/`; verify all pass
 - [x] 6.2 Run `openspec validate replace-matrix-calendar-with-schedule --strict`; verify it passes
