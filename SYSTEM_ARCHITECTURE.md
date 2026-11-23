@@ -31,6 +31,7 @@ The system serves five roles: **Employee**, **Department Head**, **HR Manager**,
 | **Performance & Audit** (`Performance`) | Performance measurement that computes scores automatically from a fixed deterministic rule set. |
 | **Settings & IAM** (`Settings`) | Administration: authorization, organization management, and connection configuration. |
 | **Audit Log** (`AuditLog`) | Technical activity monitoring: system-wide and per-module inspection of the recorded audit trail. |
+| **Shopify Commerce** (`shoptify`) | Multi-store operations: connected Shopify stores, webhook-ingested orders, bulk fulfillment, cross-store inventory, customers, payouts/net profit, and automation rules. |
 
 Shared, system-wide code registries — **ticket state codes** and **leave codes** — give every app a common vocabulary (see §7 and §13).
 
@@ -134,6 +135,13 @@ Dependencies point inward: the presentation layer depends on the app layer, the 
 - **Responsibilities.** Surface the append-only audit event store to technical roles; present a system-wide activity stream and per-module activity; support filtering and export.
 - **Key capabilities.** System-wide activity stream over recorded events (user, action, resource, field changes, timestamp, IP address); per-module activity for each app module (`jobs`, `planning`, `performance`, `settings`, `audit-log`); filtering by module, user, action, resource type/id, and date range; Excel/CSV export of the filtered results. The app reads the same event store that the `Settings` app writes to and is read-only (append-only).
 - **Role-based interface visibility.** The app is visible only to Super Admins and Manager/Tech Leads; it is fully hidden from HR Manager, Department Head, and Employee.
+
+### 6.6 App 6 — Shopify Commerce (`shoptify`)
+
+- **Purpose.** Operate the business's Shopify stores from inside the platform.
+- **Responsibilities.** Connect stores (OAuth 2.0 or Custom App offline tokens, tokens encrypted at rest), ingest orders/products/refunds through HMAC-verified webhooks, fulfill orders in bulk with tracking, synchronize inventory across stores via `master_sku`, aggregate customers cross-store, track payouts and per-order net profit, and run minimal if-condition-then-action automation rules.
+- **Key capabilities.** Cross-store order board with bulk fulfillment; `master_sku` inventory propagation with low-stock alerts; payout lifecycle tracking (`SCHEDULED` → `IN_TRANSIT` → `PAID`/`FAILED`); net-profit computation (`revenue - cogs - shipping - gateway_fee - ad_spend`); rule actions limited (v1) to local annotation, exception flags, and platform notifications.
+- **Role-based interface visibility.** Seeded for Super Admins and Manager/Tech Leads; hidden from HR Manager, Department Head, and Employee. Access is permission-matrix data, so it widens through Settings without a deployment.
 
 ---
 
@@ -269,18 +277,17 @@ Pushes change signals to signed-in viewers so open screens stay current without 
 
 ## 11. Integration Points
 
-The system has two external integrations:
+The system has three external integrations:
 
 - **Telegram webhook.** The Telegram Webhook Notification Engine (part of the core, §9.2) sends notifications to a configured bot's alert group. The integration is configured in the `Settings` app, where the **Telegram bot**, the **alert group Chat ID**, and the **webhook URL endpoints** are defined.
 - **Mail server.** The Email Delivery Service (§9.7) sends password-reset mail to a mail server named by deployment configuration (not by the `Settings` app).
-
-No other external integration is part of the current architecture.
+- **Shopify Admin API and webhooks.** The Shopify Commerce app (§6.6) connects stores through the OAuth handshake or registered Custom App offline tokens (credentials from deployment configuration) and receives order/product/refund events on a webhook receiver that verifies each payload's HMAC before any data change. Store tokens exist only encrypted at rest.
 
 ---
 
 ## 12. Extensibility & Future Modules
 
-Because capabilities are delivered as apps on top of the Core Base Module, new modules are embedded directly into the home dashboard without redesigning the core. The Audit Log app (§6.5) was added this way and reads core services plus the existing audit store rather than reimplementing anything. The remaining planned additions are:
+Because capabilities are delivered as apps on top of the Core Base Module, new modules are embedded directly into the home dashboard without redesigning the core. The Audit Log app (§6.5) was added this way and reads core services plus the existing audit store rather than reimplementing anything. The Shopify Commerce app (§6.6) is the second example: it plugs into identity, authorization, audit, notification, live updates, and exports, and adds one external integration — the Shopify Admin API (OAuth/handshake) and webhook receiver. The remaining planned additions are:
 
 1. **App Recruitment (`Recruitment`).** Manages the recruitment process and automatically creates an account in the `Settings` app when a candidate is hired.
 2. **App Payroll (`Payroll`).** Reads attendance data from the `Planning` app and KPI points from the `Performance` app to automatically compute and export the monthly payroll.

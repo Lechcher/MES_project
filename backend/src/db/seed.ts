@@ -297,6 +297,13 @@ const MODULE_SEED = [
 		description: "Technical monitoring of system-wide and per-module activity.",
 		sortOrder: 5,
 	},
+	{
+		code: "shoptify",
+		name: "Shopify Stores",
+		description:
+			"Multi-store orders, catalog, customers, finance and automation.",
+		sortOrder: 6,
+	},
 ] as const;
 
 const ROLE_SEED = [
@@ -433,6 +440,51 @@ const PERMISSION_SEED = [
 		moduleCode: "audit-log",
 		description: "Export filtered audit events.",
 	},
+	{
+		code: "shoptify.store.manage",
+		moduleCode: "shoptify",
+		description: "Connect / deactivate Shopify stores.",
+	},
+	{
+		code: "shoptify.order.view",
+		moduleCode: "shoptify",
+		description: "View orders and order detail across stores.",
+	},
+	{
+		code: "shoptify.order.manage",
+		moduleCode: "shoptify",
+		description: "Flag order exceptions and edit internal annotations.",
+	},
+	{
+		code: "shoptify.fulfillment.create",
+		moduleCode: "shoptify",
+		description: "Fulfill orders in bulk with tracking details.",
+	},
+	{
+		code: "shoptify.catalog.manage",
+		moduleCode: "shoptify",
+		description: "Sync catalog and update inventory / prices in bulk.",
+	},
+	{
+		code: "shoptify.customer.manage",
+		moduleCode: "shoptify",
+		description: "Manage customer blacklist / high-risk flags.",
+	},
+	{
+		code: "shoptify.finance.manage",
+		moduleCode: "shoptify",
+		description: "Record payouts and per-order expense components.",
+	},
+	{
+		code: "shoptify.automation.manage",
+		moduleCode: "shoptify",
+		description: "Create / edit automation rules.",
+	},
+	{
+		code: "shoptify.export",
+		moduleCode: "shoptify",
+		description: "Export order and catalog listings.",
+	},
 ] as const;
 
 const DEPT_HEAD_PERMISSIONS = [
@@ -476,7 +528,8 @@ function permissionsForRole(roleCode: string): string[] {
 				(permission) =>
 					permission.code !== "settings.rbac.manage" &&
 					permission.code !== "settings.webhook.manage" &&
-					permission.moduleCode !== "audit-log",
+					permission.moduleCode !== "audit-log" &&
+					permission.moduleCode !== "shoptify",
 			).map((permission) => permission.code);
 		case "DEPT_HEAD":
 			return [...DEPT_HEAD_PERMISSIONS];

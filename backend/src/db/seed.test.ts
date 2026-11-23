@@ -110,11 +110,11 @@ describe("seedDatabase", () => {
 		expect(second.counts.users).toBe(15);
 		expect(second.counts.ticketStates).toBe(7);
 		expect(second.counts.leaveCodes).toBe(11);
-		expect(second.counts.modules).toBe(5);
+		expect(second.counts.modules).toBe(6);
 		expect(second.counts.roles).toBe(5);
-		expect(second.counts.permissions).toBe(21);
+		expect(second.counts.permissions).toBe(30);
 		expect(second.counts.kpiPointRules).toBe(8);
-		expect(second.counts.rolePermissions).toBe(78);
+		expect(second.counts.rolePermissions).toBe(96);
 		expect(second.counts.tasks).toBeGreaterThanOrEqual(55);
 	});
 

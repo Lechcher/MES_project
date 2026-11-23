@@ -26,7 +26,7 @@ on top of main's current content.
 
 ## 3. Seed grants
 
-- [ ] 3.1 Re-apply the seed additions to `backend/src/db/seed.ts` (hand-merge — main's seed was rewritten): the `shoptify` module row (sortOrder 6), the 9 commerce permissions, and the `rolePermissions` grants for `SUPER_ADMIN`/`TECH_LEAD` only with `HR_MANAGER` explicitly excluded; verify `bun test src/db/seed.test.ts` passes with counts moved 5/21/78 → 6/30/96 and re-running the seed stays idempotent.
+- [x] 3.1 Re-apply the seed additions to `backend/src/db/seed.ts` (hand-merge — main's seed was rewritten): the `shoptify` module row (sortOrder 6), the 9 commerce permissions, and the `rolePermissions` grants for `SUPER_ADMIN`/`TECH_LEAD` only with `HR_MANAGER` explicitly excluded; verify `bun test src/db/seed.test.ts` passes with counts moved 5/21/78 → 6/30/96 and re-running the seed stays idempotent.
 
 ## 4. Frontend app
 
@@ -38,8 +38,8 @@ on top of main's current content.
 ## 5. Contracts, docs, provenance
 
 - [ ] 5.1 Hand-merge the §6.6 shoptify section into `API_CONTACT_SPECIFICATION.md` on main's current revision (21 operations, 16 types + 12 inputs, 3 enums) and copy the `contract-diff.ts` parity checks wholesale (untouched by main); verify `cd backend && bun run contract-diff` reports no drift.
-- [ ] 5.2 Hand-merge the module catalog/extensibility updates into `SYSTEM_ARCHITECTURE.md` on main's current revision; verify the doc's app table lists `shoptify` with its module code and the Settings configuration note is present.
-- [ ] 5.3 Copy the three provenance documents into `docs/`: `shopify_multi_store_management_prompt.md` (original), `shopify_multi_store_management_prompt_optimized.md` (implementation source), and `shopify_multi_store_management_worktree.md` (the point-in-time change record this port was planned from); verify each opens cleanly and the record's §7 "Left untouched" list is re-checked against main (layout, testDir, root biome, TS2589 — all now no-ops, design P8).
+- [x] 5.2 Hand-merge the module catalog/extensibility updates into `SYSTEM_ARCHITECTURE.md` on main's current revision; verify the doc's app table lists `shoptify` with its module code and the Settings configuration note is present.
+- [x] 5.3 Copy the three provenance documents into `docs/`: `shopify_multi_store_management_prompt.md` (original), `shopify_multi_store_management_prompt_optimized.md` (implementation source), and `shopify_multi_store_management_worktree.md` (the point-in-time change record this port was planned from); verify each opens cleanly and the record's §7 "Left untouched" list is re-checked against main (all four confirmed no-ops: main's layout uses `instant = false`, playwright testDir already `./tests/tests`, root-lint runs the frontend binary with telegram-web excluded, the TS2589 translator fix landed on main — design P8).
 
 ## 6. Final gates
 
