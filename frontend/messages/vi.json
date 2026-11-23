@@ -48,6 +48,10 @@
       "telegram": {
         "short": "Telegram",
         "description": "Các tài khoản Telegram bạn đã liên kết, dùng song song."
+      },
+      "shoptify": {
+        "short": "Shopify",
+        "description": "Đơn hàng, danh mục, khách hàng và tài chính đa cửa hàng."
       }
     },
     "dashboard": {
@@ -1010,7 +1014,8 @@
       "planning": "Lập kế hoạch & Chấm công",
       "performance": "Hiệu suất & Đánh giá",
       "settings": "Cài đặt & IAM",
-      "audit-log": "Nhật ký hệ thống"
+      "audit-log": "Nhật ký hệ thống",
+      "shoptify": "Cửa hàng Shopify"
     },
     "kpiRules": {
       "KPI_ON_TIME_TICKET": "Phiếu đúng hạn",
@@ -1043,5 +1048,179 @@
       "relinkHint": "Phiên của tài khoản này cần đăng nhập lại — hãy dùng chức năng đăng nhập của Telegram trong không gian làm việc.",
       "frameLabel": "Trò chuyện Telegram"
     }
+  },
+  "shoptify": {
+    "eyebrow": "Thương mại",
+    "title": "Cửa hàng Shopify",
+    "description": "Kết nối cửa hàng, xử lý đơn hàng, đồng bộ tồn kho và theo dõi lợi nhuận trên mọi cửa hàng Shopify.",
+    "stores": {
+      "loading": "Đang tải cửa hàng…",
+      "table": {
+        "store": "Cửa hàng",
+        "domain": "Tên miền",
+        "currency": "Tiền tệ",
+        "status": "Trạng thái",
+        "lastSync": "Đồng bộ gần nhất",
+        "actions": "Thao tác"
+      },
+      "empty": "Chưa kết nối cửa hàng nào.",
+      "status": {
+        "active": "Hoạt động",
+        "inactive": "Ngừng"
+      },
+      "deactivate": "Ngừng kích hoạt",
+      "connect": {
+        "title": "Kết nối cửa hàng",
+        "domain": "Tên miền Shop",
+        "oauth": "Kết nối bằng OAuth",
+        "token": "Offline access token",
+        "tokenSubmit": "Kết nối bằng token"
+      },
+      "token": {
+        "title": "Kết nối bằng Custom App token"
+      }
+    },
+    "orders": {
+      "eyebrow": "Thương mại",
+      "title": "Đơn hàng",
+      "description": "Mọi đơn hàng trên các cửa hàng bạn được cấp quyền, với xử lý hàng loạt.",
+      "export": "Xuất file",
+      "filters": {
+        "search": "Tìm kiếm",
+        "fulfillment": "Xử lý",
+        "open": "Chưa xử lý",
+        "all": "Tất cả",
+        "fulfilled": "Đã xử lý",
+        "unfulfilled": "Chưa xử lý",
+        "store": "Cửa hàng",
+        "allStores": "Mọi cửa hàng"
+      },
+      "loading": "Đang tải đơn hàng…",
+      "empty": "Không có đơn hàng nào khớp bộ lọc.",
+      "table": {
+        "order": "Đơn hàng",
+        "store": "Cửa hàng",
+        "customer": "Khách hàng",
+        "financial": "Tài chính",
+        "fulfillment": "Xử lý",
+        "total": "Tổng",
+        "created": "Tạo lúc"
+      },
+      "selectAll": "Chọn mọi đơn chưa xử lý",
+      "selectOrder": "Chọn đơn {order}",
+      "exception": "ngoại lệ",
+      "unfulfilled": "Chưa xử lý",
+      "tracking": {
+        "company": "Đơn vị vận chuyển",
+        "number": "Mã vận đơn",
+        "url": "URL vận đơn"
+      },
+      "fulfillSelected": "Xử lý {count} đơn đã chọn"
+    },
+    "catalog": {
+      "eyebrow": "Thương mại",
+      "title": "Danh mục",
+      "description": "Sản phẩm và biến thể, được đồng bộ và nhóm theo master SKU xuyên cửa hàng.",
+      "export": "Xuất file",
+      "loading": "Đang tải danh mục…",
+      "empty": "Chưa có sản phẩm nào được đồng bộ.",
+      "table": {
+        "product": "Sản phẩm",
+        "store": "Cửa hàng",
+        "sku": "SKU",
+        "masterSku": "Master SKU",
+        "price": "Giá",
+        "quantity": "Tồn kho",
+        "actions": "Thao tác"
+      },
+      "lowStock": "Sắp hết",
+      "edit": "Sửa",
+      "editQuantity": "Số lượng tồn",
+      "editPrice": "Giá",
+      "syncAll": "Áp dụng cho mọi biến thể {sku}"
+    },
+    "customers": {
+      "eyebrow": "Thương mại",
+      "title": "Khách hàng",
+      "description": "Hồ sơ khách hàng xuyên cửa hàng với tổng chi tiêu và cờ rủi ro.",
+      "search": "Tìm kiếm",
+      "loading": "Đang tải khách hàng…",
+      "empty": "Chưa có khách hàng nào được đồng bộ.",
+      "table": {
+        "customer": "Khách hàng",
+        "orders": "Đơn hàng",
+        "spent": "Tổng chi tiêu",
+        "flags": "Cờ",
+        "actions": "Thao tác"
+      },
+      "blacklisted": "Danh sách đen",
+      "highRisk": "Rủi ro cao",
+      "review": "Xem xét",
+      "notes": "Ghi chú",
+      "blacklistAction": "Thêm vào danh sách đen",
+      "clearAction": "Xóa cờ"
+    },
+    "finance": {
+      "eyebrow": "Thương mại",
+      "title": "Tài chính",
+      "description": "Payout, chi phí theo đơn và lợi nhuận ròng xuyên cửa hàng.",
+      "payouts": "Payout",
+      "profit": "Lợi nhuận ròng theo đơn",
+      "loading": "Đang tải…",
+      "emptyPayouts": "Chưa ghi nhận payout nào.",
+      "table": {
+        "store": "Cửa hàng",
+        "payout": "Payout",
+        "amount": "Số tiền",
+        "status": "Trạng thái",
+        "date": "Ngày",
+        "order": "Đơn hàng",
+        "netProfit": "Lợi nhuận ròng",
+        "actions": "Thao tác"
+      },
+      "enterCosts": "Nhập chi phí",
+      "costs": {
+        "revenue": "Doanh thu",
+        "cogs": "Giá vốn",
+        "shipping": "Vận chuyển",
+        "gatewayFee": "Phí cổng thanh toán",
+        "adSpend": "Chi phí quảng cáo"
+      },
+      "saveCosts": "Lưu chi phí",
+      "recordPayout": "Ghi nhận payout",
+      "payoutId": "Shopify payout id",
+      "payoutAmount": "Số tiền",
+      "payoutStatus": "Trạng thái",
+      "savePayout": "Lưu payout"
+    },
+    "automation": {
+      "eyebrow": "Thương mại",
+      "title": "Tự động hóa",
+      "description": "Quy tắc nếu–điều kiện–thì–hành động: gắn cờ, ghi chú hoặc thông báo trên sự kiện cửa hàng.",
+      "loading": "Đang tải quy tắc…",
+      "empty": "Chưa có quy tắc tự động nào.",
+      "table": {
+        "name": "Quy tắc",
+        "trigger": "Sự kiện",
+        "actions": "Hành động",
+        "state": "Trạng thái",
+        "actions2": "Thao tác"
+      },
+      "enabled": "Bật",
+      "disabled": "Tắt",
+      "delete": "Xóa",
+      "form": {
+        "title": "Quy tắc mới",
+        "name": "Tên quy tắc",
+        "trigger": "Sự kiện kích hoạt",
+        "action": "Hành động",
+        "detail": "Chi tiết hành động",
+        "detailPlaceholder": "FRAUD_RISK / SHOPTIFY_LOW_STOCK",
+        "condition": "Trường điều kiện",
+        "save": "Lưu quy tắc"
+      }
+    },
+    "noAccessTitle": "Không có quyền Shopify",
+    "noAccessDescription": "Ứng dụng Shopify bị ẩn với vai trò của bạn. Quyền thương mại được cấp cho các vai trò kỹ thuật qua ma trận phân quyền."
   }
 }

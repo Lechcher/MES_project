@@ -313,6 +313,7 @@ export const MODULE_LABELS: Record<string, string> = {
   settings: "Settings & IAM",
   "audit-log": "Audit Log",
   telegram: "Telegram",
+  shoptify: "Shopify Stores",
 };
 
 /**

@@ -48,6 +48,10 @@
       "telegram": {
         "short": "Telegram",
         "description": "Your linked Telegram accounts, side by side."
+      },
+      "shoptify": {
+        "short": "Shopify",
+        "description": "Multi-store orders, catalog, customers, and finance."
       }
     },
     "dashboard": {
@@ -1010,7 +1014,8 @@
       "planning": "Planning & Attendance",
       "performance": "Performance & Audit",
       "settings": "Settings & IAM",
-      "audit-log": "Audit Log"
+      "audit-log": "Audit Log",
+      "shoptify": "Shopify Stores"
     },
     "kpiRules": {
       "KPI_ON_TIME_TICKET": "On-time ticket",
@@ -1043,5 +1048,179 @@
       "relinkHint": "This account's session needs a sign-in again — use Telegram's own login in the workspace.",
       "frameLabel": "Telegram chat"
     }
+  },
+  "shoptify": {
+    "eyebrow": "Commerce",
+    "title": "Shopify Stores",
+    "description": "Connect stores, fulfill orders, sync inventory, and track profit across every Shopify store.",
+    "stores": {
+      "loading": "Loading stores…",
+      "table": {
+        "store": "Store",
+        "domain": "Domain",
+        "currency": "Currency",
+        "status": "Status",
+        "lastSync": "Last sync",
+        "actions": "Actions"
+      },
+      "empty": "No stores are connected yet.",
+      "status": {
+        "active": "Active",
+        "inactive": "Inactive"
+      },
+      "deactivate": "Deactivate",
+      "connect": {
+        "title": "Connect a store",
+        "domain": "Shop domain",
+        "oauth": "Connect with OAuth",
+        "token": "Offline access token",
+        "tokenSubmit": "Connect with token"
+      },
+      "token": {
+        "title": "Connect with a Custom App token"
+      }
+    },
+    "orders": {
+      "eyebrow": "Commerce",
+      "title": "Orders",
+      "description": "Every order across your permitted stores, with bulk fulfillment.",
+      "export": "Export",
+      "filters": {
+        "search": "Search",
+        "fulfillment": "Fulfillment",
+        "open": "Open",
+        "all": "All",
+        "fulfilled": "Fulfilled",
+        "unfulfilled": "Unfulfilled",
+        "store": "Store",
+        "allStores": "All stores"
+      },
+      "loading": "Loading orders…",
+      "empty": "No orders match the current filters.",
+      "table": {
+        "order": "Order",
+        "store": "Store",
+        "customer": "Customer",
+        "financial": "Financial",
+        "fulfillment": "Fulfillment",
+        "total": "Total",
+        "created": "Created"
+      },
+      "selectAll": "Select all open orders",
+      "selectOrder": "Select order {order}",
+      "exception": "exception",
+      "unfulfilled": "Unfulfilled",
+      "tracking": {
+        "company": "Tracking company",
+        "number": "Tracking number",
+        "url": "Tracking URL"
+      },
+      "fulfillSelected": "Fulfill {count} selected"
+    },
+    "catalog": {
+      "eyebrow": "Commerce",
+      "title": "Catalog",
+      "description": "Products and variants, synced and grouped by master SKU across stores.",
+      "export": "Export",
+      "loading": "Loading catalog…",
+      "empty": "No products have been synced yet.",
+      "table": {
+        "product": "Product",
+        "store": "Store",
+        "sku": "SKU",
+        "masterSku": "Master SKU",
+        "price": "Price",
+        "quantity": "Available",
+        "actions": "Actions"
+      },
+      "lowStock": "Low stock",
+      "edit": "Edit",
+      "editQuantity": "Available quantity",
+      "editPrice": "Price",
+      "syncAll": "Apply to every {sku} variant"
+    },
+    "customers": {
+      "eyebrow": "Commerce",
+      "title": "Customers",
+      "description": "Cross-store customer profiles with spend totals and risk flags.",
+      "search": "Search",
+      "loading": "Loading customers…",
+      "empty": "No customers have been synced yet.",
+      "table": {
+        "customer": "Customer",
+        "orders": "Orders",
+        "spent": "Total spent",
+        "flags": "Flags",
+        "actions": "Actions"
+      },
+      "blacklisted": "Blacklisted",
+      "highRisk": "High risk",
+      "review": "Review",
+      "notes": "Notes",
+      "blacklistAction": "Blacklist customer",
+      "clearAction": "Clear flags"
+    },
+    "finance": {
+      "eyebrow": "Commerce",
+      "title": "Finance",
+      "description": "Payouts, per-order costs, and net profit across stores.",
+      "payouts": "Payouts",
+      "profit": "Net profit per order",
+      "loading": "Loading…",
+      "emptyPayouts": "No payouts have been recorded yet.",
+      "table": {
+        "store": "Store",
+        "payout": "Payout",
+        "amount": "Amount",
+        "status": "Status",
+        "date": "Date",
+        "order": "Order",
+        "netProfit": "Net profit",
+        "actions": "Actions"
+      },
+      "enterCosts": "Enter costs",
+      "costs": {
+        "revenue": "Revenue",
+        "cogs": "Cost of goods",
+        "shipping": "Shipping",
+        "gatewayFee": "Gateway fee",
+        "adSpend": "Ad spend"
+      },
+      "saveCosts": "Save costs",
+      "recordPayout": "Record a payout",
+      "payoutId": "Shopify payout id",
+      "payoutAmount": "Amount",
+      "payoutStatus": "Status",
+      "savePayout": "Save payout"
+    },
+    "automation": {
+      "eyebrow": "Commerce",
+      "title": "Automation",
+      "description": "If-condition-then-action rules: flag, annotate, or notify on store events.",
+      "loading": "Loading rules…",
+      "empty": "No automation rules yet.",
+      "table": {
+        "name": "Rule",
+        "trigger": "Trigger",
+        "actions": "Actions",
+        "state": "State",
+        "actions2": "Actions"
+      },
+      "enabled": "Enabled",
+      "disabled": "Disabled",
+      "delete": "Delete",
+      "form": {
+        "title": "New rule",
+        "name": "Rule name",
+        "trigger": "Trigger event",
+        "action": "Action",
+        "detail": "Action detail",
+        "detailPlaceholder": "FRAUD_RISK / SHOPTIFY_LOW_STOCK",
+        "condition": "Condition field",
+        "save": "Save rule"
+      }
+    },
+    "noAccessTitle": "No Shopify access",
+    "noAccessDescription": "Shopify Commerce is hidden from your role. Commerce access is granted to the technical roles through the permission matrix."
   }
 }

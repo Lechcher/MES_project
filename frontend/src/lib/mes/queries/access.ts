@@ -231,6 +231,17 @@ export function canViewAuditLogApp(role: RoleCode | null): boolean {
   return role === "SUPER_ADMIN" || role === "TECH_LEAD";
 }
 
+/* ──────────────────────── Shopify Commerce ──────────────────────── */
+
+/**
+ * Commerce access: store credentials and money move through this app, so the
+ * seeded matrix grants the technical roles. The server enforces the same
+ * matrix per operation; this gate only decides what the route shell renders.
+ */
+export function canViewShoptifyApp(role: RoleCode | null): boolean {
+  return role === "SUPER_ADMIN" || role === "TECH_LEAD";
+}
+
 /* ───────────────────────── Technical-role gate ───────────────────── */
 
 /**

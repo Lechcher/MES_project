@@ -16,7 +16,13 @@
 import { createContext, useContext, useEffect, useState } from "react";
 
 /** The same areas the backend publishes (see `backend/src/events/`). */
-export type LiveArea = "tickets" | "leave" | "performance" | "users" | "audit";
+export type LiveArea =
+  | "tickets"
+  | "leave"
+  | "performance"
+  | "users"
+  | "audit"
+  | "shoptify";
 
 export type LiveStatus = "live" | "connecting" | "offline";
 

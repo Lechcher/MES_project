@@ -26,6 +26,7 @@ export const MES_MODULE_CODES = [
   "settings",
   "audit-log",
   "telegram",
+  "shoptify",
 ] as const;
 
 export type MesModuleCode = (typeof MES_MODULE_CODES)[number];
@@ -91,6 +92,15 @@ export const MES_APP_ACCESS: Record<
     DEPT_HEAD: "PERSONAL",
     EMPLOYEE: "PERSONAL",
   },
+  // Commerce touches store credentials and money: the seeded matrix grants
+  // the technical roles. The matrix is data — adjust in Settings.
+  shoptify: {
+    SUPER_ADMIN: "ALL",
+    TECH_LEAD: "ALL",
+    HR_MANAGER: "HIDDEN",
+    DEPT_HEAD: "HIDDEN",
+    EMPLOYEE: "HIDDEN",
+  },
 };
 
 export interface MesAppDescriptor {
@@ -146,6 +156,13 @@ export const MES_APPS: MesAppDescriptor[] = [
     shortLabel: "Telegram",
     href: "/telegram",
     description: "Your linked Telegram accounts, side by side.",
+  },
+  {
+    code: "shoptify",
+    name: "Shopify Stores",
+    shortLabel: "Shopify",
+    href: "/shoptify",
+    description: "Multi-store orders, catalog, customers, and finance.",
   },
 ];
 
