@@ -118,6 +118,31 @@ export const typeDefs = /* GraphQL */ `
     AWAITING_PROGRESS_VERIFICATION
   }
 
+  enum ShoptifyPayoutStatus {
+    SCHEDULED
+    IN_TRANSIT
+    PAID
+    FAILED
+  }
+
+  enum ShoptifyExceptionReason {
+    ADDRESS_INVALID
+    PAYMENT_HELD
+    OUT_OF_STOCK
+    FRAUD_RISK
+    CUSTOMER_EDIT
+    OTHER
+  }
+
+  enum ShoptifyAutomationTrigger {
+    ORDER_CREATED
+    ORDER_UPDATED
+    ORDER_EXCEPTION
+    STOCK_LOW
+    REFUND_CREATED
+    PAYOUT_FAILED
+  }
+
   enum ProjectOrderBy {
     NAME_ASC
     NAME_DESC
@@ -1108,6 +1133,258 @@ export const typeDefs = /* GraphQL */ `
   }
 
   # ---------------------------------------------------------------- #
+  # Shopify commerce (shoptify app)                                  #
+  # ---------------------------------------------------------------- #
+
+  type ShoptifyStore {
+    id: ID!
+    name: String!
+    shopDomain: String!
+    currency: String!
+    scopes: [String!]
+    isActive: Boolean!
+    lastSyncAt: DateTime
+    createdAt: DateTime!
+    updatedAt: DateTime!
+  }
+
+  type ShoptifyOrder {
+    id: ID!
+    storeId: ID!
+    storeName: String
+    shopifyOrderId: String!
+    orderNumber: String
+    customerEmail: String
+    customerPhone: String
+    shippingAddress: JSON
+    financialStatus: String
+    fulfillmentStatus: String
+    # Minor units in the order's currency.
+    totalPrice: Int!
+    currency: String!
+    tags: [String!]
+    note: String
+    hasException: Boolean!
+    exceptionReason: ShoptifyExceptionReason
+    netProfit: Int
+    fulfillments: [ShoptifyFulfillment!]!
+    refunds: [ShoptifyRefund!]!
+    shopifyCreatedAt: DateTime
+    createdAt: DateTime!
+    updatedAt: DateTime!
+  }
+
+  type ShoptifyOrderConnection {
+    nodes: [ShoptifyOrder!]!
+    pageInfo: OffsetPageInfo!
+  }
+
+  type ShoptifyProductConnection {
+    nodes: [ShoptifyProduct!]!
+    pageInfo: OffsetPageInfo!
+  }
+
+  type ShoptifyCustomerConnection {
+    nodes: [ShoptifyCustomer!]!
+    pageInfo: OffsetPageInfo!
+  }
+
+  type ShoptifyPayoutConnection {
+    nodes: [ShoptifyPayout!]!
+    pageInfo: OffsetPageInfo!
+  }
+
+  type ShoptifyFulfillment {
+    id: ID!
+    orderId: ID!
+    shopifyFulfillmentId: String
+    trackingCompany: String
+    trackingNumber: String
+    trackingUrl: String
+    shipmentStatus: String
+    createdAt: DateTime!
+  }
+
+  type ShoptifyRefund {
+    id: ID!
+    orderId: ID!
+    shopifyRefundId: String!
+    # Minor units.
+    amount: Int!
+    currency: String!
+    reason: String
+    createdAt: DateTime!
+  }
+
+  type ShoptifyProduct {
+    id: ID!
+    storeId: ID!
+    shopifyProductId: String!
+    title: String!
+    status: String
+    variants: [ShoptifyVariant!]!
+    updatedAt: DateTime!
+  }
+
+  type ShoptifyVariant {
+    id: ID!
+    productId: ID!
+    storeId: ID!
+    storeName: String
+    shopifyVariantId: String!
+    sku: String
+    # Cross-store mapping key: variants sharing it stock-sync together.
+    masterSku: String
+    # Minor units.
+    price: Int
+    costOfGoods: Int
+    availableQuantity: Int!
+    minStockLevel: Int
+    isLowStock: Boolean!
+  }
+
+  type ShoptifyCustomer {
+    id: ID!
+    email: String
+    phone: String
+    totalOrdersCount: Int!
+    # Minor units.
+    totalSpent: Int!
+    isBlacklisted: Boolean!
+    isHighRisk: Boolean!
+    notes: String
+  }
+
+  type ShoptifyPayout {
+    id: ID!
+    storeId: ID!
+    storeName: String
+    shopifyPayoutId: String!
+    # Minor units.
+    amount: Int!
+    currency: String!
+    status: ShoptifyPayoutStatus!
+    payoutDate: DateTime
+    createdAt: DateTime!
+  }
+
+  type ShoptifyAutomationRule {
+    id: ID!
+    name: String!
+    storeId: ID
+    storeName: String
+    triggerEvent: ShoptifyAutomationTrigger!
+    conditions: JSON
+    actions: JSON
+    isActive: Boolean!
+    createdAt: DateTime!
+    updatedAt: DateTime!
+  }
+
+  input ShoptifyOrderFilter {
+    storeId: ID
+    financialStatus: String
+    fulfillmentStatus: String
+    hasException: Boolean
+    createdAfter: DateTime
+    createdBefore: DateTime
+    search: String
+  }
+
+  input ShoptifyProductFilter {
+    storeId: ID
+    masterSku: String
+    lowStockOnly: Boolean
+  }
+
+  input ShoptifyCustomerFilter {
+    isBlacklisted: Boolean
+    isHighRisk: Boolean
+    search: String
+  }
+
+  input ShoptifyConnectStoreInput {
+    shopDomain: String!
+    accessToken: String!
+  }
+
+  input ShoptifyOrderFlagsInput {
+    orderId: ID!
+    tags: [String!]
+    note: String
+    hasException: Boolean
+    exceptionReason: ShoptifyExceptionReason
+  }
+
+  input ShoptifyFulfillmentInput {
+    orderId: ID!
+    trackingCompany: String!
+    trackingNumber: String!
+    trackingUrl: String
+  }
+
+  input ShoptifyBulkFulfillInput {
+    # One tracking payload per order; each order is independent.
+    items: [ShoptifyFulfillmentInput!]!
+  }
+
+  input ShoptifyInventoryUpdateInput {
+    variantId: ID!
+    availableQuantity: Int
+    price: Int
+    status: String
+  }
+
+  input ShoptifyCustomerFlagInput {
+    customerId: ID!
+    isBlacklisted: Boolean
+    isHighRisk: Boolean
+    notes: String
+  }
+
+  input ShoptifyOrderExpensesInput {
+    orderId: ID!
+    revenue: Int!
+    cogs: Int
+    shipping: Int
+    gatewayFee: Int
+    adSpend: Int
+  }
+
+  input ShoptifyPayoutInput {
+    storeId: ID!
+    shopifyPayoutId: String!
+    amount: Int!
+    currency: String!
+    status: ShoptifyPayoutStatus
+    payoutDate: DateTime
+  }
+
+  input ShoptifySaveRuleInput {
+    id: ID
+    name: String!
+    storeId: ID
+    triggerEvent: ShoptifyAutomationTrigger!
+    conditions: JSON
+    actions: JSON
+    isActive: Boolean
+  }
+
+  type ShoptifyOAuthBegin {
+    redirectUrl: String!
+  }
+
+  type ShoptifyBulkFulfillResult {
+    succeeded: [ShoptifyFulfillment!]!
+    failed: [ShoptifyOperationError!]!
+  }
+
+  type ShoptifyOperationError {
+    orderId: ID
+    message: String!
+  }
+
+  # ---------------------------------------------------------------- #
   # Root types                                                       #
   # ---------------------------------------------------------------- #
 
@@ -1203,6 +1480,27 @@ export const typeDefs = /* GraphQL */ `
       limit: Int = 20
     ): SystemAuditLogConnection!
     moduleActivity(filter: ModuleAuditFilter): [ModuleActivitySummary!]!
+
+    # Shopify commerce
+    shoptifyStores: [ShoptifyStore!]!
+    shoptifyOrders(
+      filter: ShoptifyOrderFilter
+      offset: Int = 0
+      limit: Int = 20
+    ): ShoptifyOrderConnection!
+    shoptifyOrder(id: ID!): ShoptifyOrder
+    shoptifyProducts(
+      filter: ShoptifyProductFilter
+      offset: Int = 0
+      limit: Int = 20
+    ): ShoptifyProductConnection!
+    shoptifyCustomers(
+      filter: ShoptifyCustomerFilter
+      offset: Int = 0
+      limit: Int = 20
+    ): ShoptifyCustomerConnection!
+    shoptifyPayouts(storeId: ID, offset: Int = 0, limit: Int = 20): ShoptifyPayoutConnection!
+    shoptifyAutomationRules(storeId: ID): [ShoptifyAutomationRule!]!
   }
 
   type Mutation {
@@ -1268,6 +1566,28 @@ export const typeDefs = /* GraphQL */ `
     # Audit Log app
     exportAuditLogs(
       filter: ModuleAuditFilter
+      format: ExportFormat = XLSX
+    ): ExportResult!
+
+    # Shopify commerce
+    shoptifyBeginOAuth(shopDomain: String!): ShoptifyOAuthBegin!
+    shoptifyConnectStore(input: ShoptifyConnectStoreInput!): ShoptifyStore!
+    shoptifyDeactivateStore(storeId: ID!): ShoptifyStore!
+    shoptifyUpdateOrderFlags(input: ShoptifyOrderFlagsInput!): ShoptifyOrder!
+    shoptifyBulkFulfill(input: ShoptifyBulkFulfillInput!): ShoptifyBulkFulfillResult!
+    shoptifyUpdateVariant(input: ShoptifyInventoryUpdateInput!): ShoptifyVariant!
+    shoptifySyncInventory(variantId: ID!): ShoptifyVariant!
+    shoptifySetCustomerFlags(input: ShoptifyCustomerFlagInput!): ShoptifyCustomer!
+    shoptifySetOrderExpenses(input: ShoptifyOrderExpensesInput!): ShoptifyOrder!
+    shoptifyRecordPayout(input: ShoptifyPayoutInput!): ShoptifyPayout!
+    shoptifySaveRule(input: ShoptifySaveRuleInput!): ShoptifyAutomationRule!
+    shoptifyDeleteRule(ruleId: ID!): Boolean!
+    shoptifyExportOrders(
+      filter: ShoptifyOrderFilter
+      format: ExportFormat = XLSX
+    ): ExportResult!
+    shoptifyExportProducts(
+      filter: ShoptifyProductFilter
       format: ExportFormat = XLSX
     ): ExportResult!
 

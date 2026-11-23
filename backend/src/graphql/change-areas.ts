@@ -90,6 +90,22 @@ export const MUTATION_AREAS: Record<string, ChangeArea | null> = {
 	// Audit Log app.
 	exportAuditLogs: "audit",
 
+	// Shopify commerce.
+	shoptifyBeginOAuth: null,
+	shoptifyConnectStore: "shoptify",
+	shoptifyDeactivateStore: "shoptify",
+	shoptifyUpdateOrderFlags: "shoptify",
+	shoptifyBulkFulfill: "shoptify",
+	shoptifyUpdateVariant: "shoptify",
+	shoptifySyncInventory: "shoptify",
+	shoptifySetCustomerFlags: "shoptify",
+	shoptifySetOrderExpenses: "shoptify",
+	shoptifyRecordPayout: "shoptify",
+	shoptifySaveRule: "shoptify",
+	shoptifyDeleteRule: "shoptify",
+	shoptifyExportOrders: "shoptify",
+	shoptifyExportProducts: "shoptify",
+
 	// Print / export — reports scoped to one module's data.
 	printTaskSlip: "tickets",
 	exportTasks: "tickets",

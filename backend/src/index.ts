@@ -35,6 +35,12 @@ import { closeDatabase, createDatabase, type DatabaseHandle } from "./db";
 import { pruneExpiredSessions } from "./db/maintenance";
 import { runMigrations } from "./db/migrate";
 import { exportArtifacts } from "./db/schema";
+import { createShoptifyRoutes } from "./domain/shoptify/oauth.routes";
+import { wireShoptifySubscriptions } from "./domain/shoptify/subscriptions";
+import {
+	createShoptifyEventBus,
+	type ShoptifyEventBus,
+} from "./domain/shoptify/webhooks";
 import { type ChangeBus, createChangeBus } from "./events/event-bus";
 import {
 	createEventStreamResponse,
@@ -74,6 +80,12 @@ export interface ServiceDependencies {
 	 * publications.
 	 */
 	events: ChangeBus;
+	/**
+	 * The Shopify module's typed webhook bus. One instance per service, shared
+	 * by the webhook receiver and the domains that subscribe; omitted builds a
+	 * local one (tests, unconfigured deployments).
+	 */
+	shoptifyEvents?: ShoptifyEventBus;
 	/**
 	 * Object storage for ticket attachments. Injected so tests can supply the
 	 * in-memory store; omitted means it is built from the configured storage.
@@ -344,6 +356,19 @@ export function createService(deps: ServiceDependencies) {
 				return response;
 			})
 			.all("/api/auth/*", ({ request }) => auth.handler(request))
+			// Shopify module raw HTTP surface: the webhook receiver and the
+			// OAuth callback. Both read the request themselves — the receiver
+			// needs the raw body (HMAC over unparsed bytes), so no framework
+			// body schema is declared for it. GraphQL stays the only other
+			// surface for this module. Registered after the lifecycle hooks
+			// above so they apply to these routes too.
+			.use(
+				createShoptifyRoutes({
+					db,
+					config,
+					events: deps.shoptifyEvents ?? createShoptifyEventBus(),
+				}),
+			)
 			.onError(sentryOnError)
 			.onAfterHandle(({ set }) => {
 				if (set.status === undefined) set.status = 200;
@@ -472,10 +497,14 @@ export async function bootstrap(): Promise<{
 	const db = createDatabase(config.databaseUrl);
 	const auth = createAuth(db, config, { logging });
 	const events = createChangeBus();
+	// Verified Shopify webhooks fan out to the commerce domains (ingest →
+	// customers → automation). One instance per service, like the change bus.
+	const shoptifyEvents = createShoptifyEventBus();
+	wireShoptifySubscriptions(shoptifyEvents, db, config);
 
 	return {
-		app: createService({ db, auth, config, events, logging }),
-		deps: { db, auth, config, events, logging },
+		app: createService({ db, auth, config, events, shoptifyEvents, logging }),
+		deps: { db, auth, config, events, shoptifyEvents, logging },
 	};
 }
 

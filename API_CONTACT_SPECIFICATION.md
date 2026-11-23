@@ -1,6 +1,6 @@
 # API_CONTACT_SPECIFICATION.md
 
-> GraphQL API contract for the MES prototype. This document defines the **interface** between clients and the system: the transport and JSON wire format, how sessions are established, how the two-layer authorization model is expressed, the GraphQL type system, and every query and mutation for the five apps (`Jobs`, `Planning`, `Performance`, `Settings & IAM`, `Audit Log`), the `Telegram` module (§6.6), plus shared/core concerns.
+> GraphQL API contract for the MES prototype. This document defines the **interface** between clients and the system: the transport and JSON wire format, how sessions are established, how the two-layer authorization model is expressed, the GraphQL type system, and every query and mutation for the five apps (`Jobs`, `Planning`, `Performance`, `Settings & IAM`, `Audit Log`), the `Telegram` module (§6.6), the Shopify Commerce app (`shoptify`, §6.7), plus shared/core concerns.
 
 This is a **contract specification**, not code. It contains GraphQL SDL and JSON examples only; it introduces no resolvers, schema file, SQL, or client codegen.
 
@@ -1667,6 +1667,355 @@ material. Link and
 remove write audit events attributed to the viewer under no module code (the
 registered module codes do not include this private surface), carrying the
 Telegram identity and never the session material.
+
+---
+
+### 6.7 Shopify Commerce (`shoptify` app)
+
+Multi-store operations: connect Shopify stores (OAuth or Custom App offline tokens), ingest orders/products through webhooks, fulfill orders in bulk, synchronize inventory across stores via `master_sku`, aggregate customers, track payouts and net profit, and run minimal v1 automation rules. Store access tokens exist encrypted at rest and never appear in any response.
+
+Money is carried as integer minor units in the row's currency (`100` = 1.00 unit); dates are `DateTime`.
+
+#### Types
+
+```graphql
+type ShoptifyStore {
+  id: ID!
+  name: String!
+  shopDomain: String!
+  currency: String!
+  scopes: [String!]
+  isActive: Boolean!
+  lastSyncAt: DateTime
+  createdAt: DateTime!
+  updatedAt: DateTime!
+}
+
+  updatedAt: DateTime!
+}
+
+type ShoptifyOrder {
+  id: ID!
+  storeId: ID!
+  storeName: String
+  shopifyOrderId: String!
+  orderNumber: String
+  customerEmail: String
+  customerPhone: String
+  shippingAddress: JSON
+  financialStatus: String
+  fulfillmentStatus: String
+  # Minor units in `currency`.
+  totalPrice: Int!
+  currency: String!
+  tags: [String!]
+  note: String
+  hasException: Boolean!
+  exceptionReason: ShoptifyExceptionReason
+  # `revenue - cogs - shipping - gateway_fee - ad_spend`, once recorded.
+  netProfit: Int
+  fulfillments: [ShoptifyFulfillment!]!
+  refunds: [ShoptifyRefund!]!
+  shopifyCreatedAt: DateTime
+  createdAt: DateTime!
+  updatedAt: DateTime!
+}
+
+type ShoptifyOrderConnection {
+  nodes: [ShoptifyOrder!]!
+  pageInfo: OffsetPageInfo!
+}
+
+type ShoptifyFulfillment {
+  id: ID!
+  orderId: ID!
+  shopifyFulfillmentId: String
+  trackingCompany: String
+  trackingNumber: String
+  trackingUrl: String
+  shipmentStatus: String
+  createdAt: DateTime!
+}
+
+type ShoptifyRefund {
+  id: ID!
+  orderId: ID!
+  shopifyRefundId: String!
+  # Minor units.
+  amount: Int!
+  currency: String!
+  reason: String
+  createdAt: DateTime!
+}
+
+type ShoptifyProduct {
+  id: ID!
+  storeId: ID!
+  shopifyProductId: String!
+  title: String!
+  status: String
+  variants: [ShoptifyVariant!]!
+  updatedAt: DateTime!
+}
+
+type ShoptifyVariant {
+  id: ID!
+  productId: ID!
+  storeId: ID!
+  storeName: String
+  shopifyVariantId: String!
+  sku: String
+  masterSku: String
+  price: Int
+  costOfGoods: Int
+  availableQuantity: Int!
+  minStockLevel: Int
+  isLowStock: Boolean!
+}
+
+type ShoptifyCustomer {
+  id: ID!
+  email: String
+  phone: String
+  totalOrdersCount: Int!
+  totalSpent: Int!
+  isBlacklisted: Boolean!
+  isHighRisk: Boolean!
+  notes: String
+}
+
+type ShoptifyPayout {
+  id: ID!
+  storeId: ID!
+  storeName: String
+  shopifyPayoutId: String!
+  # Minor units.
+  amount: Int!
+  currency: String!
+  status: ShoptifyPayoutStatus!
+  payoutDate: DateTime
+  createdAt: DateTime!
+}
+
+type ShoptifyAutomationRule {
+  id: ID!
+  name: String!
+  storeId: ID
+  storeName: String
+  triggerEvent: ShoptifyAutomationTrigger!
+  # Predicate list on the event row, e.g. [{"field":"total_price","operator":"gt","value":1000}].
+  conditions: JSON
+  # Action list; v1 supports flag_exception, annotate, notify.
+  actions: JSON
+  isActive: Boolean!
+  createdAt: DateTime!
+  updatedAt: DateTime!
+}
+
+type ShoptifyBulkFulfillResult {
+  succeeded: [ShoptifyFulfillment!]!
+  failed: [ShoptifyOperationError!]!
+}
+
+type ShoptifyOperationError {
+  orderId: ID
+  message: String!
+}
+
+type ShoptifyOAuthBegin {
+  redirectUrl: String!
+}
+
+input ShoptifyOrderFilter {
+  storeId: ID
+  financialStatus: String
+  fulfillmentStatus: String
+  hasException: Boolean
+  createdAfter: DateTime
+  createdBefore: DateTime
+  search: String
+}
+
+input ShoptifyProductFilter {
+  storeId: ID
+  masterSku: String
+  lowStockOnly: Boolean
+}
+
+input ShoptifyCustomerFilter {
+  isBlacklisted: Boolean
+  isHighRisk: Boolean
+  search: String
+}
+
+input ShoptifyConnectStoreInput {
+  shopDomain: String!
+  accessToken: String!
+}
+
+input ShoptifyOrderFlagsInput {
+  orderId: ID!
+  tags: [String!]
+  note: String
+  hasException: Boolean
+  exceptionReason: ShoptifyExceptionReason
+}
+
+input ShoptifyFulfillmentInput {
+  orderId: ID!
+  trackingCompany: String!
+  trackingNumber: String!
+  trackingUrl: String
+}
+
+input ShoptifyBulkFulfillInput {
+  items: [ShoptifyFulfillmentInput!]!
+}
+
+input ShoptifyInventoryUpdateInput {
+  variantId: ID!
+  availableQuantity: Int
+  price: Int
+  status: String
+}
+
+input ShoptifyCustomerFlagInput {
+  customerId: ID!
+  isBlacklisted: Boolean
+  isHighRisk: Boolean
+  notes: String
+}
+
+input ShoptifyOrderExpensesInput {
+  orderId: ID!
+  revenue: Int!
+  cogs: Int
+  shipping: Int
+  gatewayFee: Int
+  adSpend: Int
+}
+
+input ShoptifyPayoutInput {
+  storeId: ID!
+  shopifyPayoutId: String!
+  amount: Int!
+  currency: String!
+  status: ShoptifyPayoutStatus
+  payoutDate: DateTime
+}
+
+input ShoptifySaveRuleInput {
+  id: ID
+  name: String!
+  storeId: ID
+  triggerEvent: ShoptifyAutomationTrigger!
+  conditions: JSON
+  actions: JSON
+  isActive: Boolean
+}
+
+enum ShoptifyPayoutStatus {
+  SCHEDULED
+  IN_TRANSIT
+  PAID
+  FAILED
+}
+
+enum ShoptifyExceptionReason {
+  ADDRESS_INVALID
+  PAYMENT_HELD
+  OUT_OF_STOCK
+  FRAUD_RISK
+  CUSTOMER_EDIT
+  OTHER
+}
+
+enum ShoptifyAutomationTrigger {
+  ORDER_CREATED
+  ORDER_UPDATED
+  ORDER_EXCEPTION
+  STOCK_LOW
+  REFUND_CREATED
+  PAYOUT_FAILED
+}
+```
+
+#### Operations
+
+| Operation | Kind | Signature | Roles | Scope |
+| --- | --- | --- | --- | --- |
+| `shoptifyStores` | query | `: [ShoptifyStore!]!` | SA, TL | `ALL` |
+| `shoptifyOrders` | query | `(filter: ShoptifyOrderFilter, offset: Int = 0, limit: Int = 20): ShoptifyOrderConnection!` | SA, TL | `ALL` |
+| `shoptifyOrder` | query | `(id: ID!): ShoptifyOrder` | SA, TL | `ALL` |
+| `shoptifyProducts` | query | `(filter: ShoptifyProductFilter, offset: Int = 0, limit: Int = 20): ShoptifyProductConnection!` | SA, TL | `ALL` |
+| `shoptifyCustomers` | query | `(filter: ShoptifyCustomerFilter, offset: Int = 0, limit: Int = 20): ShoptifyCustomerConnection!` | SA, TL | `ALL` |
+| `shoptifyPayouts` | query | `(storeId: ID, offset: Int = 0, limit: Int = 20): ShoptifyPayoutConnection!` | SA, TL | `ALL` |
+| `shoptifyAutomationRules` | query | `(storeId: ID): [ShoptifyAutomationRule!]!` | SA, TL | `ALL` |
+| `shoptifyBeginOAuth` | mutation | `(shopDomain: String!): ShoptifyOAuthBegin!` | SA, TL | `ALL` |
+| `shoptifyConnectStore` | mutation | `(input: ShoptifyConnectStoreInput!): ShoptifyStore!` | SA, TL | `ALL` |
+| `shoptifyDeactivateStore` | mutation | `(storeId: ID!): ShoptifyStore!` | SA, TL | `ALL` |
+| `shoptifyUpdateOrderFlags` | mutation | `(input: ShoptifyOrderFlagsInput!): ShoptifyOrder!` | SA, TL | `ALL` |
+| `shoptifyBulkFulfill` | mutation | `(input: ShoptifyBulkFulfillInput!): ShoptifyBulkFulfillResult!` | SA, TL | `ALL` |
+| `shoptifyUpdateVariant` | mutation | `(input: ShoptifyInventoryUpdateInput!): ShoptifyVariant!` | SA, TL | `ALL` |
+| `shoptifySyncInventory` | mutation | `(variantId: ID!): ShoptifyVariant!` | SA, TL | `ALL` |
+| `shoptifySetCustomerFlags` | mutation | `(input: ShoptifyCustomerFlagInput!): ShoptifyCustomer!` | SA, TL | `ALL` |
+| `shoptifySetOrderExpenses` | mutation | `(input: ShoptifyOrderExpensesInput!): ShoptifyOrder!` | SA, TL | `ALL` |
+| `shoptifyRecordPayout` | mutation | `(input: ShoptifyPayoutInput!): ShoptifyPayout!` | SA, TL | `ALL` |
+| `shoptifySaveRule` | mutation | `(input: ShoptifySaveRuleInput!): ShoptifyAutomationRule!` | SA, TL | `ALL` |
+| `shoptifyDeleteRule` | mutation | `(ruleId: ID!): Boolean!` | SA, TL | `ALL` |
+| `shoptifyExportOrders` | mutation | `(filter: ShoptifyOrderFilter, format: ExportFormat = XLSX): ExportResult!` | SA, TL | `ALL` |
+| `shoptifyExportProducts` | mutation | `(filter: ShoptifyProductFilter, format: ExportFormat = XLSX): ExportResult!` | SA, TL | `ALL` |
+
+```graphql
+type ShoptifyProductConnection {
+  nodes: [ShoptifyProduct!]!
+  pageInfo: OffsetPageInfo!
+}
+
+type ShoptifyCustomerConnection {
+  nodes: [ShoptifyCustomer!]!
+  pageInfo: OffsetPageInfo!
+}
+
+type ShoptifyPayoutConnection {
+  nodes: [ShoptifyPayout!]!
+  pageInfo: OffsetPageInfo!
+}
+
+extend type Query {
+  shoptifyStores: [ShoptifyStore!]!
+  shoptifyOrders(filter: ShoptifyOrderFilter, offset: Int = 0, limit: Int = 20): ShoptifyOrderConnection!
+  shoptifyOrder(id: ID!): ShoptifyOrder
+  shoptifyProducts(filter: ShoptifyProductFilter, offset: Int = 0, limit: Int = 20): ShoptifyProductConnection!
+  shoptifyCustomers(filter: ShoptifyCustomerFilter, offset: Int = 0, limit: Int = 20): ShoptifyCustomerConnection!
+  shoptifyPayouts(storeId: ID, offset: Int = 0, limit: Int = 20): ShoptifyPayoutConnection!
+  shoptifyAutomationRules(storeId: ID): [ShoptifyAutomationRule!]!
+}
+
+extend type Mutation {
+  shoptifyBeginOAuth(shopDomain: String!): ShoptifyOAuthBegin!
+  shoptifyConnectStore(input: ShoptifyConnectStoreInput!): ShoptifyStore!
+  shoptifyDeactivateStore(storeId: ID!): ShoptifyStore!
+  shoptifyUpdateOrderFlags(input: ShoptifyOrderFlagsInput!): ShoptifyOrder!
+  shoptifyBulkFulfill(input: ShoptifyBulkFulfillInput!): ShoptifyBulkFulfillResult!
+  shoptifyUpdateVariant(input: ShoptifyInventoryUpdateInput!): ShoptifyVariant!
+  shoptifySyncInventory(variantId: ID!): ShoptifyVariant!
+  shoptifySetCustomerFlags(input: ShoptifyCustomerFlagInput!): ShoptifyCustomer!
+  shoptifySetOrderExpenses(input: ShoptifyOrderExpensesInput!): ShoptifyOrder!
+  shoptifyRecordPayout(input: ShoptifyPayoutInput!): ShoptifyPayout!
+  shoptifySaveRule(input: ShoptifySaveRuleInput!): ShoptifyAutomationRule!
+  shoptifyDeleteRule(ruleId: ID!): Boolean!
+  shoptifyExportOrders(filter: ShoptifyOrderFilter, format: ExportFormat = XLSX): ExportResult!
+  shoptifyExportProducts(filter: ShoptifyProductFilter, format: ExportFormat = XLSX): ExportResult!
+}
+```
+
+Raw HTTP surface (the module's only non-GraphQL routes, alongside Better Auth and the platform's existing file/export routes):
+
+- `GET /api/v1/shoptify/oauth/callback` — completes the OAuth handshake: verifies the `state` nonce, exchanges the authorization code, stores the encrypted token, and registers webhook topics; redirects back to the app on success or failure.
+- `POST /api/v1/shoptify/webhooks` — webhook receiver: validates `X-Shopify-Hmac-Sha256` over the raw body against the store's secret, acknowledges within 500 ms, and processes the payload off the request path; invalid signatures are rejected before any data change.
+
+Access rules: the app is hidden from HR Manager, Department Head, and Employee; the seeded matrix grants commerce access to Super Admin and Manager/Tech Lead. Access is permission-matrix data, so widening it happens in Settings without a deployment. Ingestion happens through webhooks (HMAC-verified) rather than polling, and a store deactivated either from the dashboard or by Shopify's `app/uninstalled` webhook stops serving data while keeping its history.
 
 ---
 

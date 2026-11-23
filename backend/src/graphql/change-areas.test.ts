@@ -146,6 +146,7 @@ describe("mapping table coverage", () => {
 			"performance",
 			"users",
 			"audit",
+			"shoptify",
 			null,
 		];
 		const invalid = Object.entries(MUTATION_AREAS)

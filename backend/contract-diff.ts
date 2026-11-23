@@ -241,6 +241,170 @@ for (const operation of PERFORMANCE_EXPORT_MUTATIONS) {
 	}
 }
 
+/* ── Shopify commerce (§6.7) ────────────────────────────────────────── */
+
+const SHOPTIFY_QUERIES = [
+	"shoptifyStores",
+	"shoptifyOrders",
+	"shoptifyOrder",
+	"shoptifyProducts",
+	"shoptifyCustomers",
+	"shoptifyPayouts",
+	"shoptifyAutomationRules",
+] as const;
+
+const SHOPTIFY_MUTATIONS = [
+	"shoptifyBeginOAuth",
+	"shoptifyConnectStore",
+	"shoptifyDeactivateStore",
+	"shoptifyUpdateOrderFlags",
+	"shoptifyBulkFulfill",
+	"shoptifyUpdateVariant",
+	"shoptifySyncInventory",
+	"shoptifySetCustomerFlags",
+	"shoptifySetOrderExpenses",
+	"shoptifyRecordPayout",
+	"shoptifySaveRule",
+	"shoptifyDeleteRule",
+	"shoptifyExportOrders",
+	"shoptifyExportProducts",
+] as const;
+
+const SHOPTIFY_TYPES = [
+	"ShoptifyStore",
+	"ShoptifyOrder",
+	"ShoptifyOrderConnection",
+	"ShoptifyFulfillment",
+	"ShoptifyRefund",
+	"ShoptifyProduct",
+	"ShoptifyVariant",
+	"ShoptifyCustomer",
+	"ShoptifyPayout",
+	"ShoptifyAutomationRule",
+	"ShoptifyBulkFulfillResult",
+	"ShoptifyOperationError",
+	"ShoptifyOAuthBegin",
+	"ShoptifyProductConnection",
+	"ShoptifyCustomerConnection",
+	"ShoptifyPayoutConnection",
+] as const;
+
+const SHOPTIFY_INPUTS = [
+	"ShoptifyOrderFilter",
+	"ShoptifyProductFilter",
+	"ShoptifyCustomerFilter",
+	"ShoptifyConnectStoreInput",
+	"ShoptifyOrderFlagsInput",
+	"ShoptifyFulfillmentInput",
+	"ShoptifyBulkFulfillInput",
+	"ShoptifyInventoryUpdateInput",
+	"ShoptifyCustomerFlagInput",
+	"ShoptifyOrderExpensesInput",
+	"ShoptifyPayoutInput",
+	"ShoptifySaveRuleInput",
+] as const;
+
+const SHOPTIFY_ENUMS = [
+	"ShoptifyPayoutStatus",
+	"ShoptifyExceptionReason",
+	"ShoptifyAutomationTrigger",
+] as const;
+
+const shoptifySection = sectionBody(spec, "### 6.7 Shopify Commerce");
+
+for (const operation of [...SHOPTIFY_QUERIES, ...SHOPTIFY_MUTATIONS]) {
+	// Presence: field form in the extend-blocks, call form wherever it has
+	// arguments (zero-arg operations never have a `(`).
+	if (!shoptifySection.includes(`  ${operation}`)) {
+		failures.push(`§6.7 does not document the ${operation} operation`);
+	}
+	if (
+		!typeDefs.includes(`${operation}(`) &&
+		!typeDefs.includes(`${operation}:`)
+	) {
+		failures.push(`the schema does not implement ${operation}`);
+	}
+}
+
+for (const [names, keyword] of [
+	[SHOPTIFY_TYPES, "type"],
+	[SHOPTIFY_INPUTS, "input"],
+] as const) {
+	for (const name of names) {
+		const documented = sdlOf(shoptifySection, name, keyword);
+		const implemented = sdlOf(typeDefs, name, keyword);
+		const missing = documented.filter((field) => !implemented.includes(field));
+		if (missing.length > 0) {
+			failures.push(
+				`${name}: implemented SDL is missing ${missing.join(", ")}`,
+			);
+		}
+		const extra = implemented.filter((field) => !documented.includes(field));
+		if (extra.length > 0) {
+			failures.push(`${name}: §6.7 does not document ${extra.join(", ")}`);
+		}
+	}
+}
+
+for (const name of SHOPTIFY_ENUMS) {
+	const documented = blockOf(shoptifySection, `enum ${name} {`);
+	const implemented = blockOf(typeDefs, `enum ${name} {`);
+	const documentedValues = documented
+		.split("\n")
+		.map((line) => line.trim())
+		.filter((line) => line.length > 0);
+	const implementedValues = implemented
+		.split("\n")
+		.map((line) => line.trim())
+		.filter((line) => line.length > 0);
+	if (documentedValues.join(",") !== implementedValues.join(",")) {
+		failures.push(
+			`${name}: §6.7 documents ${documentedValues.join(",")} but the schema implements ${implementedValues.join(",")}`,
+		);
+	}
+}
+
+// Signatures, not just presence: the query and mutation blocks must match.
+const documentedShoptifyQueries = blockOf(shoptifySection, "type Query {");
+const implementedShoptifyQueries = blockOf(typeDefs, "type Query {");
+for (const operation of SHOPTIFY_QUERIES) {
+	const documented = signatureOf(documentedShoptifyQueries, operation);
+	const implemented = signatureOf(implementedShoptifyQueries, operation);
+	if (!documented) {
+		failures.push(`§6.7 does not document the ${operation} query`);
+		continue;
+	}
+	if (!implemented) {
+		failures.push(`the schema does not implement the ${operation} query`);
+		continue;
+	}
+	if (documented !== implemented) {
+		failures.push(
+			`${operation}: §6.7 documents ${documented} but the schema implements ${implemented}`,
+		);
+	}
+}
+
+const documentedShoptifyMutations = blockOf(shoptifySection, "type Mutation {");
+const implementedShoptifyMutations = blockOf(typeDefs, "type Mutation {");
+for (const operation of SHOPTIFY_MUTATIONS) {
+	const documented = signatureOf(documentedShoptifyMutations, operation);
+	const implemented = signatureOf(implementedShoptifyMutations, operation);
+	if (!documented) {
+		failures.push(`§6.7 does not document the ${operation} mutation`);
+		continue;
+	}
+	if (!implemented) {
+		failures.push(`the schema does not implement the ${operation} mutation`);
+		continue;
+	}
+	if (documented !== implemented) {
+		failures.push(
+			`${operation}: §6.7 documents ${documented} but the schema implements ${implemented}`,
+		);
+	}
+}
+
 if (failures.length > 0) {
 	console.error("Contract parity failed:");
 	for (const failure of failures) console.error(` - ${failure}`);
@@ -251,6 +415,8 @@ console.log(
 	`Contract parity holds for ${DOCUMENTED_MUTATIONS.length} Jobs mutations, ` +
 		`${NEW_TYPES.length} completion-request types and 2 Task fields, ` +
 		`${PERFORMANCE_QUERIES.length} Performance queries, ` +
-		`${PERFORMANCE_EXPORT_MUTATIONS.length} Performance exports, and ` +
-		`${PERFORMANCE_TYPES.length + PERFORMANCE_INPUTS.length} Performance types and inputs.`,
+		`${PERFORMANCE_EXPORT_MUTATIONS.length} Performance exports, ` +
+		`${PERFORMANCE_TYPES.length + PERFORMANCE_INPUTS.length} Performance types and inputs, and ` +
+		`${SHOPTIFY_QUERIES.length + SHOPTIFY_MUTATIONS.length} Shopify operations ` +
+		`with ${SHOPTIFY_TYPES.length + SHOPTIFY_INPUTS.length} types and inputs.`,
 );

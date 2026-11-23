@@ -53,6 +53,13 @@ const DOCUMENTED_QUERIES = [
 	"notifications",
 	"auditLogs",
 	"moduleActivity",
+	"shoptifyStores",
+	"shoptifyOrders",
+	"shoptifyOrder",
+	"shoptifyProducts",
+	"shoptifyCustomers",
+	"shoptifyPayouts",
+	"shoptifyAutomationRules",
 ] as const;
 
 const DOCUMENTED_MUTATIONS = [
@@ -109,6 +116,20 @@ const DOCUMENTED_MUTATIONS = [
 	"exportAuditWorkbook",
 	"exportSchedule",
 	"taskImportTemplate",
+	"shoptifyBeginOAuth",
+	"shoptifyConnectStore",
+	"shoptifyDeactivateStore",
+	"shoptifyUpdateOrderFlags",
+	"shoptifyBulkFulfill",
+	"shoptifyUpdateVariant",
+	"shoptifySyncInventory",
+	"shoptifySetCustomerFlags",
+	"shoptifySetOrderExpenses",
+	"shoptifyRecordPayout",
+	"shoptifySaveRule",
+	"shoptifyDeleteRule",
+	"shoptifyExportOrders",
+	"shoptifyExportProducts",
 ] as const;
 
 function enumValues(name: string): string[] {

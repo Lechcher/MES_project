@@ -17,7 +17,8 @@ export type ChangeArea =
 	| "leave"
 	| "performance"
 	| "users"
-	| "audit";
+	| "audit"
+	| "shoptify";
 
 export type ChangeListener = (area: ChangeArea) => void;
 

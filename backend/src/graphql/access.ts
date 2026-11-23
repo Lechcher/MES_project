@@ -177,6 +177,31 @@ export const OPERATIONS = {
 	moduleActivity: { roles: TECHNICAL, scope: TECHNICAL_SCOPE },
 	exportAuditLogs: { roles: TECHNICAL, scope: TECHNICAL_SCOPE },
 
+	// Shopify commerce — store operations touch credentials and money, so the
+	// seeded matrix grants the technical roles; the matrix is data, so this
+	// list widens through Settings without a code change.
+	shoptifyStores: { roles: TECHNICAL, scope: TECHNICAL_SCOPE },
+	shoptifyOrders: { roles: TECHNICAL, scope: TECHNICAL_SCOPE },
+	shoptifyOrder: { roles: TECHNICAL, scope: TECHNICAL_SCOPE },
+	shoptifyProducts: { roles: TECHNICAL, scope: TECHNICAL_SCOPE },
+	shoptifyCustomers: { roles: TECHNICAL, scope: TECHNICAL_SCOPE },
+	shoptifyPayouts: { roles: TECHNICAL, scope: TECHNICAL_SCOPE },
+	shoptifyAutomationRules: { roles: TECHNICAL, scope: TECHNICAL_SCOPE },
+	shoptifyBeginOAuth: { roles: TECHNICAL, scope: TECHNICAL_SCOPE },
+	shoptifyConnectStore: { roles: TECHNICAL, scope: TECHNICAL_SCOPE },
+	shoptifyDeactivateStore: { roles: TECHNICAL, scope: TECHNICAL_SCOPE },
+	shoptifyUpdateOrderFlags: { roles: TECHNICAL, scope: TECHNICAL_SCOPE },
+	shoptifyBulkFulfill: { roles: TECHNICAL, scope: TECHNICAL_SCOPE },
+	shoptifyUpdateVariant: { roles: TECHNICAL, scope: TECHNICAL_SCOPE },
+	shoptifySyncInventory: { roles: TECHNICAL, scope: TECHNICAL_SCOPE },
+	shoptifySetCustomerFlags: { roles: TECHNICAL, scope: TECHNICAL_SCOPE },
+	shoptifySetOrderExpenses: { roles: TECHNICAL, scope: TECHNICAL_SCOPE },
+	shoptifyRecordPayout: { roles: TECHNICAL, scope: TECHNICAL_SCOPE },
+	shoptifySaveRule: { roles: TECHNICAL, scope: TECHNICAL_SCOPE },
+	shoptifyDeleteRule: { roles: TECHNICAL, scope: TECHNICAL_SCOPE },
+	shoptifyExportOrders: { roles: TECHNICAL, scope: TECHNICAL_SCOPE },
+	shoptifyExportProducts: { roles: TECHNICAL, scope: TECHNICAL_SCOPE },
+
 	// Print / export
 	printTaskSlip: { roles: ALL_ROLES, scope: APP_SCOPE },
 	exportTasks: { roles: ALL_ROLES, scope: APP_SCOPE },

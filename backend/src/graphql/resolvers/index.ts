@@ -14,6 +14,7 @@ import { performanceMutation, performanceQuery } from "./performance";
 import { planningMutation, planningQuery } from "./planning";
 import { reportsMutation } from "./reports";
 import { settingsMutation, settingsQuery } from "./settings";
+import { shoptifyMutation, shoptifyQuery } from "./shoptify";
 import {
 	telegramAccountsMutation,
 	telegramAccountsQuery,
@@ -43,6 +44,7 @@ export const queryResolvers: Record<string, Resolver> = {
 	...performanceQuery,
 	...settingsQuery,
 	...auditLogQuery,
+	...shoptifyQuery,
 	...telegramAccountsQuery,
 };
 
@@ -55,5 +57,6 @@ export const mutationResolvers: Record<string, Resolver> = {
 	...settingsMutation,
 	...auditLogMutation,
 	...reportsMutation,
+	...shoptifyMutation,
 	...telegramAccountsMutation,
 };
