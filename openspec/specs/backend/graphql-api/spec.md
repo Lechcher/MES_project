@@ -107,11 +107,15 @@ The Performance operations SHALL take a period selection expressed as a list of 
 - **THEN** the operation fails with a validation error and returns no data
 
 ### Requirement: List pagination and filtering
-The system SHALL return list results as `nodes` and `pageInfo` connections with offset, limit, total count, and next-page state, and SHALL apply supplied filter fields together.
+The system SHALL return list results as `nodes` and `pageInfo` connections with offset, limit, total count, and next-page state, SHALL apply supplied filter fields together, and SHALL bound every list read: a default page size applies when no limit is supplied and a maximum page size caps any client-requested limit rather than returning an unbounded row set.
 
 #### Scenario: Paginate a task list
-- **WHEN** a client requests a task page with an offset and limit
-- **THEN** the response contains that page and accurate `totalCount` and `hasNextPage` values
+- **WHEN** a paginated list query runs with an offset and limit
+- **THEN** the response carries the requested page of `nodes`, the total count, and the next-page state
+
+#### Scenario: Unbounded limit is capped
+- **WHEN** a list query requests no limit, or a limit above the maximum
+- **THEN** the read uses the default or the maximum page size rather than returning every matching row in one response
 
 ### Requirement: Stable API errors
 The system SHALL return stable machine-readable error codes for authentication, authorization, missing or out-of-scope resources, validation, conflicts, invalid state transitions, business-rule violations, rate limits, and unexpected failures.
@@ -160,3 +164,55 @@ The documented Jobs contract SHALL describe multi-day progress as derived from t
 #### Scenario: Full job approval completes any ticket
 - **WHEN** an approver approves a `FULL_JOB` request for a ticket below 100% progress
 - **THEN** the returned ticket is `APP`
+
+### Requirement: Bounded and batched query execution
+The system SHALL resolve an object's nested relation collections with a bounded number of queries per response rather than one query per parent row, and SHALL NOT re-query data already loaded for the same request. A list page that includes nested collections SHALL issue a query count that stays proportional to the number of relations on the page, not to the product of rows and relations.
+
+#### Scenario: A task page loads its collections once per relation
+- **WHEN** a paginated task list is read with its progress logs, state transitions, requests, completion journey and attachments
+- **THEN** each relation is loaded for the whole page in a bounded batch (for example one `IN (…)` query per relation) instead of one query per task, so the query count does not multiply by the page size
+
+#### Scenario: Redundant selects are removed
+- **WHEN** a task's derived badges are read
+- **THEN** the resolver reuses the task row and request data already loaded for the request rather than issuing a fresh task select and a fresh request select
+
+#### Scenario: Performance reads stay cheap
+- **WHEN** a personal KPI dashboard or monthly summary set is read for the selected months
+- **THEN** the read does not recompute or re-query the same derived rows more than once per request, and repeated derivations reuse the per-request cache
+
+### Requirement: Schedule read operation
+The API SHALL expose `scheduledTasks(input: { departmentId, fromDate, toDate, state })` returning, in the caller's scope, every non-deleted task whose start-to-end interval overlaps the range, with its assignee and department.
+
+#### Scenario: Overlapping tasks returned
+- **WHEN** a task runs 30 Oct to 3 Nov and the range is 1 to 7 Nov
+- **THEN** the task is returned
+
+#### Scenario: Deleted tasks excluded
+- **WHEN** a task was deleted
+- **THEN** `scheduledTasks` does not return it
+
+### Requirement: Edit, delete, and duplicate tasks
+The API SHALL expose `updateTask` (title, description, taskType, priority, assignee, department, start, end, isUrgentHourly), `deleteTask` (soft delete), and `duplicateTask` (new `REQ` copy, optional new assignee and start). Each SHALL record a state transition or audit event and publish a `tickets` live change.
+
+#### Scenario: Update dates
+- **WHEN** an authorized caller updates a task's start and end
+- **THEN** the task returns with the new dates and other fields unchanged
+
+#### Scenario: End before start rejected
+- **WHEN** `updateTask` receives an end earlier than the start
+- **THEN** the API returns a `BAD_USER_INPUT` error and the task is unchanged
+
+#### Scenario: Duplicate
+- **WHEN** an authorized caller duplicates a task
+- **THEN** a new task with a new `taskCode`, state `REQ`, and 0% progress is returned
+
+### Requirement: Task import operations
+The API SHALL expose `previewTaskImport(file)` that parses CSV or XLSX and returns each row with its parsed values and validation errors without writing, and `commitTaskImport(file)` that creates all rows in one transaction only if every row is valid.
+
+#### Scenario: Invalid row blocks commit
+- **WHEN** `commitTaskImport` receives a file with one invalid row
+- **THEN** no task is created and the API returns `BAD_USER_INPUT` with the row errors
+
+#### Scenario: Unsupported file
+- **WHEN** a file that is neither CSV nor XLSX is uploaded
+- **THEN** the API returns `BAD_USER_INPUT`

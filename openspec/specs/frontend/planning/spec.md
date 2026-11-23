@@ -6,33 +6,6 @@ The Planning & Attendance app screens: the role-scoped matrix work calendar with
 
 ## Requirements
 
-### Requirement: Matrix calendar scope follows the role matrix
-The matrix calendar SHALL scope by role: `EMPLOYEE` sees a personal calendar; `DEPT_HEAD` sees their department's calendar; `HR_MANAGER`, `TECH_LEAD`, and `SUPER_ADMIN` see the company-wide calendar with a department filter. Rows SHALL be employees (grouped by department/division) and columns the days of the selected month.
-
-#### Scenario: Personal calendar
-- **WHEN** an `EMPLOYEE` opens the matrix calendar
-- **THEN** the only row is that employee
-
-#### Scenario: Company-wide with department filter
-- **WHEN** an `HR_MANAGER` opens the matrix calendar and filters to one department
-- **THEN** only that department's employees are shown as rows
-
-### Requirement: Calendar renders ticket bars and day badges
-The calendar SHALL render tickets as Gantt-like bars carrying the actual progress percentage and the state's English name (`Requested`, `Active`, `Pending`, `Approved`, `Rejected`, `Cancelled`, `Overdue`). Day cells SHALL display the official leave badge for approved leave under its documented name (Annual Leave, Sick Leave, Personal Leave, …) and SHALL be tagged with the penalty leave's name (Unapproved / Unpaid Annual Leave, Unexcused / Unpaid Sick Leave) for rejected or unauthorized absence, plus late and early-leave marks.
-
-#### Scenario: Approved leave badge
-- **WHEN** a day cell falls within an approved `AL` leave request
-- **THEN** the cell shows the "Annual Leave" badge
-
-#### Scenario: Penalty tag
-- **WHEN** a day cell falls within unauthorized absence
-- **THEN** the cell is tagged "Unexcused / Unpaid Sick Leave" or "Unapproved /
-  Unpaid Annual Leave"
-
-#### Scenario: Ticket bar
-- **WHEN** an `ACT` task spans the visible days at 60% progress
-- **THEN** its bar shows "Active" and 60%
-
 ### Requirement: Create Leave Request form
 Every role SHALL be able to register a leave request selecting a leave code (`AL`, `SL`, `PL`, `ML`, `CL`, `EL`, `LWP`, `TOIL`, `VTO`), start and end dates, total days, reason, attachment, and handover person. Submitted requests SHALL start `PENDING`.
 
@@ -153,3 +126,10 @@ selected bounds.
 #### Scenario: In-between days show a band in the light theme
 - **WHEN** the same range is shown and the app renders in the light theme
 - **THEN** the in-between days show a band distinct from the calendar's background, preserving the light theme's existing appearance
+
+### Requirement: Planning opens on the Schedule
+The Planning app's first tab SHALL be the Schedule (see `frontend/schedule`) and SHALL replace the matrix calendar.
+
+#### Scenario: Schedule tab
+- **WHEN** any role opens the Planning app
+- **THEN** the first tab is Schedule and shows the Week scale

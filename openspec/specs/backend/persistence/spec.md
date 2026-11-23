@@ -76,7 +76,8 @@ The system SHALL provide deterministic local development and test data covering 
 - **THEN** system audit events exist covering more than one module and resource type
 
 ### Requirement: Consistent migration set
-The system SHALL apply its SQLite schema through a versioned migration set whose journal and files agree: every journal entry names an existing migration file, every migration file is named by exactly one journal entry, entry tags are unique, and journal timestamps strictly increase in entry order. Applying the set to a database that has already applied it SHALL execute no statement and SHALL NOT fail.
+
+The system SHALL apply its PostgreSQL schema through a versioned migration set whose journal and files agree: every journal entry names an existing migration file, every migration file is named by exactly one journal entry, entry tags are unique, and journal timestamps strictly increase in entry order. Applying the set to a database that has already applied it SHALL execute no statement and SHALL NOT fail.
 
 #### Scenario: Fresh database receives the whole set
 - **WHEN** migrations are applied to a database with no recorded migrations
@@ -179,3 +180,46 @@ The system SHALL never lower a ticket's recorded progress percentage, whether pr
 #### Scenario: Recompute cannot regress
 - **WHEN** an approved milestone computes a percentage below the ticket's current one
 - **THEN** the ticket keeps its current percentage
+
+### Requirement: PostgreSQL persistence engine
+
+The system SHALL persist its records to a PostgreSQL database reached through a connection URL supplied as configuration, replacing the SQLite database file path. Record durability and the atomicity of state-changing operations SHALL be unchanged by the engine switch.
+
+#### Scenario: Configured connection is used
+- **WHEN** the service starts with a PostgreSQL connection URL
+- **THEN** it applies its migration set and serves every read and write against that database
+
+#### Scenario: Records survive restart
+- **WHEN** a record is committed and the service restarts
+- **THEN** the record is still available afterward
+
+#### Scenario: Missing or malformed connection is rejected at startup
+- **WHEN** the service starts without a usable connection URL
+- **THEN** it exits with an actionable message naming the missing configuration before serving any request
+
+### Requirement: Referential integrity is enforced by the database
+
+Foreign keys, uniqueness, and value constraints SHALL be enforced by the PostgreSQL database itself rather than only by application validation, so a rejected write is a constraint violation that commits no partial record and that the application maps to its domain error.
+
+#### Scenario: A cascading delete removes dependent records
+- **WHEN** a parent record is deleted and its dependents declare a cascade
+- **THEN** the dependent records are removed in the same change
+
+#### Scenario: An invalid stored value is rejected
+- **WHEN** a write carries a value outside a declared constraint
+- **THEN** the database rejects the write and no partial record is committed
+
+### Requirement: Bounded storage growth and index-backed reads
+The system SHALL prevent unbounded growth in high-churn tables — including authentication sessions — so per-request reads over them stay fast as the application runs, and SHALL keep the indexes that its hot read paths depend on in place and effective. A hot read path's query plan SHALL use an appropriate index rather than a full table scan, verified through the database's own query-plan tooling rather than assumed.
+
+#### Scenario: Expired sessions are pruned
+- **WHEN** the maintenance/pruning path runs
+- **THEN** expired or superseded session rows are removed so the session table does not grow without bound across sign-ins, while active sessions are retained
+
+#### Scenario: Hot reads use their indexes
+- **WHEN** a hot read path (for example task lists by assignee, attendance by user and date, KPI events by user and period, session lookup by token) is run through the database's query-plan tooling
+- **THEN** the plan shows an index seek or range scan on the relevant index rather than a full table scan of the table
+
+#### Scenario: Loss of an index is a regression
+- **WHEN** an index that a hot read path relies on is missing or unused (a scan appears where a seek is expected)
+- **THEN** the query-cost guard reports it so the index or the query is corrected before the change is archived
