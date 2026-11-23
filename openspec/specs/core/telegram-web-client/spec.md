@@ -25,16 +25,33 @@ Telegram accounts, scoped by the viewer's authenticated session.
 ### Requirement: Link a Telegram account inside the embedded client
 
 A signed-in viewer SHALL be able to link a Telegram account they control
-through the embedded Telegram Web client's own login — phone number plus
-OTP, 2FA cloud password when the account has one, or QR-code login. On a
-completed login the module SHALL record the account against the viewer, keep
-exactly one record per viewer and Telegram identity (a re-link refreshes it),
-and capture that account's session material for backup. An abandoned login
-SHALL leave no record.
+through the embedded Telegram Web client's own login — phone number plus OTP,
+2FA cloud password when the account has one, or QR-code login. On a completed
+login the module SHALL record the account against the viewer, keep exactly one
+record per viewer and Telegram identity (a re-link refreshes it), and capture
+that account's session material for backup. An abandoned login SHALL leave no
+record.
+
+A viewer with no linked account SHALL reach the client's own login on opening
+the module: the module mounts the embedded client at a linking slot by itself,
+with no module-owned button or wizard in the way. A viewer with linked
+accounts SHALL see them restored, exactly as before.
 
 #### Scenario: Link with phone and OTP
 - **WHEN** a signed-in viewer completes the embedded client's phone + OTP (and 2FA when required) flow for a Telegram account they control
 - **THEN** the viewer's linked-account list gains that account with its profile information, and it survives a page reload
+
+#### Scenario: A fresh viewer's module opens the client's login on open
+- **WHEN** a signed-in viewer with no linked account opens the Telegram module
+- **THEN** the embedded client is mounted at a linking slot and its own login screen is offered immediately, without any click on a module-owned affordance
+
+#### Scenario: No module-owned linking affordance
+- **WHEN** a signed-in viewer with no linked account looks at the Telegram module
+- **THEN** the module offers no button, wizard, or form of its own for linking an account — the client's own login is the only linking surface
+
+#### Scenario: Session material written before the module session is not absorbed
+- **WHEN** a viewer opens the module in a browser whose storage still holds another viewer's account session material (a shared browser, or the same viewer after a sign-out)
+- **THEN** that pre-existing material is not recorded against the signed-in viewer; only sessions the embedded client writes or rotates while the module is open are captured
 
 #### Scenario: Re-linking updates in place
 - **WHEN** a viewer re-links a Telegram account already present in their list
@@ -70,10 +87,18 @@ configuration; the key SHALL NOT be hardcoded from a shared public source.
 
 When a signed-in viewer opens the module, every linked account's session
 SHALL be restored from the backend without asking for credentials again —
-no phone number, OTP, or 2FA prompt — and each restore SHALL affect only its
-own account. The restores SHALL run together before the client mounts, so
-the client's own account switcher can move between accounts with no login
+no phone number, OTP, or 2FA prompt — and each restore SHALL affect only
+its own account. The restores SHALL run together before the client mounts,
+so the client's own account switcher can move between accounts with no login
 step.
+
+An account whose session no longer restores SHALL be reported as needing a
+re-link whenever the viewer has one, whether or not other accounts still
+connect: the module opens such an account, mounting the embedded client at a
+linking slot with its own login screen on show, and shows the re-link
+affordance for it. Completing that login SHALL refresh the same account
+record in place — one record per viewer and Telegram identity, the stable
+slot kept — after which the account restores like any other.
 
 #### Scenario: All accounts reconnect without re-authentication
 - **WHEN** a viewer with several linked Telegram accounts opens the module after signing in to MES, on the same or a different browser or device
@@ -82,6 +107,14 @@ step.
 #### Scenario: One dead account does not block the others
 - **WHEN** one linked account's session is no longer valid while the others are
 - **THEN** the valid accounts connect and the invalid one is reported as disconnected with a re-link affordance, while the other accounts remain connected and usable
+
+#### Scenario: A viewer whose only account no longer restores is offered its re-link
+- **WHEN** a signed-in viewer opens the module and none of their linked accounts restores (their only account's session is gone, or every account's is)
+- **THEN** the module opens the first such account — the embedded client is mounted at a linking slot with its own login screen — and the re-link affordance is shown, rather than an empty module with no affordance and no client
+
+#### Scenario: Re-linking the dead account refreshes it in place
+- **WHEN** the viewer completes the embedded client's own login for an account that no longer restored
+- **THEN** the viewer still has exactly one record for that Telegram identity, restored and usable like any other linked account, with the account it already had keeping its stable slot
 
 ### Requirement: Give every linked account a stable slot
 
@@ -134,3 +167,30 @@ any later app load.
 #### Scenario: Remove one account
 - **WHEN** a linked Telegram account is removed for the viewer
 - **THEN** its record and session material are deleted, its slot's data is cleared from the browser, and the remaining accounts keep working — including on every later app load
+
+### Requirement: Follow the MES light/dark theme
+The embedded Telegram Web client SHALL render in the MES resolved theme — light or
+dark, including the theme the viewer's `system` mode resolves to. The theme SHALL be
+applied before the client's first paint, and every later MES theme change SHALL be
+applied to the open client without remounting it. The override is presentation only:
+it SHALL NOT change the viewer's own Telegram account theme settings.
+
+#### Scenario: First paint already matches MES
+- **WHEN** a viewer whose MES theme is dark opens the Telegram module
+- **THEN** the embedded client's first paint is its dark theme, with no light flash before it
+
+#### Scenario: System-mode viewers match too
+- **WHEN** a viewer on the `system` mode with a dark operating system opens the Telegram module
+- **THEN** the embedded client renders in its dark theme
+
+#### Scenario: Theme change applies in place
+- **WHEN** a viewer switches the MES theme from light to dark while the Telegram module is open
+- **THEN** the embedded client switches to its dark theme in place — the frame is not reloaded, the account stays connected, and the viewer's position in the client is kept
+
+#### Scenario: The viewer's Telegram account settings stay untouched
+- **WHEN** the embedded client renders under the MES theme override
+- **THEN** the viewer's own Telegram account theme preference is not modified, so the account's theme elsewhere (another device or the official clients) is unchanged
+
+#### Scenario: No override outside MES
+- **WHEN** the embedded client's URL carries no MES theme
+- **THEN** the client applies its own default theme choice, exactly as the unmodified build would

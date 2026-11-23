@@ -18,7 +18,7 @@ The system SHALL expose the MES GraphQL contract at `POST /api/v1/graphql` using
 - **THEN** the response contains any successful data and a corresponding `errors` entry
 
 ### Requirement: Authenticated API sessions
-The system SHALL provide `login`, `logout`, `viewer`, password reset, and password change operations, and SHALL require a valid unexpired session for protected operations. The `login` operation SHALL accept either an email address or a user code as the identifier — exactly one of the two — and SHALL report an unknown identifier with the same `UNAUTHENTICATED` failure a wrong password produces.
+The system SHALL provide `login`, `logout`, `viewer`, password reset, password change, and self-service email change operations — a request naming the new address and a confirmation applying it — and SHALL require a valid unexpired session for protected operations. The `login` operation SHALL accept either an email address or a user code as the identifier — exactly one of the two — and SHALL report an unknown identifier with the same `UNAUTHENTICATED` failure a wrong password produces.
 
 #### Scenario: Login and use a session
 - **WHEN** a user submits valid credentials and uses the returned session token on a later request
@@ -35,6 +35,14 @@ The system SHALL provide `login`, `logout`, `viewer`, password reset, and passwo
 #### Scenario: Reject an expired session
 - **WHEN** a protected operation is called without a valid session
 - **THEN** the API returns an `UNAUTHENTICATED` error
+
+#### Scenario: Email change requires a session
+- **WHEN** a self-service email-change request is called without a valid unexpired session
+- **THEN** the request is rejected and the account's email does not change
+
+#### Scenario: Confirmation is token-bound
+- **WHEN** a valid confirmation token is presented without a session
+- **THEN** the change is applied only to the account that requested it
 
 ### Requirement: Documented app operations
 The system SHALL expose the documented queries and mutations for Jobs, Planning, Performance, Settings & IAM, and Audit Log, including the shared ticket-state and leave-code registries. User creation SHALL accept no user code and assign one automatically, and audit log queries SHALL return readable labels — `FullName (userCode)` — wherever an entry references a user by identifier. The Jobs surface SHALL additionally expose the completion-request read and mutation operations, and a task SHALL expose its journey of completion requests and its planned stage count. The API SHALL additionally expose the Telegram-account operations — reading the viewer's linked accounts, linking (upserting) one with its session material and stable slot, and removing one — on the same versioned endpoint, with every operation scoped to the authenticated viewer and session material never appearing in error messages or logs.
