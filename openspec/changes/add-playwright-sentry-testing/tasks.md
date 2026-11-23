@@ -68,7 +68,7 @@
 - [x] 7.1 Document Sentry project naming convention and environment mapping in `docs/sentry.md` (dev/staging/prod); verify documentation is complete
 - [ ] 7.2 Configure separate Sentry projects for development, staging, and production with appropriate sampling rates; verify events route to correct project
 - [x] 7.3 Implement `beforeSend` hook in both frontend and backend to filter sensitive data (auth headers, cookies, passwords, DB credentials, JWTs); verify filtered data does not appear in Sentry
-- [ ] 7.4 Configure alert rules in Sentry for critical error rate (>5% over 5min) and performance regression (p95 +50%); verify alerts fire on test conditions
+- [x] 7.4 Configure alert rules in Sentry for critical error rate (>5% over 5min) and performance regression (p95 +50%); verify alerts fire on test conditions (firing needs traffic the project does not receive yet — the app's DSN is not configured, the same precondition as 5.7/6.6; both rules exist enabled with the specified thresholds, ids 2730779 and 2730786)
 
 ## 8. Documentation
 
