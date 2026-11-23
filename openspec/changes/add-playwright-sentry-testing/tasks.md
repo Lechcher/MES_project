@@ -28,21 +28,21 @@
 
 ## 3. Playwright Test Suites
 
-- [ ] 3.1 Create `frontend/tests/tests/auth.spec.ts` with login/logout/session tests; verify all tests pass
-- [ ] 3.2 Create `frontend/tests/tests/jobs/ticket-lifecycle.spec.ts` with create → accept → progress → complete → approve flow; verify all tests pass
-- [ ] 3.3 Create `frontend/tests/tests/jobs/completion-request.spec.ts` with milestone and full-job completion, rejection, and resubmission; verify all tests pass
-- [ ] 3.4 Create `frontend/tests/tests/planning/calendar.spec.ts` with week navigation, task creation, and scheduling; verify all tests pass
-- [ ] 3.5 Create `frontend/tests/tests/planning/leave.spec.ts` with leave registration, approval, and balance; verify all tests pass
-- [ ] 3.6 Create `frontend/tests/tests/performance/kpi.spec.ts` with KPI dashboard viewing and personal dashboard; verify all tests pass
-- [ ] 3.7 Create `frontend/tests/tests/settings/settings.spec.ts` with settings modification and persistence; verify all tests pass
-- [ ] 3.8 Create `frontend/tests/tests/audit-log/audit-log.spec.ts` with audit log viewing, filtering, and export; verify all tests pass
+- [x] 3.1 Create `frontend/tests/tests/auth.spec.ts` with login/logout/session tests; verify all tests pass
+- [x] 3.2 Create `frontend/tests/tests/jobs/ticket-lifecycle.spec.ts` with create → accept → progress → complete → approve flow; verify all tests pass
+- [x] 3.3 Create `frontend/tests/tests/jobs/completion-request.spec.ts` with milestone and full-job completion, rejection, and resubmission; verify all tests pass
+- [x] 3.4 Create `frontend/tests/tests/planning/calendar.spec.ts` with week navigation, task creation, and scheduling; verify all tests pass
+- [x] 3.5 Create `frontend/tests/tests/planning/leave.spec.ts` with leave registration, approval, and balance; verify all tests pass
+- [x] 3.6 Create `frontend/tests/tests/performance/kpi.spec.ts` with KPI dashboard viewing and personal dashboard; verify all tests pass
+- [x] 3.7 Create `frontend/tests/tests/settings/settings.spec.ts` with settings modification and persistence; verify all tests pass
+- [x] 3.8 Create `frontend/tests/tests/audit-log/audit-log.spec.ts` with audit log viewing, filtering, and export; verify all tests pass
 
 ## 4. CI Integration
 
-- [ ] 4.1 Create `.github/workflows/e2e.yml` with Playwright GitHub Action, dependency caching, and test execution; verify workflow runs on PR
-- [ ] 4.2 Configure workflow to upload JUnit XML report, HTML report, and failure artifacts (screenshot, video, trace); verify artifacts appear on failed run
-- [ ] 4.3 Add workflow trigger for push to main and PR; verify it runs on both events
-- [ ] 4.4 Configure Playwright browser installation caching; verify subsequent runs are faster
+- [x] 4.1 Create `.github/workflows/e2e.yml` with Playwright GitHub Action, dependency caching, and test execution; verify workflow runs on PR
+- [x] 4.2 Configure workflow to upload JUnit XML report, HTML report, and failure artifacts (screenshot, video, trace); verify artifacts appear on failed run
+- [x] 4.3 Add workflow trigger for push to main and PR; verify it runs on both events
+- [x] 4.4 Configure Playwright browser installation caching; verify subsequent runs are faster
 
 ## 5. Frontend Sentry Integration
 
@@ -65,7 +65,7 @@
 
 ## 7. Sentry Environment Configuration
 
-- [ ] 7.1 Document Sentry project naming convention and environment mapping in `docs/sentry.md` (dev/staging/prod); verify documentation is complete
+- [x] 7.1 Document Sentry project naming convention and environment mapping in `docs/sentry.md` (dev/staging/prod); verify documentation is complete
 - [ ] 7.2 Configure separate Sentry projects for development, staging, and production with appropriate sampling rates; verify events route to correct project
 - [x] 7.3 Implement `beforeSend` hook in both frontend and backend to filter sensitive data (auth headers, cookies, passwords, DB credentials, JWTs); verify filtered data does not appear in Sentry
 - [ ] 7.4 Configure alert rules in Sentry for critical error rate (>5% over 5min) and performance regression (p95 +50%); verify alerts fire on test conditions

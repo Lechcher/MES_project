@@ -34,7 +34,19 @@ export default Sentry.init({
     }
 
     // Scrub sensitive values from extra/contexts
-    const sensitiveKeys = ["password", "token", "secret", "key", "credential"];
+    // Scrub sensitive values from extra/contexts and from the request body
+    const sensitiveKeys = [
+      "password",
+      "token",
+      "secret",
+      "key",
+      "credential",
+      "jwt",
+      "authorization",
+      "bearer",
+      "connection_string",
+      "database_url",
+    ];
     const scrub = (obj: unknown): unknown => {
       if (Array.isArray(obj)) return obj.map(scrub);
       if (obj && typeof obj === "object") {
@@ -52,6 +64,11 @@ export default Sentry.init({
 
     if (event.extra) {
       event.extra = scrub(event.extra) as Record<string, unknown>;
+    }
+
+    // Request bodies carry login and form fields — passwords never leave here.
+    if (event.request?.data !== undefined) {
+      event.request.data = scrub(event.request.data) as unknown;
     }
 
     return event;

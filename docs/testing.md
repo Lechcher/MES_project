@@ -106,16 +106,22 @@ await listPage.filterByState("ACT");
 await listPage.openTicket("My ticket");
 ```
 
+`BasePage` (`frontend/tests/pages/base.ts`) supplies the shared helpers every
+page object builds on: `waitForNetworkIdle`, `fillByLabel`,
+`fillByPlaceholder`, `clickByTestId`, `fillByTestId`, and the common
+locator/expect helpers.
+
 ### Fixtures
 
-Use the `authenticatedPage` fixture for tests that require a logged-in
-session:
+Use the `loginPage` fixture to sign in, and rely on the default storage state
+(`frontend/tests/.auth/user.json`) so a test starts authenticated:
 
 ```ts
-import { test } from "../fixtures/auth";
+import { expect, test } from "../fixtures";
 
-test("view ticket list", async ({ authenticatedPage }) => {
-  await authenticatedPage.goto("/jobs");
+test("open a ticket", async ({ page, loginPage }) => {
+  await loginPage.login("demo@mes.local", "demo-password");
+  await page.goto("/jobs");
   // ...
 });
 ```
@@ -123,7 +129,7 @@ test("view ticket list", async ({ authenticatedPage }) => {
 ### Test Data
 
 Use the `createTicket` and `createUser` fixtures to create test data
-through the API. Created records are cleaned up after each test:
+through the API, plus `cleanup` to remove records that outlive a test:
 
 ```ts
 import { test } from "../fixtures/data";
@@ -133,6 +139,48 @@ test("create a ticket", async ({ createTicket }) => {
   expect(ticket.title).toBe("Test ticket");
 });
 ```
+
+## Debugging
+
+Run a single test in a visible browser so the failing step can be inspected:
+
+```bash
+# One file, headed, with the Playwright inspector
+bun run test:e2e tests/tests/auth.spec.ts --headed --debug
+
+# One test by title
+bun run test:e2e -g "logs in with valid credentials"
+```
+
+File arguments are relative to `frontend/` and must include the configured
+`testDir` (`tests/tests`), as above. Both commands must run from inside
+`frontend/`.
+
+Options that make failures diagnosable:
+
+- `--headed` — watch the browser while the test runs.
+- `--debug` — step through the test with the inspector.
+- `--trace on` — record a trace (DOM snapshots, network, actions) for every
+  test instead of only failures.
+- `--reporter=line` — terse output while iterating.
+
+Artifacts for a failed test are written to the configured output directory,
+`frontend/tests/e2e/playwright-report/`, alongside the HTML report:
+
+```bash
+# Open the last HTML report (needs --reporter=html or the default local reporter)
+cd frontend
+bunx playwright show-report
+```
+
+Common causes of a failure:
+
+- The dev server was not ready when the test ran — make sure ports 3000 and
+  3001 are free, or let `webServer` start them.
+- A selector changed — use `data-testid` attributes (see the page objects) so
+  the tests do not depend on styling classes.
+- The test ran before an async update settled — prefer `waitFor` on a visible
+  state over `waitForTimeout`.
 
 ## Linting
 
@@ -148,5 +196,6 @@ Test-specific lint rules are in `frontend/tests/biome.json`.
 ## CI
 
 Playwright tests run in GitHub Actions (`.github/workflows/e2e.yml`) on
-push to `main` and pull requests. Results are uploaded as artifacts
-(JUnit XML, HTML report, screenshots/videos on failure).
+push to `main` and pull requests, across all three browser projects. Results
+are uploaded as artifacts: the JUnit XML report, the HTML report with failure
+screenshots, videos, and traces (`playwright-report`, `junit-report`).

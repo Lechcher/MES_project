@@ -20,12 +20,33 @@ The environment is determined by `NODE_ENV`, overridable via `SENTRY_ENVIRONMENT
 | Project | Environment | DSN Variable |
 |---------|-------------|--------------|
 | mes-prototype-frontend-dev | development | `NEXT_PUBLIC_SENTRY_DSN` |
+| mes-prototype-frontend-staging | staging | `NEXT_PUBLIC_SENTRY_DSN` |
 | mes-prototype-frontend-prod | production | `NEXT_PUBLIC_SENTRY_DSN` |
 | mes-prototype-backend-dev | development | `SENTRY_DSN` |
+| mes-prototype-backend-staging | staging | `SENTRY_DSN` |
 | mes-prototype-backend-prod | production | `SENTRY_DSN` |
+
+Naming convention: `mes-prototype-<frontend|backend>-<env>`. One project per
+runtime per environment, so a staging defect never floods the production
+project's issue stream.
 
 Create each project in the Sentry UI and note the DSN. Add the DSNs to the
 relevant `.env` files (never commit real DSNs to version control).
+
+### Environment mapping
+
+`NODE_ENV` selects the environment, and `SENTRY_ENVIRONMENT` overrides it:
+
+| `NODE_ENV` | `SENTRY_ENVIRONMENT` | Project suffix | Traces sampled |
+|------------|----------------------|----------------|----------------|
+| `development` (or unset) | `development` | `-dev` | 1.0 |
+| `production` with `SENTRY_ENVIRONMENT=staging` | `staging` | `-staging` | 0.10 |
+| `production` | `production` | `-prod` | 0.01 |
+
+The frontend reads `NEXT_PUBLIC_SENTRY_ENVIRONMENT` in the browser and
+`SENTRY_ENVIRONMENT` on the server/edge runtimes; the backend reads
+`SENTRY_ENVIRONMENT`. Staging deploys set `NODE_ENV=production` and
+`SENTRY_ENVIRONMENT=staging`.
 
 ## Configuration
 
@@ -35,6 +56,10 @@ Environment variables (`frontend/.env`):
 
 - `NEXT_PUBLIC_SENTRY_DSN` — Client SDK DSN (browser-safe)
 - `NEXT_PUBLIC_SENTRY_ENVIRONMENT` — Environment name
+- `SENTRY_DSN` — Server/edge runtime DSN (server-only, defaults to the client
+  DSN's project when set to the same value)
+- `SENTRY_ENVIRONMENT` — Server/edge environment name (same values as
+  `NEXT_PUBLIC_SENTRY_ENVIRONMENT`)
 - `SENTRY_ORG` — Sentry organization slug (for source map upload)
 - `SENTRY_PROJECT` — Sentry project slug (for source map upload)
 - `SENTRY_AUTH_TOKEN` — Sentry auth token (for source map upload)
@@ -63,8 +88,9 @@ before events are sent to Sentry:
 
 - `Authorization` headers → `[Filtered]`
 - `Cookie` headers → `[Filtered]`
-- Any field containing `password`, `token`, `secret`, `key`, `credential`,
-  `connection_string`, or `database_url` → `[Filtered]`
+- Any field (in `extra`, in the request body, or in event contexts) containing
+  `password`, `token`, `secret`, `key`, `credential`, `jwt`, `authorization`,
+  `bearer`, `connection_string`, or `database_url` → `[Filtered]`
 
 ## Alert Rules
 

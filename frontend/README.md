@@ -64,6 +64,8 @@ Environment variables are documented in `frontend/.env.example`.
 
 Required variables:
 - `NEXT_PUBLIC_SENTRY_DSN` — Client SDK DSN
+- `NEXT_PUBLIC_SENTRY_ENVIRONMENT`, `SENTRY_ENVIRONMENT` — Environment name
+- `SENTRY_DSN` — Server/edge runtime DSN (server-side events)
 - `SENTRY_ORG`, `SENTRY_PROJECT`, `SENTRY_AUTH_TOKEN` — Source map upload
 
 See `docs/sentry.md` for setup and configuration details.
