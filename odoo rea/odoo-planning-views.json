@@ -1,0 +1,17 @@
+{
+  "partner": {
+    "error": "{\"code\":0,\"message\":\"Odoo Server Error\",\"data\":{\"name\":\"builtins.ValueError\",\"message\":\"dictionary update sequence element #0 has length 4; 2 is required\",\"arguments\":[\"dictionary update sequence elem"
+  },
+  "viewMeta": {
+    "error": "{\"code\":0,\"message\":\"Odoo Server Error\",\"data\":{\"name\":\"builtins.ValueError\",\"message\":\"dictionary update sequence element #1 has length 4; 2 is required\",\"arguments\":[\"dictionary update sequence elem"
+  },
+  "viewMetaNoLimit": {
+    "error": "{\"code\":0,\"message\":\"Odoo Server Error\",\"data\":{\"name\":\"builtins.ValueError\",\"message\":\"dictionary update sequence element #0 has length 4; 2 is required\",\"arguments\":[\"dictionary update sequence elem"
+  },
+  "vids": {
+    "error": "{\"code\":0,\"message\":\"Odoo Server Error\",\"data\":{\"name\":\"builtins.ValueError\",\"message\":\"Domain() invalid item in domain: 'planning.slot'\",\"arguments\":[\"Domain() invalid item in domain: 'planning.slot'"
+  },
+  "arch": {
+    "error": "{\"code\":0,\"message\":\"Odoo Server Error\",\"data\":{\"name\":\"psycopg2.errors.InvalidTextRepresentation\",\"message\":\"invalid input syntax for type integer: \\\"error\\\"\\nLINE 1: ...ated\\\" FROM \\\"ir_ui_view\\\" WH"
+  }
+}

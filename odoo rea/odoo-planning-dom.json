@@ -1,0 +1,199 @@
+{
+  "rows": [
+    {
+      "label": "Open Shifts",
+      "prog": "",
+      "barWidth": null
+    },
+    {
+      "label": "Abigail Peterson (Consultant)",
+      "prog": "40h",
+      "barWidth": null
+    },
+    {
+      "label": "Aka Foster (Quality Control Inspector)",
+      "prog": "40h",
+      "barWidth": null
+    },
+    {
+      "label": "Anita Oliver (Experienced Developer)",
+      "prog": "16h",
+      "barWidth": null
+    },
+    {
+      "label": "Beth Evans (Experienced Developer)",
+      "prog": "40h",
+      "barWidth": null
+    },
+    {
+      "label": "Cherry Nelson (Maintenance Technician)",
+      "prog": "40h",
+      "barWidth": null
+    },
+    {
+      "label": "Continuity Tester",
+      "prog": "37h",
+      "barWidth": null
+    },
+    {
+      "label": "Crane 1 (Crane)",
+      "prog": "40h",
+      "barWidth": null
+    },
+    {
+      "label": "Crane 2 (Crane)",
+      "prog": "40h",
+      "barWidth": null
+    },
+    {
+      "label": "Doris Cole (Consultant)",
+      "prog": "40h",
+      "barWidth": null
+    },
+    {
+      "label": "Drill Machine (Furniture Tools)",
+      "prog": "0h",
+      "barWidth": null
+    },
+    {
+      "label": "Eli Lambert (Marketing and Community Manager)",
+      "prog": "38h",
+      "barWidth": null
+    },
+    {
+      "label": "Ernest Reed (Consultant)",
+      "prog": "40h",
+      "barWidth": null
+    },
+    {
+      "label": "Jeffrey Kelly (Marketing and Community Manager)",
+      "prog": "40h",
+      "barWidth": null
+    },
+    {
+      "label": "Jennie Fletcher (Experienced Developer)",
+      "prog": "37h",
+      "barWidth": null
+    },
+    {
+      "label": "Laptop",
+      "prog": "35h",
+      "barWidth": null
+    },
+    {
+      "label": "Marc Demo (Experienced Developer)",
+      "prog": "36h",
+      "barWidth": null
+    },
+    {
+      "label": "Mitchell Admin (Chief Technical Officer)",
+      "prog": "16h",
+      "barWidth": null
+    },
+    {
+      "label": "Paul Williams (Experienced Developer)",
+      "prog": "40h",
+      "barWidth": null
+    },
+    {
+      "label": "Projector 1 (Projector)",
+      "prog": "40h",
+      "barWidth": null
+    },
+    {
+      "label": "Projector 2 (Projector)",
+      "prog": "40h",
+      "barWidth": null
+    },
+    {
+      "label": "Rachel Perry (Marketing and Community Manager)",
+      "prog": "40h",
+      "barWidth": null
+    },
+    {
+      "label": "Rattan and Wicker (Furniture Tools)",
+      "prog": "0h",
+      "barWidth": null
+    },
+    {
+      "label": "Ronnie Hart (Chief Technical Officer)",
+      "prog": "40h",
+      "barWidth": null
+    },
+    {
+      "label": "Scanner 1 (Scanner)",
+      "prog": "40h",
+      "barWidth": null
+    }
+  ],
+  "pills": [
+    {
+      "text": "7:00 PM - 11:00 PM",
+      "colorClass": "o_gantt_color_0",
+      "deco": [],
+      "bg": "rgb(239, 182, 182)"
+    },
+    {
+      "text": "2:00 PM - 6:00 PM (2h) Management",
+      "colorClass": "o_gantt_color_4",
+      "deco": [
+        "decoration-info",
+        "decoration-warning"
+      ],
+      "bg": "rgb(158, 202, 255)"
+    },
+    {
+      "text": "7:00 PM - 11:00 PM Community Manager",
+      "colorClass": "o_gantt_color_3",
+      "deco": [
+        "decoration-info"
+      ],
+      "bg": "rgb(237, 208, 102)"
+    },
+    {
+      "text": "2:00 PM - 6:00 PM Developer",
+      "colorClass": "o_gantt_color_2",
+      "deco": [
+        "decoration-info"
+      ],
+      "bg": "rgb(255, 195, 141)"
+    }
+  ],
+  "cells": [
+    {
+      "w": 192,
+      "h": 41,
+      "cls": "o_gantt_cell o_gantt_today o_gantt_hoverable o_group_open",
+      "bg": "rgba(227, 156, 80, 0.15)"
+    },
+    {
+      "w": 192,
+      "h": 41,
+      "cls": "o_gantt_cell o_gantt_hoverable o_group_open",
+      "bg": "rgba(0, 0, 0, 0)"
+    },
+    {
+      "w": 192,
+      "h": 41,
+      "cls": "o_gantt_cell o_gantt_hoverable o_group_open",
+      "bg": "rgba(0, 0, 0, 0)"
+    }
+  ],
+  "scaleBtns": [
+    "Week"
+  ],
+  "switches": [
+    "",
+    "",
+    "",
+    "",
+    "",
+    "",
+    "",
+    ""
+  ],
+  "banner": [
+    "New  Publish  Actions Schedule by Resource"
+  ],
+  "rowHeaderHeight": 41
+}

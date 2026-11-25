@@ -1,0 +1,300 @@
+{
+  "server": null,
+  "slotFieldsOfInterest": {
+    "activity_state": {
+      "selection": [
+        [
+          "overdue",
+          "Overdue"
+        ],
+        [
+          "today",
+          "Today"
+        ],
+        [
+          "planned",
+          "Planned"
+        ]
+      ],
+      "string": "Activity State",
+      "type": "selection"
+    },
+    "resource_ids": {
+      "relation": "resource.resource",
+      "string": "Resources",
+      "type": "many2many"
+    },
+    "resource_roles": {
+      "relation": "planning.role",
+      "string": "Resource Roles",
+      "type": "many2many"
+    },
+    "employee_ids": {
+      "relation": "hr.employee",
+      "string": "Employee",
+      "type": "many2many"
+    },
+    "employee_public_ids": {
+      "relation": "hr.employee.public",
+      "string": "Employee Public",
+      "type": "many2many"
+    },
+    "user_ids": {
+      "relation": "res.users",
+      "string": "Users",
+      "type": "many2many"
+    },
+    "company_id": {
+      "relation": "res.company",
+      "string": "Company",
+      "type": "many2one"
+    },
+    "role_id": {
+      "relation": "planning.role",
+      "string": "Role",
+      "type": "many2one"
+    },
+    "color": {
+      "string": "Color",
+      "type": "integer"
+    },
+    "start_datetime": {
+      "string": "Start Date",
+      "type": "datetime"
+    },
+    "end_datetime": {
+      "string": "End Date",
+      "type": "datetime"
+    },
+    "allow_self_unassign": {
+      "string": "Let Employee Unassign Themselves",
+      "type": "boolean"
+    },
+    "self_unassign_days_before": {
+      "string": "Days before shift for unassignment",
+      "type": "integer"
+    },
+    "conflicting_slot_ids": {
+      "relation": "planning.slot",
+      "string": "Conflicting Slot",
+      "type": "many2many"
+    },
+    "overlap_slot_count": {
+      "string": "Overlap Slot Count",
+      "type": "integer"
+    },
+    "is_users_role": {
+      "string": "Is the shifts role one of the current user roles",
+      "type": "boolean"
+    },
+    "switch_employee_ids": {
+      "relation": "hr.employee",
+      "string": "Switch Employee",
+      "type": "many2many"
+    },
+    "request_to_switch": {
+      "string": "Request To Switch",
+      "type": "boolean"
+    },
+    "is_user_switching": {
+      "string": "Is User Switching",
+      "type": "boolean"
+    },
+    "request_to_switch_msg": {
+      "string": "Request To Switch Msg",
+      "type": "char"
+    },
+    "resources_without_correct_role": {
+      "string": "What resource has not the right role",
+      "type": "char"
+    },
+    "resources_without_correct_role_count": {
+      "string": "Number of resources that do not have the right role",
+      "type": "integer"
+    },
+    "allocation_type": {
+      "selection": [
+        [
+          "planning",
+          "Planning"
+        ],
+        [
+          "forecast",
+          "Forecast"
+        ]
+      ],
+      "string": "Allocation Type",
+      "type": "selection"
+    },
+    "allocated_hours": {
+      "string": "Allocated Time",
+      "type": "float"
+    },
+    "allocated_percentage": {
+      "string": "Allocated Time %",
+      "type": "float"
+    },
+    "duration": {
+      "string": "Duration",
+      "type": "float"
+    },
+    "state": {
+      "selection": [
+        [
+          "1_draft",
+          "Draft"
+        ],
+        [
+          "2_published",
+          "Scheduled"
+        ],
+        [
+          "3_in_progress",
+          "In Progress"
+        ],
+        [
+          "4_completed",
+          "Completed"
+        ]
+      ],
+      "string": "Status",
+      "type": "selection"
+    },
+    "template_creation": {
+      "string": "Save as Template",
+      "type": "boolean"
+    },
+    "template_autocomplete_ids": {
+      "relation": "planning.slot.template",
+      "string": "Template Autocomplete",
+      "type": "many2many"
+    },
+    "template_id": {
+      "relation": "planning.slot.template",
+      "string": "Shift Templates",
+      "type": "many2one"
+    },
+    "template_reset": {
+      "string": "Template Reset",
+      "type": "boolean"
+    },
+    "previous_template_id": {
+      "relation": "planning.slot.template",
+      "string": "Previous Template",
+      "type": "many2one"
+    },
+    "allow_template_creation": {
+      "string": "Allow Template Creation",
+      "type": "boolean"
+    },
+    "repeat": {
+      "string": "Repeat",
+      "type": "boolean"
+    },
+    "repeat_interval": {
+      "string": "Repeat every",
+      "type": "integer"
+    },
+    "repeat_unit": {
+      "selection": [
+        [
+          "day",
+          "Days"
+        ],
+        [
+          "week",
+          "Weeks"
+        ],
+        [
+          "month",
+          "Months"
+        ],
+        [
+          "year",
+          "Years"
+        ]
+      ],
+      "string": "Repeat Unit",
+      "type": "selection"
+    },
+    "repeat_type": {
+      "selection": [
+        [
+          "forever",
+          "Forever"
+        ],
+        [
+          "until",
+          "Until"
+        ],
+        [
+          "x_times",
+          "Number of Occurrences"
+        ]
+      ],
+      "string": "Repeat Type",
+      "type": "selection"
+    },
+    "repeat_until": {
+      "string": "Repeat Until",
+      "type": "date"
+    },
+    "repeat_number": {
+      "string": "Repetitions",
+      "type": "integer"
+    },
+    "partner_state_id": {
+      "relation": "res.country.state",
+      "string": "Customer State",
+      "type": "many2one"
+    },
+    "employee_skill_ids": {
+      "relation": "hr.employee.skill",
+      "string": "Skills",
+      "type": "one2many"
+    },
+    "is_planning_admin": {
+      "string": "Is Planning Admin",
+      "type": "boolean"
+    },
+    "sale_order_state": {
+      "selection": [
+        [
+          "draft",
+          "Quotation"
+        ],
+        [
+          "sent",
+          "Quotation Sent"
+        ],
+        [
+          "sale",
+          "Sales Order"
+        ],
+        [
+          "cancel",
+          "Cancelled"
+        ]
+      ],
+      "string": "Sales Order State",
+      "type": "selection"
+    },
+    "role_product_ids": {
+      "relation": "product.template",
+      "string": "Services",
+      "type": "one2many"
+    },
+    "role_ids": {
+      "relation": "planning.role",
+      "string": "Roles",
+      "type": "many2many"
+    },
+    "role_sync_shift_rental": {
+      "string": "Sync Shifts and Rental Orders",
+      "type": "boolean"
+    }
+  },
+  "views": {
+    "error": "{\"code\":0,\"message\":\"Odoo Server Error\",\"data\":{\"name\":\"builtins.AttributeError\",\"message\":\"'list' object has no attribute 'get'\",\"arguments\":[\"'list' object has no attribute 'get'\"],\"timestamp\":1792904763,\"context\":{},\"debug\":\"Traceback (most recent call last):\\n  File \\\"/home/odoo/src/odoo/20.0/odoo/http/router.py\\\", line 446, in serve_db\\n    return retrying(serve_func, env=request.env)\\n  File"
+  }
+}
